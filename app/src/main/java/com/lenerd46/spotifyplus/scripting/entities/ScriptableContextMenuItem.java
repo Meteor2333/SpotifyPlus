@@ -1,7 +1,6 @@
 package com.lenerd46.spotifyplus.scripting.entities;
 
 import com.lenerd46.spotifyplus.ContextMenuItem;
-import com.lenerd46.spotifyplus.hooks.ContextMenuHook;
 import de.robv.android.xposed.XposedBridge;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
@@ -44,7 +43,7 @@ public class ScriptableContextMenuItem extends ScriptableObject {
             Context context = Context.enter();
 
             try {
-                callback.call(context, getParentScope(), getParentScope(), new Object[]{ ContextMenuHook.currentUri.split(":")[2] });
+//                callback.call(context, getParentScope(), getParentScope(), new Object[]{ ContextMenuHook.currentUri.split(":")[2] });
             } catch (Exception e) {
                 XposedBridge.log(e);
             } finally {
@@ -80,6 +79,6 @@ public class ScriptableContextMenuItem extends ScriptableObject {
 
     @JSFunction
     public void register() {
-        ContextMenuHook.scriptItems.add(item);
+//        ContextMenuHook.scriptItems.add(item);
     }
 }

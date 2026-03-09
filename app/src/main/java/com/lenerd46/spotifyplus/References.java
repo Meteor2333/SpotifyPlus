@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
 import com.lenerd46.spotifyplus.beautifullyrics.entities.PlayerStateUpdatedListener;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.TrackStateChangedListener;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
@@ -36,7 +37,7 @@ public class References {
     public static Activity currentActivity = null;
     public static WeakReference<Object> playerState = new WeakReference<>(null);
     public static WeakReference<Object> playerStateWrapper = new WeakReference<>(null);
-    public static WeakReference<String> accessToken = new WeakReference<>(null);
+    public static String accessToken = "";
     public static WeakReference<Typeface> beautifulFont = new WeakReference<>(null);
     public static WeakReference<Pair<String, String>> contextMenuTrack = new WeakReference<>(null);
     public static XModuleResources modResources = null;
@@ -53,6 +54,7 @@ public class References {
         }
 
         Object state = playerState.get();
+
         try {
             Object wrapper = XposedHelpers.callMethod(state, "track");
 
@@ -62,14 +64,14 @@ public class References {
                 hasTrackMethod = bridge.findMethod(FindMethod.create().searchInClass(clazz).matcher(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(boolean.class).paramCount(0))).get(0).getMethodInstance(lpparam.classLoader);
             }
 
-            boolean hasTrack = (Boolean) hasTrackMethod.invoke(wrapper);
+            boolean hasTrack = (Boolean) XposedHelpers.callMethod(wrapper, hasTrackMethod.getName());
             if(hasTrack) {
                 if(getContextTrack == null) {
                     var clazz = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().className(className)));
                     getContextTrack = bridge.findMethod(FindMethod.create().searchInClass(clazz).matcher(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).paramCount(0).returnType(Object.class))).get(0).getMethodInstance(lpparam.classLoader);
                 }
 
-                Object ct = getContextTrack.invoke(wrapper);
+                Object ct = XposedHelpers.callMethod(wrapper, getContextTrack.getName());
                 Class<?> contextClass = XposedHelpers.findClass("com.spotify.player.model.ContextTrack", lpparam.classLoader);
                 if(contextClass.isInstance(ct)) {
                     Object track = contextClass.cast(ct);
@@ -95,9 +97,17 @@ public class References {
                         position = basePos + (System.currentTimeMillis() - timestamp);
                     }
 
+                    Map<?, ?> metadata = (Map<?, ?>) XposedHelpers.getObjectField(track, "metadata");
+                    boolean saved = false;
+
+                    if(metadata.containsKey("collection.in_collection")) {
+                        String savedValue = (String) metadata.get("collection.in_collection");
+                        saved = Boolean.parseBoolean(savedValue);
+                    }
+
 //                    long duration = (Long) XposedHelpers.callMethod(state, "duration");
 
-                    return new SpotifyTrack(title, artist, album, uri, position, color, timestamp, imageId, 0);
+                    return new SpotifyTrack(title, artist, album, uri, position, color, timestamp, imageId, 0, saved);
                 } else {
                     XposedBridge.log("[SpotifyPlus] ContextTrack not found!");
                     return null;
@@ -120,6 +130,7 @@ public class References {
         Object state;
         try {
             state = XposedHelpers.callMethod(wrapper, "getState");
+
             if (state == null) return -1;
         } catch (Throwable t) {
             return -1;
@@ -157,6 +168,7 @@ public class References {
     }
 
     private static final List<PlayerStateUpdatedListener> listeners = new ArrayList<>();
+    private static final List<TrackStateChangedListener> trackListeners = new ArrayList<>();
 
     public static void registerPlayerStateListener(PlayerStateUpdatedListener listener) {
         listeners.add(listener);
@@ -169,6 +181,12 @@ public class References {
     public static void notifyPlayerStateChanged(Object playerState) {
         for(PlayerStateUpdatedListener listener : listeners) {
             listener.onPlayerStateUpdated(playerState);
+        }
+    }
+
+    public static void notifyTrackStateChanged(Object track) {
+        for(TrackStateChangedListener listener : trackListeners) {
+            listener.onTrackStateChanged(track);
         }
     }
 }

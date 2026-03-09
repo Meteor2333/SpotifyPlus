@@ -2,7 +2,6 @@ package com.lenerd46.spotifyplus.scripting.entities;
 
 import com.lenerd46.spotifyplus.SettingItem;
 import com.lenerd46.spotifyplus.hooks.RemoveCreateButtonHook;
-import com.lenerd46.spotifyplus.hooks.SettingsFlyoutHook;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.annotations.JSConstructor;

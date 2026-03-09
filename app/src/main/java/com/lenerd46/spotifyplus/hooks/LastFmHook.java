@@ -3,12 +3,15 @@ package com.lenerd46.spotifyplus.hooks;
 import android.app.Activity;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.media3.exoplayer.scheduler.Scheduler;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.lenerd46.spotifyplus.References;
@@ -20,6 +23,7 @@ import java.lang.reflect.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import okhttp3.*;
 import org.jetbrains.annotations.NotNull;
@@ -28,7 +32,10 @@ import org.luckypray.dexkit.query.FindField;
 import org.luckypray.dexkit.query.matchers.ClassMatcher;
 import org.luckypray.dexkit.query.matchers.FieldMatcher;
 import org.luckypray.dexkit.query.matchers.FieldsMatcher;
+import org.luckypray.dexkit.result.ClassData;
 
+// Spotify changed their context menu to use jetpack compose in newer versions
+// This hook only works on older versions where it still uses a recycle view
 public class LastFmHook extends SpotifyHook {
     private static final Set<ViewGroup> SHEETS = Collections.newSetFromMap(new WeakHashMap<>());
 
@@ -45,11 +52,27 @@ public class LastFmHook extends SpotifyHook {
         );
 
         try {
-            final Class<?> v6e = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("ContextMenuViewModel cannot contain items with duplicate itemResId. id=").fieldCount(4))).get(0).getInstance(lpparm.classLoader);
-            final Class<?> h2e = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("ContextMenuViewModel cannot contain items with duplicate itemResId. id=").fieldCount(16))).get(0).getInstance(lpparm.classLoader);
-            final Class<?> c3e = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("ContextMenuHeader(title="))).get(0).getInstance(lpparm.classLoader);
-            final Class<?> f2e = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("mainScheduler").methodCount(2).fields(FieldsMatcher.create().add(FieldMatcher.create().type(int.class)).add(FieldMatcher.create().type(h2e))))).get(0).getInstance(lpparm.classLoader);
-            final Class<?> artworkClass = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("androidx.credentials.TYPE_GET_PUBLIC_KEY_CREDENTIAL_DOM_EXCEPTION/androidx.credentials.TYPE_NO_MODIFICATION_ALLOWED_ERROR"))).get(0).getInstance(lpparm.classLoader);
+            final var v6eClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("ContextMenuViewModel cannot contain items with duplicate itemResId. id=").fieldCount(4)));
+            var h2eClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("ContextMenuViewModel cannot contain items with duplicate itemResId. id=").fieldCount(16)));
+            var c3eClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("ContextMenuHeader(title=")));
+            final var artworkClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("androidx.credentials.TYPE_GET_PUBLIC_KEY_CREDENTIAL_DOM_EXCEPTION/androidx.credentials.TYPE_NO_MODIFICATION_ALLOWED_ERROR")));
+
+            if (v6eClasses.isEmpty() || h2eClasses.isEmpty() || c3eClasses.isEmpty() || artworkClasses.isEmpty()) {
+//                XposedBridge.log("[SpotifyPlus] v6e: " + (v6eClasses.isEmpty() ? "0" : v6eClasses.stream().map(ClassData::getName).collect(Collectors.joining(" | "))));
+//                XposedBridge.log("[SpotifyPlus] h2e: " + (h2eClasses.isEmpty() ? "0" : h2eClasses.stream().map(ClassData::getName).collect(Collectors.joining(" | "))));
+//                XposedBridge.log("[SpotifyPlus] c3e: " + (c3eClasses.isEmpty() ? "0" : c3eClasses.stream().map(ClassData::getName).collect(Collectors.joining(" | "))));
+//                XposedBridge.log("[SpotifyPlus] artwork: " + (artworkClasses.isEmpty() ? "0" : artworkClasses.stream().map(ClassData::getName).collect(Collectors.joining(" | "))));
+
+                // They probably didn't find the class because they changed how it works kind of. So use the new patch instead
+                return;
+            }
+
+            final Class<?> h2e = h2eClasses.get(0).getInstance(lpparm.classLoader);
+            final var f2eClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("mainScheduler").methodCount(2).fields(FieldsMatcher.create().add(FieldMatcher.create().type(int.class)).add(FieldMatcher.create().type(h2e)))));
+            final Class<?> v6e = v6eClasses.get(0).getInstance(lpparm.classLoader);
+            final Class<?> c3e = c3eClasses.get(0).getInstance(lpparm.classLoader);
+            final Class<?> f2e = f2eClasses.get(0).getInstance(lpparm.classLoader);
+            final Class<?> artworkClass = artworkClasses.get(0).getInstance(lpparm.classLoader);
 
             final Field c3eField = bridge.findField(FindField.create().searchInClass(Collections.singletonList(bridge.getClassData(v6e))).matcher(FieldMatcher.create().type(c3e))).get(0).getFieldInstance(lpparm.classLoader);
             final Field artworkField = bridge.findField(FindField.create().searchInClass(Collections.singletonList(bridge.getClassData(c3e))).matcher(FieldMatcher.create().type(artworkClass))).get(0).getFieldInstance(lpparm.classLoader);
@@ -91,7 +114,7 @@ public class LastFmHook extends SpotifyHook {
                         if (title == null || title.isEmpty() || artist == null || artist.isEmpty()) return;
                         final String key = title + "|" + artist;
 
-                        if(subtitle.contains("scrobbles")) return;
+                        if (subtitle.contains("scrobbles")) return;
                         References.contextMenuTrack = new WeakReference<>(Pair.create(artist, title));
 
                         Activity activity = References.currentActivity;
@@ -134,24 +157,36 @@ public class LastFmHook extends SpotifyHook {
                                         new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                                             try {
                                                 XposedHelpers.callMethod(consumerObject, "accept", newVm);
-                                            }  catch(Throwable t) {
+                                            } catch (Throwable t) {
                                                 XposedBridge.log(t);
                                             }
                                         });
                                     } catch (Exception e) {
                                         XposedBridge.log("[SpotifyPlus] Failed to fetch scrobbles");
-                                        Toast.makeText(activity, "Failed to fetch scrobbles", Toast.LENGTH_SHORT).show();
+
+                                        Handler handler = new Handler(Looper.getMainLooper());
+                                        handler.post(() -> {
+                                            Toast.makeText(activity, "Failed to fetch scrobbles", Toast.LENGTH_SHORT).show();
+                                        });
                                     }
                                 } else {
                                     XposedBridge.log("[SpotifyPlus] Failed to fetch scrobbles");
-                                    Toast.makeText(activity, "Failed to fetch scrobbles", Toast.LENGTH_SHORT).show();
+
+                                    Handler handler = new Handler(Looper.getMainLooper());
+                                    handler.post(() -> {
+                                        Toast.makeText(activity, "Failed to fetch scrobbles", Toast.LENGTH_SHORT).show();
+                                    });
                                 }
                             }
 
                             @Override
                             public void onFailure(@NotNull Call call, @NotNull IOException e) {
                                 XposedBridge.log("[SpotifyPlus] Failed to fetch scrobbles");
-                                Toast.makeText(activity, "Failed to fetch scrobbles", Toast.LENGTH_SHORT).show();
+
+                                Handler handler = new Handler(Looper.getMainLooper());
+                                handler.post(() -> {
+                                    Toast.makeText(activity, "Failed to fetch scrobbles", Toast.LENGTH_SHORT).show();
+                                });
                             }
                         });
                     } catch (Exception e) {

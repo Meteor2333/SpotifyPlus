@@ -30,21 +30,26 @@ public class ContextMenu_AddButton extends SpotifyHook {
 
     @Override
     protected void hook() {
-        XposedHelpers.findAndHookConstructor("com.spotify.bottomsheet.core.ScrollableContentWithHeaderLayout", lpparm.classLoader, Context.class, AttributeSet.class, new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        SharedPreferences ref = References.getPreferences();
-                        String username = ref.getString("last_fm_username", "null");
-                        if (username.equals("null")) return;
+        try {
 
-                        final ViewGroup sheet = (ViewGroup) param.thisObject;
-                        sheet.post(() -> {
-                            View rv = findContextMenuRecycler(sheet);
-                            if (rv != null) hookAdapterWhenReady(rv);
-                        });
+            XposedHelpers.findAndHookConstructor("com.spotify.bottomsheet.core.ScrollableContentWithHeaderLayout", lpparm.classLoader, Context.class, AttributeSet.class, new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            SharedPreferences ref = References.getPreferences();
+                            String username = ref.getString("last_fm_username", "null");
+                            if (username.equals("null")) return;
+
+                            final ViewGroup sheet = (ViewGroup) param.thisObject;
+                            sheet.post(() -> {
+                                View rv = findContextMenuRecycler(sheet);
+                                if (rv != null) hookAdapterWhenReady(rv);
+                            });
+                        }
                     }
-                }
-        );
+            );
+        } catch(Exception e) {
+            XposedBridge.log(e);
+        }
     }
 
     private View findContextMenuRecycler(ViewGroup root) {
@@ -130,7 +135,7 @@ public class ContextMenu_AddButton extends SpotifyHook {
                         item.setOnClickListener(v -> {
                             Pair<String, String> track = References.contextMenuTrack.get();
                             Activity activity = References.currentActivity;
-                            if(track == null || activity == null) return;
+                            if (track == null || activity == null) return;
 
                             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.last.fm/music/" + URLEncoder.encode(track.first) + "/_/" + URLEncoder.encode(track.second)));
                             activity.startActivity(intent);

@@ -42,7 +42,7 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
     private DexKitBridge bridge;
     private String modulePath = null;
-    private static final String MODULE_VERSION = "0.6";
+    private static final String MODULE_VERSION = "0.6.1";
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
@@ -104,6 +104,8 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                     References.beautifulFont = new WeakReference<>(beautifulFont);
                 }
 
+//                MlKit.initialize(activity);
+
                 navigateToStartupPage(activity);
 
                 if (hasInternet(activity)) {
@@ -112,67 +114,25 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
             }
         });
 
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-        // ADD ANIMATED ALBUM ARTWORK!!!!!!!!!
-
         XposedHelpers.findAndHookMethod(Application.class, "attach", Context.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 Context context = (Context) param.args[0];
                 cleanUpCache(context);
 
-//                new SettingsFlyoutHook(context).init(lpparam, bridge);
 //                new ScriptManager().init(context, lpparam.classLoader);
                 ScriptManager.getInstance().init(context, lpparam.classLoader);
                 new BeautifulLyricsHook().init(lpparam, bridge);
-                new SocialHook().init(lpparam, bridge);
                 new RemoveCreateButtonHook(context).init(lpparam, bridge);
-//                new ContextMenuHook().init(lpparam, bridge);
-//                new PageInjectionDebugHook().init(lpparam, bridge);
-//                new PageInjectionHook().init(lpparam, bridge);
 //                new PremiumHook().init(lpparam, bridge);
-                new ContextMenuHookV2().init(lpparam, bridge);
                 new LastFmHook().init(lpparam, bridge);
                 new ContextMenu_AddButton().init(lpparam, bridge);
+                new HomePageHook().init(lpparam, bridge);
+                new AnimatedAlbumArtwork().init(lpparam, bridge);
+                new TestingHook().init(lpparam, bridge);
+                new NewContextMenuHook().init(lpparam, bridge);
+//                new LikedSongHook().init(lpparam, bridge);
+//                new KaraokeHook().init(lpparam, bridge);
             }
         });
     }
@@ -245,6 +205,8 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
                 String content = thisContent;
                 handler.post(() -> {
+                    if(content.isEmpty()) return;
+
                     JsonObject json = new JsonParser().parseString(content).getAsJsonObject();
                     String latest = json.get("tag_name").getAsString().replace("v", "");
                     String current = MODULE_VERSION;

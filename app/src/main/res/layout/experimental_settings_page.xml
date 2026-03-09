@@ -96,7 +96,7 @@
                     <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Use New Animated Background"
+                            android:text="Use Animated Album Artwork"
                             android:textColor="@color/white"
                             android:textSize="15sp"
                             android:paddingBottom="4dp"/>
@@ -105,17 +105,17 @@
                             style="@style/TextAppearance.Material3.BodySmall"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Enables a new animated background. This should lead to better performance, however it does flicker sometimes"
+                            android:text="The album cover on the now playing screen will be animated instead of a static image"
                             android:textColor="?attr/colorOnSurfaceVariant"/>
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switch_new_background"
+                        android:id="@+id/switch_animated_art"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:paddingHorizontal="8dp"
                         android:checked="true"
-                        android:contentDescription="Use new scrolling animation"/>
+                        android:contentDescription="Use animated album artwork"/>
             </LinearLayout>
         </LinearLayout>
     </FrameLayout>

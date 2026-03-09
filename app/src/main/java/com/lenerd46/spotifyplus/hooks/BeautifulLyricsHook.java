@@ -11,6 +11,7 @@ import android.graphics.*;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -25,6 +26,7 @@ import com.google.android.flexbox.FlexWrap;
 import com.google.android.flexbox.FlexboxLayout;
 import com.google.android.flexbox.JustifyContent;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.lenerd46.spotifyplus.R;
@@ -64,7 +66,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
     private static Map<FlexboxLayout, List<SyncableVocals>> vocalGroups;
     private volatile boolean stop = false;
     private Thread mainLoop;
-    private Handler closeButtonHandler = new Handler(Looper.getMainLooper());
+    private final Handler closeButtonHandler = new Handler(Looper.getMainLooper());
     private Runnable closeButtonRunnable;
     private ImageView closeButton;
     private LinearLayout rightContainer;
@@ -72,12 +74,43 @@ public class BeautifulLyricsHook extends SpotifyHook {
     private Constructor<?> ctor = null;
     private Object seekInstance = null;
     private LineSyncedLyrics lineLyrics = null;
+    private boolean isPlaying = true;
 
-    private static final float MAX_SCALE = 1.008f;
-    private static final float MIN_SCALE = 1.0f;
-    private static final float SCROLL_POSITION_RATIO = 0.4f;
-    private static final long ANIMATION_DURATION = 400;
-    private static final long SCROLL_ANIMATION_DURATION = 400;
+    private static final float SCROLL_POSITION_RATIO = 0.18f;
+    private static final double LINE_ANIMATION_DELAY = 25;
+    private static final double SCROLL_SPRING_FREQUENCY = 2.5;
+    private static final double SCROLL_SPRING_DAMPING = 0.85;
+
+    private GestureDetector gestureDetector;
+    private double targetScrollOffset = 0;
+    private double contentHeight = 0;
+    private double viewportHeight = 0;
+    private boolean isUserInteracting = false;
+    private boolean isFollowingPlayback = true;
+    private View currentActiveLineView = null;
+
+    private final Map<View, Spring> lineSprings = new HashMap<>();
+    private final Map<View, Long> lineAnimationStartTimes = new HashMap<>();
+
+    private final Map<View, Integer> logicalLineTops = new HashMap<>();
+    private final Map<View, Double> lineBaseOffsets = new HashMap<>();
+
+    private final List<View> lineRoots = new ArrayList<>();
+    private final Map<View, Integer> lineIndex = new WeakHashMap<>();
+    private int activeLineIndex = -1;
+
+    private static final int BLUR_MAX_DISTANCE = 3;
+
+    private static final float[] BLUR_LEVELS_DP = new float[]{
+            0f,
+            0.5f,
+            1f,
+            1.8f
+    };
+
+    private int lastAppliedActiveIndex = Integer.MIN_VALUE;
+    private boolean lastBlurAllowed = true;
+    private ValueAnimator inertiaAnimator;
 
     @Override
     protected void hook() {
@@ -92,6 +125,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                     stop = false;
                     lastUpdatedAt = 0;
                     lastTimestamp = 0;
+                    targetScrollOffset = 0;
 
                     activity.runOnUiThread(() -> {
                         try {
@@ -106,6 +140,8 @@ public class BeautifulLyricsHook extends SpotifyHook {
                             grid.setElevation(10f);
                             grid.setClickable(true);
                             grid.setFocusable(true);
+                            grid.setClipChildren(true);
+                            grid.setClipToPadding(false);
 
                             SpotifyTrack track = References.getTrackTitle(lpparm, bridge);
                             if (track == null) {
@@ -113,16 +149,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                                 return;
                             }
 
-                            XposedBridge.log("[SpotifyPlus] Title: " + track.title);
-                            XposedBridge.log("[SpotifyPlus] Artist: " + track.artist);
-                            XposedBridge.log("[SpotifyPlus] Album: " + track.album);
-                            XposedBridge.log("[SpotifyPlus] Position: " + track.position / 1000);
-                            XposedBridge.log("[SpotifyPlus] Color: " + track.color);
-                            // overlay.setBackgroundColor(Color.parseColor("#" + track.color));
-//                            overlay.setBackgroundColor(Color.TRANSPARENT);
-
                             // Header
-
                             FrameLayout headerContainer = new FrameLayout(activity);
                             GridLayout.LayoutParams headerParams = new GridLayout.LayoutParams(GridLayout.spec(0), GridLayout.spec(0));
                             headerParams.width = GridLayout.LayoutParams.MATCH_PARENT;
@@ -133,20 +160,15 @@ public class BeautifulLyricsHook extends SpotifyHook {
                             header.setOrientation(LinearLayout.HORIZONTAL);
                             header.setGravity(Gravity.CENTER_VERTICAL);
                             header.setPadding(dpToPx(22, activity), dpToPx(32, activity), dpToPx(22, activity), dpToPx(18, activity));
-
-                            FrameLayout.LayoutParams headerParms = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
-                            header.setLayoutParams(headerParms);
+                            header.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT));
 
                             ImageView cover = new ImageView(activity);
                             int coverSize = dpToPx(56, activity);
-                            LinearLayout.LayoutParams coverParms = new LinearLayout.LayoutParams(coverSize, coverSize);
+                            cover.setLayoutParams(new LinearLayout.LayoutParams(coverSize, coverSize));
                             cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                            cover.setLayoutParams(coverParms);
 
                             LinearLayout titleAndArtist = new LinearLayout(activity);
-                            titleAndArtist.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
                             titleAndArtist.setOrientation(LinearLayout.VERTICAL);
-                            titleAndArtist.setGravity(Gravity.CENTER_VERTICAL);
                             titleAndArtist.setPadding(dpToPx(12, activity), 0, 0, 0);
 
                             TextView titleText = new TextView(activity);
@@ -161,7 +183,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                             titleAndArtist.addView(titleText);
                             titleAndArtist.addView(artistText);
-
                             header.addView(cover);
                             header.addView(titleAndArtist);
 
@@ -174,97 +195,118 @@ public class BeautifulLyricsHook extends SpotifyHook {
                             rightContainer.setAlpha(0f);
 
                             closeButton = new ImageView(activity);
-                            int closeSize = dpToPx(36, activity);
-                            LinearLayout.LayoutParams closeParams = new LinearLayout.LayoutParams(closeSize, closeSize);
-                            closeButton.setLayoutParams(closeParams);
                             closeButton.setImageDrawable(createChevronDownIcon(activity));
-                            closeButton.setClickable(true);
-                            closeButton.setFocusable(true);
-
-                            closeButton.setOnClickListener(v -> {
-                                activity.onBackPressed();
-                            });
+                            closeButton.setOnClickListener(v -> activity.onBackPressed());
 
                             syncButton = new ImageView(activity);
-                            int syncSize = dpToPx(24, activity);
-                            LinearLayout.LayoutParams syncParams = new LinearLayout.LayoutParams(syncSize, syncSize);
-                            syncParams.setMargins(0, 0, dpToPx(8, activity), 0);
-                            syncButton.setLayoutParams(syncParams);
                             syncButton.setImageDrawable(ResourcesCompat.getDrawable(res, R.drawable.add_circle, null));
-                            syncButton.setClickable(true);
-                            syncButton.setFocusable(true);
 
                             rightContainer.addView(syncButton);
                             rightContainer.addView(closeButton);
-
                             headerContainer.addView(header);
                             headerContainer.addView(rightContainer);
 
-                            // Lyrics Content
-
-                            ScrollView scrollView = new ScrollView(activity);
-                            GridLayout.LayoutParams scrollParams = new GridLayout.LayoutParams(GridLayout.spec(1), GridLayout.spec(0));
-                            scrollParams.width = GridLayout.LayoutParams.MATCH_PARENT;
-                            scrollParams.height = GridLayout.LayoutParams.MATCH_PARENT;
-
-                            scrollView.setLayoutParams(scrollParams);
-                            scrollView.setClipToPadding(false);
-                            scrollView.setClipChildren(false);
-
-                            LinearLayout layout = new LinearLayout(activity);
-                            layout.setOrientation(LinearLayout.VERTICAL);
-                            ScrollView.LayoutParams matchParams = new ScrollView.LayoutParams(ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT);
-                            layout.setLayoutParams(matchParams);
-                            layout.setClipToPadding(false);
-                            layout.setClipChildren(false);
-                            scrollView.addView(layout);
-
-                            FrameLayout blackBox = new FrameLayout(activity);
-                            GridLayout.LayoutParams blackParams = new GridLayout.LayoutParams(GridLayout.spec(0, 2), GridLayout.spec(0));
-                            blackParams.width = GridLayout.LayoutParams.MATCH_PARENT;
-                            blackParams.height = GridLayout.LayoutParams.MATCH_PARENT;
-                            blackBox.setLayoutParams(blackParams);
-                            blackBox.setBackgroundColor(Color.BLACK);
-                            blackBox.setAlpha(0.2f);
-
-                            closeButtonRunnable = () -> rightContainer.animate().alpha(0f).setDuration(300).start();
-                            grid.setOnTouchListener((v, event) -> {
-                                closeButtonHandler.removeCallbacksAndMessages(closeButtonRunnable);
-
-                                rightContainer.animate().alpha(0.8f).setDuration(200).withEndAction(() -> {
-                                    closeButtonHandler.postDelayed(closeButtonRunnable, 3000);
-                                }).start();
-
-                                return false;
-                            });
-
-                            syncButton.setOnClickListener(v -> {
-                                LayoutInflater inflater = LayoutInflater.from(activity);
-                                View newView = inflater.inflate(res.getLayout(R.layout.editor_layout), (ViewGroup) activity.getWindow().getDecorView(), false);
-                                grid.removeView(scrollView);
-                                grid.addView(newView);
-
-                                LinearLayout lyricsContainer = newView.findViewById(res.getIdentifier("lyricsContainer", "id", "com.lenerd46.spotifyplus"));
-                                ScrollView scroller = newView.findViewById(res.getIdentifier("scroller", "id", "com.lenerd46.spotifyplus"));
-
-                                View controls = inflater.inflate(res.getLayout(R.layout.editor_controls), (ViewGroup) activity.getWindow().getDecorView(), false);
-                                grid.addView(controls);
-
-                                RenderSyncLyrics(activity, lyricsContainer, scroller, track.uri.split(":")[2]);
-                            });
-
                             SharedPreferences prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
 
-                            if (prefs.getBoolean("lyric_enable_background", true)) {
+                            if (prefs.getBoolean("experiment_scroll", false)) {
+                                FrameLayout lyricsRoot = new FrameLayout(activity);
+                                GridLayout.LayoutParams scrollParams = new GridLayout.LayoutParams(GridLayout.spec(1), GridLayout.spec(0));
+                                scrollParams.width = GridLayout.LayoutParams.MATCH_PARENT;
+                                scrollParams.height = GridLayout.LayoutParams.MATCH_PARENT;
+                                lyricsRoot.setLayoutParams(scrollParams);
+                                lyricsRoot.setClipChildren(false);
+                                lyricsRoot.setClipToPadding(false);
+
+                                LinearLayout layout = new LinearLayout(activity);
+                                layout.setOrientation(LinearLayout.VERTICAL);
+
+                                FrameLayout.LayoutParams matchParams = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, dpToPx(40000, activity));
+                                layout.setLayoutParams(matchParams);
+                                layout.setClipChildren(true);
+                                layout.setClipToPadding(false);
+
+                                lyricsRoot.addView(layout);
+
+                                setupGestureDetector(activity, lyricsRoot, layout);
+
+                                closeButtonRunnable = () -> rightContainer.animate().alpha(0f).setDuration(300).start();
+
+                                FrameLayout blackBox = new FrameLayout(activity);
+                                GridLayout.LayoutParams blackParams = new GridLayout.LayoutParams(GridLayout.spec(0, 2), GridLayout.spec(0));
+                                blackParams.width = GridLayout.LayoutParams.MATCH_PARENT;
+                                blackParams.height = GridLayout.LayoutParams.MATCH_PARENT;
+                                blackBox.setLayoutParams(blackParams);
+                                blackBox.setBackgroundColor(Color.BLACK);
+                                blackBox.setAlpha(0.2f);
+
                                 grid.addView(blackBox);
+                                grid.addView(headerContainer);
+                                grid.addView(lyricsRoot);
+                                root.addView(grid, -2);
+
+                                syncButton.setOnClickListener(v -> {
+                                    LayoutInflater inflater = LayoutInflater.from(activity);
+                                    View newView = inflater.inflate(res.getLayout(R.layout.editor_layout), (ViewGroup) activity.getWindow().getDecorView(), false);
+                                    grid.removeView(lyricsRoot);
+                                    grid.addView(newView);
+
+                                    LinearLayout lyricsContainer = newView.findViewById(res.getIdentifier("lyrics_container", "id", "com.lenerd46.spotifyplus"));
+                                    ScrollView scroller = newView.findViewById(res.getIdentifier("scroller", "id", "com.lenerd46.spotifyplus"));
+
+                                    renderSyncLyricsSplitting(activity, lyricsContainer, scroller, track.uri.split(":")[2], newView);
+                                });
+
+                                renderLyrics(activity, track, layout, root, cover);
+                            } else {
+                                ScrollView scrollView = new ScrollView(activity);
+                                GridLayout.LayoutParams scrollParams = new GridLayout.LayoutParams(GridLayout.spec(1), GridLayout.spec(0));
+                                scrollParams.width = GridLayout.LayoutParams.MATCH_PARENT;
+                                scrollParams.height = GridLayout.LayoutParams.MATCH_PARENT;
+
+                                scrollView.setLayoutParams(scrollParams);
+                                scrollView.setClipToPadding(false);
+                                scrollView.setClipChildren(false);
+                                scrollView.setVerticalScrollBarEnabled(false);
+
+                                LinearLayout layout = new LinearLayout(activity);
+                                layout.setOrientation(LinearLayout.VERTICAL);
+                                ScrollView.LayoutParams matchParams = new ScrollView.LayoutParams(ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT);
+                                layout.setLayoutParams(matchParams);
+                                layout.setClipToPadding(false);
+                                layout.setClipChildren(false);
+                                scrollView.addView(layout);
+
+                                FrameLayout blackBox = new FrameLayout(activity);
+                                GridLayout.LayoutParams blackParams = new GridLayout.LayoutParams(GridLayout.spec(0, 2), GridLayout.spec(0));
+                                blackParams.width = GridLayout.LayoutParams.MATCH_PARENT;
+                                blackParams.height = GridLayout.LayoutParams.MATCH_PARENT;
+                                blackBox.setLayoutParams(blackParams);
+                                blackBox.setBackgroundColor(Color.BLACK);
+                                blackBox.setAlpha(0.2f);
+
+                                syncButton.setOnClickListener(v -> {
+                                    LayoutInflater inflater = LayoutInflater.from(activity);
+                                    View newView = inflater.inflate(res.getLayout(R.layout.editor_layout), (ViewGroup) activity.getWindow().getDecorView(), false);
+                                    grid.removeView(scrollView);
+                                    grid.addView(newView);
+
+                                    LinearLayout lyricsContainer = newView.findViewById(res.getIdentifier("lyrics_container", "id", "com.lenerd46.spotifyplus"));
+                                    ScrollView scroller = newView.findViewById(res.getIdentifier("scroller", "id", "com.lenerd46.spotifyplus"));
+
+                                    renderSyncLyricsSplitting(activity, lyricsContainer, scroller, track.uri.split(":")[2], newView);
+                                });
+
+                                if (prefs.getBoolean("lyric_enable_background", true)) {
+                                    grid.addView(blackBox);
+                                }
+
+                                grid.addView(headerContainer);
+                                grid.addView(scrollView);
+                                root.addView(grid, -2);
+                                XposedBridge.log("[SpotifyPlus] Loaded Beautiful Lyrics UI");
+
+                                renderLyrics(activity, track, layout, root, cover);
                             }
-
-                            grid.addView(headerContainer);
-                            grid.addView(scrollView);
-                            root.addView(grid, -2);
-                            XposedBridge.log("[SpotifyPlus] Loaded Beautiful Lyrics UI");
-
-                            renderLyrics(activity, track, layout, root, cover);
                         } catch (Throwable t) {
                             XposedBridge.log(t);
                         }
@@ -281,16 +323,9 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 stop = true;
                 lineSprings.clear();
                 lineAnimationStartTimes.clear();
-
-                if (mainLoop != null && mainLoop.isAlive()) {
-                    mainLoop.interrupt();
-                    mainLoop = null;
-                }
-
-                lyricsScrollAnimator.cancel();
+                if (mainLoop != null) mainLoop.interrupt();
                 vocalGroups = null;
-
-                XposedBridge.log("[SpotifyPlus] Stopped!");
+                if (inertiaAnimator != null) inertiaAnimator.cancel();
             }
         });
 
@@ -314,6 +349,29 @@ public class BeautifulLyricsHook extends SpotifyHook {
             XposedBridge.log(e);
         }
 
+        try {
+
+//            Class<?> playerStateChangedClass = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("PlayerStateChanged(trackUri="))).get(0).getInstance(lpparm.classLoader);
+//            XposedHelpers.findAndHookConstructor("p.xb90", lpparm.classLoader, String.class, boolean.class, boolean.class, boolean.class, boolean.class, boolean.class, boolean.class, XposedHelpers.findClass("p.gqf", lpparm.classLoader), new XC_MethodHook() {
+//                protected void afterHookedMethod(MethodHookParam p) {
+////                XposedBridge.log("[SpotifyPlus] Object: " + p.thisObject.toString());
+//                    References.notifyTrackStateChanged(p.thisObject);
+//                    isPlaying = !XposedHelpers.getBooleanField(p.thisObject, "c");
+//                }
+//            });
+
+            XposedHelpers.findAndHookMethod("android.media.session.MediaSession", lpparm.classLoader, "setPlaybackState", XposedHelpers.findClass("android.media.session.PlaybackState", lpparm.classLoader), new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    PlaybackState playbackState = (PlaybackState) param.args[0];
+                    if(playbackState == null) return;
+
+                    isPlaying = playbackState.getState() == PlaybackState.STATE_PLAYING;
+                }
+            });
+        } catch (Exception e) {
+            XposedBridge.log(e);
+        }
 
         XposedHelpers.findAndHookMethod("com.spotify.player.model.AutoValue_PlayerState$Builder", lpparm.classLoader, "build", new XC_MethodHook() {
             @Override
@@ -341,7 +399,147 @@ public class BeautifulLyricsHook extends SpotifyHook {
         } catch (Exception e) {
             XposedBridge.log(e);
         }
+
+        try {
+            var okHttp = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().className(("okhttp3.Request$Builder"))));
+            Method request = bridge.findMethod(FindMethod.create().searchInClass((okHttp)).matcher(MethodMatcher.create().returnType(void.class).modifiers(Modifier.PUBLIC | Modifier.FINAL).paramTypes(String.class, String.class))).get(1).getMethodInstance((lpparm.classLoader));
+
+            XposedBridge.hookMethod(request, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    String headerName = (String) param.args[0];
+                    String headerValue = (String) param.args[1];
+
+                    if (headerName != null && headerName.equalsIgnoreCase("authorization") && headerValue != null && !headerValue.isEmpty()) {
+                        String token = headerValue.replace("Bearer", "").trim();
+                        String accessToken = References.accessToken;
+
+                        if (accessToken != null && !accessToken.isEmpty() && accessToken.equals(token)) return;
+                        References.accessToken = token;
+                    }
+                }
+            });
+        } catch (Exception e) {
+            XposedBridge.log(e);
+        }
     }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private void setupGestureDetector(Context context, View touchSurface, LinearLayout contentContainer) {
+        gestureDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onDown(MotionEvent e) {
+                isUserInteracting = true;
+                if (inertiaAnimator != null) inertiaAnimator.cancel();
+                lineAnimationStartTimes.clear();
+                return true;
+            }
+
+            @Override
+            public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                isFollowingPlayback = false;
+
+                touchSurface.post(BeautifulLyricsHook.this::applyLineFocusEffects);
+
+                contentHeight = contentContainer.getHeight();
+                viewportHeight = touchSurface.getHeight();
+
+                double maxScroll = 0;
+                double minScroll = Math.min(0, -(contentHeight - viewportHeight));
+
+                double effectiveDistanceY = distanceY;
+                if (targetScrollOffset > maxScroll || targetScrollOffset < minScroll) {
+                    effectiveDistanceY *= 0.3;
+                }
+
+                targetScrollOffset -= effectiveDistanceY;
+
+                for (Spring spring : lineSprings.values()) {
+                    spring.finalPosition = targetScrollOffset;
+                }
+
+                return true;
+            }
+
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                double velocity = velocityY * 0.001;
+
+                inertiaAnimator = ValueAnimator.ofFloat((float) velocity, 0f);
+                inertiaAnimator.setDuration(800);
+                inertiaAnimator.setInterpolator(new DecelerateInterpolator());
+                inertiaAnimator.addUpdateListener(animation -> {
+                    float v = (float) animation.getAnimatedValue();
+                    if (!isUserInteracting) {
+                        targetScrollOffset += v * 16;
+                        limitScrollBounds(contentContainer);
+                        for (Spring spring : lineSprings.values()) {
+                            spring.finalPosition = targetScrollOffset;
+                        }
+                    }
+                });
+                inertiaAnimator.start();
+                return true;
+            }
+        });
+
+        touchSurface.setOnTouchListener((v, event) -> {
+            closeButtonHandler.removeCallbacksAndMessages(closeButtonRunnable);
+            rightContainer.animate().alpha(0.8f).setDuration(200).withEndAction(() -> {
+                closeButtonHandler.postDelayed(closeButtonRunnable, 3000);
+            }).start();
+
+            boolean result = gestureDetector.onTouchEvent(event);
+
+            if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                isUserInteracting = false;
+                limitScrollBounds(contentContainer);
+
+                if (!isFollowingPlayback && currentActiveLineView != null) {
+                    View parent = (View) contentContainer.getParent();
+                    if (parent != null) {
+                        float viewportH = parent.getHeight();
+
+                        float activeTop = currentActiveLineView.getTop() + currentActiveLineView.getTranslationY();
+                        float activeBottom = activeTop + currentActiveLineView.getHeight();
+
+                        boolean visible = activeBottom > 0 && activeTop < viewportH;
+
+                        if (visible) {
+                            isFollowingPlayback = true;
+
+                            contentContainer.post(BeautifulLyricsHook.this::applyLineFocusEffects);
+                        }
+                    }
+                }
+            }
+
+            return result;
+        });
+    }
+
+    private void limitScrollBounds(View contentContainer) {
+        if (contentContainer == null) return;
+
+        contentHeight = contentContainer.getHeight();
+
+        View parent = (View) contentContainer.getParent();
+        if (parent != null) {
+            viewportHeight = parent.getHeight();
+        }
+
+        if (contentHeight == 0 || viewportHeight == 0) return;
+
+        double maxScroll = 0;
+        double minScroll = Math.min(0, -(contentHeight - viewportHeight));
+
+        if (targetScrollOffset > maxScroll) {
+            targetScrollOffset = maxScroll;
+        } else if (targetScrollOffset < minScroll) {
+            targetScrollOffset = minScroll;
+        }
+    }
+
 
     private void renderLyrics(Activity activity, SpotifyTrack track, LinearLayout lyricsContainer, ViewGroup root, ImageView albumView) {
         vocalGroups = new HashMap<>();
@@ -355,22 +553,22 @@ public class BeautifulLyricsHook extends SpotifyHook {
             try {
                 SharedPreferences prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
 
+                String id = track.uri.split(":")[2];
                 Bitmap albumArt = getBitmap(track.imageId);
                 albumView.post(() -> albumView.setImageBitmap(albumArt));
 
                 if (prefs.getBoolean("lyric_enable_background", true)) {
                     if (albumArt != null) { // Clearly I don't seem to care if it's null or not (line 290)
-                        if (prefs.getBoolean("experiment_background", true)) {
-                            AnimatedBackgroundView background = new AnimatedBackgroundView(activity, albumArt, root);
-                            background.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+                        AnimatedBackgroundView background = new AnimatedBackgroundView(activity, albumArt, root);
+                        background.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
-                            activity.runOnUiThread(() -> root.addView(background));
+                        if (prefs.getBoolean("experiment_background", false)) {
+                            background.updateTrackAnalysis(getTrackAnalysis(id));
                         } else {
-                            OldAnimatedBackgroundView background = new OldAnimatedBackgroundView(activity, albumArt, root);
-                            background.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-
-                            activity.runOnUiThread(() -> root.addView(background));
+                            background.updateTrackAnalysis(TrackAnalysis.defaultTrack);
                         }
+
+                        activity.runOnUiThread(() -> root.addView(background));
                     }
                 } else {
                     FrameLayout background = new FrameLayout(activity);
@@ -379,154 +577,193 @@ public class BeautifulLyricsHook extends SpotifyHook {
                     activity.runOnUiThread(() -> root.addView(background));
                 }
 
-                boolean sendAccessToken = prefs.getBoolean("sendAccessToken", true);
+//                URL url = new URL("https://beautiful-lyrics.socalifornian.live/lyrics/" + id);
+//                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+//                connection.setRequestMethod("GET");
+//
+//                String token = References.accessToken.get();
+//                connection.setRequestProperty("Authorization", "Bearer " + (((token != null && !token.isEmpty()) && sendAccessToken) ? token : "0"));
 
-                String id = track.uri.split(":")[2];
-                URL url = new URL("https://beautiful-lyrics.socalifornian.live/lyrics/" + id);
-                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("GET");
+//                int responseCode = connection.getResponseCode();
+//                if (responseCode == HttpURLConnection.HTTP_OK) {
+//                    BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+//
+//                    String inputLine;
+//                    StringBuilder response = new StringBuilder();
+//                    while ((inputLine = in.readLine()) != null) {
+//                        response.append(inputLine);
+//                    }
+//                    in.close();
+//                    finalContent = response.toString();
+//                }
+//            } catch (Exception e) {
+//                XposedBridge.log(e);
+//                Handler mainHandler = new Handler(Looper.getMainLooper());
+//                Runnable runnable = () -> {
+//                    Toast.makeText(activity, "Failed to get lyrics", Toast.LENGTH_LONG).show();
+//                };
+//
+//                mainHandler.post(runnable);
+//                return;
+//            }
 
-                String token = References.accessToken.get();
-                connection.setRequestProperty("Authorization", "Bearer " + (((token != null && !token.isEmpty()) && sendAccessToken) ? token : "0"));
+                String token = References.accessToken;
+                OkHttpClient lyricsClient = new OkHttpClient();
+                RequestBody body = RequestBody.create("{ \"queries\": [ { \"operation\": \"lyrics\", \"variables\": { \"id\": \"" + id + "\", \"auth\": \"SpicyLyrics-WebAuth\" } } ], \"client\": { \"version\": \"5.19.11\" } }", MediaType.parse("application/json; charset=utf-8"));
+                Request lyricsRequest = new Request.Builder().url("https://api.spicylyrics.org/query").post(body).header("Spicylyrics-Webauth", "Bearer " + (((token != null && !token.isEmpty())) ? token : "0")).header("Spicylyrics-Version", "5.19.11").header("Origin", "https://xpui.app.spotify.com").build();
 
-                int responseCode = connection.getResponseCode();
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                lyricsClient.newCall(lyricsRequest).enqueue(new Callback() {
+                    @Override
+                    public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
+                        assert response.body() != null;
+                        String contentFull = response.body().string();
 
-                    String inputLine;
-                    StringBuilder response = new StringBuilder();
-                    while ((inputLine = in.readLine()) != null) {
-                        response.append(inputLine);
-                    }
-                    in.close();
-                    finalContent = response.toString();
-                }
-            } catch (Exception e) {
-                XposedBridge.log(e);
-                Toast.makeText(activity, "Failed to get lyrics", Toast.LENGTH_SHORT).show();
-                return;
-            }
+                        JsonObject jsonObject = new JsonParser().parseString(contentFull).getAsJsonObject().get("queries").getAsJsonArray().get(0).getAsJsonObject().get("result").getAsJsonObject().get("data").getAsJsonObject();
+                        String content = jsonObject.toString();
+                        String type = jsonObject.get("Type").getAsString();
+                        String writtenBy = jsonObject.get("SongWriters").getAsJsonArray().asList().stream().map(JsonElement::getAsString).collect(Collectors.joining(", "));
 
-            String content = finalContent;
-            if (content.isBlank()) {
-                Toast.makeText(activity, "No lyrics found for this song", Toast.LENGTH_SHORT).show();
-                return;
-            }
+                        Handler handler = new Handler(Looper.getMainLooper());
+                        handler.post(() -> {
+                            try {
+                                Class<?> requestClass = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).fieldCount(1).addField(FieldMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).type(long.class)).methods(MethodsMatcher.create()
+                                        .count(6)
+                                        .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(Object.class).paramCount(13))
+                                        .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(void.class).paramCount(12))
+                                        .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(boolean.class).addParamType(Object.class))
+                                ))).get(0).getInstance(lpparm.classLoader);
 
-            handler.post(() -> {
-                JsonObject jsonObject = new JsonParser().parseString(content).getAsJsonObject();
-                String type = jsonObject.get("Type").getAsString();
+                                ctor = requestClass.getConstructor(long.class);
+                                ctor.setAccessible(true);
+                            } catch (Exception e) {
+                                XposedBridge.log(e);
+                                Toast.makeText(activity, "Failed to load lyrics", Toast.LENGTH_SHORT).show();
+                                return;
+                            }
 
-                try {
-                    Class<?> requestClass = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).fieldCount(1).addField(FieldMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).type(long.class)).methods(MethodsMatcher.create()
-                            .count(6)
-                            .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(Object.class).paramCount(13))
-                            .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(void.class).paramCount(12))
-                            .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(boolean.class).addParamType(Object.class))
-                    ))).get(0).getInstance(lpparm.classLoader);
+                            if (type.equals("Syllable")) {
+                                renderSyllableLyrics(activity, content, lyricsContainer, track, writtenBy);
+                            } else if (type.equals("Line")) {
+                                SharedPreferences prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
+                                if (prefs.getBoolean("lyrics_check_custom", false)) {
+                                    OkHttpClient client = new OkHttpClient();
+                                    Request request = new Request.Builder().url("https://spotifyplus.lenerd.tech/api/lyrics/" + track.uri.split(":")[2]).get().build();
 
-                    ctor = requestClass.getConstructor(long.class);
-                    ctor.setAccessible(true);
-                } catch (Exception e) {
-                    XposedBridge.log(e);
-                    Toast.makeText(activity, "Failed to load lyrics", Toast.LENGTH_SHORT).show();
-                    return;
-                }
+                                    client.newCall(request).enqueue(new Callback() {
+                                        @Override
+                                        public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
+                                            if (response.isSuccessful()) {
+                                                XposedBridge.log("[SpotifyPlus] Loading lyrics from SpotifyPlus server");
+                                                String content = response.body().string();
+                                                if (content.isEmpty()) return;
 
-                if (type.equals("Syllable")) {
-                    renderSyllableLyrics(activity, content, lyricsContainer, track);
-                } else if (type.equals("Line")) {
-                    SharedPreferences prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
-                    if (prefs.getBoolean("lyrics_check_custom", false)) {
-                        OkHttpClient client = new OkHttpClient();
-                        Request request = new Request.Builder().url("https://spotifyplus.lenerd.tech/api/lyrics/" + track.uri.split(":")[2]).get().build();
+                                                lyricsContainer.post(() -> {
+                                                    renderSyllableLyrics(activity, content, lyricsContainer, track, "");
+                                                });
+                                            } else {
+                                                lyricsContainer.post(() -> {
+                                                    renderLineLyrics(activity, content, lyricsContainer, track, writtenBy);
+                                                });
+                                            }
+                                        }
 
-                        client.newCall(request).enqueue(new Callback() {
-                            @Override
-                            public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
-                                if (response.isSuccessful()) {
-                                    XposedBridge.log("[SpotifyPlus] Loading lyrics from SpotifyPlus server");
-                                    String content = response.body().string();
-
-                                    lyricsContainer.post(() -> {
-                                        renderSyllableLyrics(activity, content, lyricsContainer, track);
+                                        @Override
+                                        public void onFailure(@NotNull Call call, @NotNull IOException e) {
+                                            XposedBridge.log(e);
+                                        }
                                     });
                                 } else {
-                                    // Otherwise, no lyrics found. Continue
-                                    lyricsContainer.post(() -> {
-                                        renderLineLyrics(activity, content, lyricsContainer, track);
+                                    renderLineLyrics(activity, content, lyricsContainer, track, writtenBy);
+
+                                    OkHttpClient client = new OkHttpClient();
+                                    Request request = new Request.Builder().url("https://spotifyplus.lenerd.tech/api/lyrics/" + track.uri.split(":")[2]).get().build();
+
+                                    client.newCall(request).enqueue(new Callback() {
+                                        @Override
+                                        public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
+                                            if (response.isSuccessful()) {
+                                                lyricsContainer.post(() -> {
+                                                    rightContainer.removeView(syncButton);
+                                                });
+                                            }
+                                        }
+
+                                        @Override
+                                        public void onFailure(@NotNull Call call, @NotNull IOException e) {
+                                            XposedBridge.log(e);
+                                        }
                                     });
                                 }
-                            }
+                            } else if (type.equals("Static")) {
+                                Gson gson = new Gson();
+                                // This is pretty pointless
+                                // If Spotify doesn't have lyrics, you can't open this page
+                                // And it's very likely that if a song has static lyrics, Spotify won't have the lryics
+                                // I redact my statement, there have been a few times that I've seen static lyrics
+                                // And hey, guess what? It actually works!
+                                // I wrote this code and never cared enough to go find a song to test it on
 
-                            @Override
-                            public void onFailure(@NotNull Call call, @NotNull IOException e) {
-                                XposedBridge.log(e);
-                            }
-                        });
-                    } else {
-                        renderLineLyrics(activity, content, lyricsContainer, track);
+                                StaticSyncedLyrics providerLyrics = gson.fromJson(content, StaticSyncedLyrics.class);
 
-                        OkHttpClient client = new OkHttpClient();
-                        Request request = new Request.Builder().url("https://spotifyplus.lenerd.tech/api/lyrics/" + track.uri.split(":")[2]).get().build();
+                                ProviderLyrics providerLyricsThing = new ProviderLyrics();
+                                providerLyricsThing.staticLyrics = providerLyrics;
 
-                        client.newCall(request).enqueue(new Callback() {
-                            @Override
-                            public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
-                                if (response.isSuccessful()) {
-                                    lyricsContainer.post(() -> {
-                                        rightContainer.removeView(syncButton);
-                                    });
+                                TransformedLyrics transformedLyrics = LyricUtilities.transformLyrics(providerLyricsThing, activity);
+                                StaticSyncedLyrics lyrics = transformedLyrics.lyrics.staticLyrics;
+
+                                for (var line : lyrics.lines) {
+                                    FlexboxLayout layout = new FlexboxLayout(activity.getApplicationContext());
+                                    layout.setFlexWrap(FlexWrap.WRAP);
+
+                                    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+                                    params.setMargins(dpToPx(15, activity), dpToPx(20, activity), dpToPx(15, activity), 0);
+                                    layout.setLayoutParams(params);
+
+                                    TextView text = new TextView(activity);
+                                    text.setText(line.text);
+
+                                    text.setTextColor(Color.WHITE);
+                                    text.setTextSize(26f);
+                                    text.setTypeface(References.beautifulFont.get());
+
+                                    layout.addView(text);
+                                    lyricsContainer.addView(layout);
                                 }
-                            }
-
-                            @Override
-                            public void onFailure(@NotNull Call call, @NotNull IOException e) {
-                                XposedBridge.log(e);
                             }
                         });
                     }
-                } else if (type.equals("Static")) {
-                    Gson gson = new Gson();
-                    // This is pretty pointless
-                    // If Spotify doesn't have lyrics, you can't open this page
-                    // And it's very likely that if a song has static lyrics, Spotify won't have the lryics
-                    // I redact my statement, there have been a few times that I've seen static lyrics
-                    // And hey, guess what? It actually works!
-                    // I wrote this code and never cared enough to go find a song to test it on
 
-                    StaticSyncedLyrics providerLyrics = gson.fromJson(content, StaticSyncedLyrics.class);
+                    @Override
+                    public void onFailure(@NotNull Call call, @NotNull IOException e) {
+                        Handler mainHandler = new Handler(Looper.getMainLooper());
+                        Runnable runnable = () -> {
+                            Toast.makeText(activity, "No lyrics found for this song", Toast.LENGTH_LONG).show();
+                        };
 
-                    ProviderLyrics providerLyricsThing = new ProviderLyrics();
-                    providerLyricsThing.staticLyrics = providerLyrics;
-
-                    TransformedLyrics transformedLyrics = LyricUtilities.transformLyrics(providerLyricsThing, activity);
-                    StaticSyncedLyrics lyrics = transformedLyrics.lyrics.staticLyrics;
-
-                    for (var line : lyrics.lines) {
-                        FlexboxLayout layout = new FlexboxLayout(activity);
-                        layout.setFlexWrap(FlexWrap.WRAP);
-
-                        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-                        params.setMargins(dpToPx(15, activity), dpToPx(20, activity), dpToPx(15, activity), 0);
-                        layout.setLayoutParams(params);
-
-                        TextView text = new TextView(activity);
-                        text.setText(line.text);
-
-                        text.setTextColor(Color.WHITE);
-                        text.setTextSize(26f);
-                        text.setTypeface(References.beautifulFont.get());
-
-                        layout.addView(text);
-                        lyricsContainer.addView(layout);
+                        mainHandler.post(runnable);
                     }
-                }
-            });
+                });
+            } catch (Exception ex) {
+
+            }
+//            String content = finalContent;
+//            if (content.isBlank()) {
+//                Handler mainHandler = new Handler(Looper.getMainLooper());
+//                Runnable runnable = () -> {
+//                    Toast.makeText(activity, "No lyrics found for this song", Toast.LENGTH_LONG).show();
+//                };
+//
+//                mainHandler.post(runnable);
+//                return;
+//            }
+//
+//            handler.post(() -> {
+//
+//            });
         });
     }
 
-    private void renderSyllableLyrics(Activity activity, String content, LinearLayout lyricsContainer, SpotifyTrack track) {
+    private void renderSyllableLyrics(Activity activity, String content, LinearLayout lyricsContainer, SpotifyTrack track, String writtenBy) {
         List<View> lines = new ArrayList<>();
         vocalGroups = new HashMap<>();
         rightContainer.removeView(syncButton);
@@ -550,7 +787,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 topGroup.setClipToPadding(false);
                 topGroup.setClipChildren(false);
 
-                FlexboxLayout vocalGroupContainer = new FlexboxLayout(activity);
+                FlexboxLayout vocalGroupContainer = new FlexboxLayout(activity.getApplicationContext());
                 vocalGroupContainer.setClipToPadding(false);
                 vocalGroupContainer.setClipChildren(false);
 
@@ -593,7 +830,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                 topGroup.setLayoutParams(parms);
 
-                FlexboxLayout vocalGroupContainer = new FlexboxLayout(activity);
+                FlexboxLayout vocalGroupContainer = new FlexboxLayout(activity.getApplicationContext());
                 vocalGroupContainer.setFlexWrap(FlexWrap.WRAP);
                 vocalGroupContainer.setClipToPadding(false);
                 vocalGroupContainer.setClipChildren(false);
@@ -615,23 +852,25 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 List<SyllableVocals> vocals = new ArrayList<>();
                 double startTime = set.lead.startTime;
 
-                // Event for auto scrolling
                 SyllableVocals sv = new SyllableVocals(vocalGroupContainer, set.lead.syllables, false, false, set.oppositeAligned, activity);
                 sv.activityChanged.addListener(info -> {
                     View lineView = (View) info.view.getParent().getParent();
-                    ScrollView scrollView = (ScrollView) lyricsContainer.getParent();
+                    View scrollView = (View) lyricsContainer.getParent();
+
+                    currentActiveLineView = lineView;
+                    onActiveLineChanged(info.view, lyricsContainer);
 
                     if (newScrollingSystem) {
                         experimentalScrollToNewLine(lineView, lyricsContainer, info.immediate);
                     } else {
-                        scrollToNewLine(lineView, scrollView, info.immediate);
+                        scrollToNewLine(lineView, (ScrollView) scrollView, info.immediate);
                     }
                 });
 
                 vocals.add(sv);
 
                 if (set.background != null && !set.background.isEmpty()) {
-                    FlexboxLayout backgroundVocalGroupContainer = new FlexboxLayout(activity);
+                    FlexboxLayout backgroundVocalGroupContainer = new FlexboxLayout(activity.getApplicationContext());
                     backgroundVocalGroupContainer.setFlexWrap(FlexWrap.WRAP);
                     backgroundVocalGroupContainer.setClipToPadding(false);
                     backgroundVocalGroupContainer.setClipChildren(false);
@@ -654,23 +893,57 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 highlightBackground.mutate();
                 vocalGroupContainer.setBackground(highlightBackground);
 
+                final float touchSlop = ViewConfiguration.get(activity).getScaledTouchSlop();
+                final float[] downX = new float[1];
+                final float[] downY = new float[1];
+                final boolean[] isDragging = new boolean[1];
+
                 vocalGroupContainer.setOnTouchListener((v, event) -> {
+                    if (gestureDetector != null) {
+                        gestureDetector.onTouchEvent(event);
+                    }
+
                     switch (event.getActionMasked()) {
                         case MotionEvent.ACTION_DOWN:
-                            ObjectAnimator startAnimation = ObjectAnimator.ofInt(highlightBackground, "alpha", highlightBackground.getAlpha(), 50).setDuration(400);
+                            downX[0] = event.getX();
+                            downY[0] = event.getY();
+                            isDragging[0] = false;
+
+                            ObjectAnimator startAnimation =
+                                    ObjectAnimator.ofInt(highlightBackground, "alpha",
+                                                    highlightBackground.getAlpha(), 50)
+                                            .setDuration(400);
                             startAnimation.setInterpolator(new DecelerateInterpolator(2.0f));
                             startAnimation.start();
                             break;
 
+                        case MotionEvent.ACTION_MOVE: {
+                            if (!isDragging[0]) {
+                                float dx = event.getX() - downX[0];
+                                float dy = event.getY() - downY[0];
+                                if (Math.hypot(dx, dy) > touchSlop) {
+                                    isDragging[0] = true;
+                                }
+                            }
+                            break;
+                        }
+
                         case MotionEvent.ACTION_UP:
                         case MotionEvent.ACTION_CANCEL:
-                            ObjectAnimator endAnimation = ObjectAnimator.ofInt(highlightBackground, "alpha", highlightBackground.getAlpha(), 0).setDuration(400);
+                            ObjectAnimator endAnimation =
+                                    ObjectAnimator.ofInt(highlightBackground, "alpha",
+                                                    highlightBackground.getAlpha(), 0)
+                                            .setDuration(400);
                             endAnimation.setInterpolator(new DecelerateInterpolator(2.0f));
                             endAnimation.start();
+
+                            if (event.getActionMasked() == MotionEvent.ACTION_UP && !isDragging[0]) {
+                                v.performClick();
+                            }
                             break;
                     }
 
-                    return false;
+                    return true;
                 });
 
                 vocalGroupContainer.setOnClickListener((v) -> {
@@ -700,18 +973,39 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
         lines.forEach(lyricsContainer::addView);
 
+        registerLineRoots(lines);
+
+        if (!writtenBy.isBlank()) {
+            TextView writtenByTextView = new TextView(activity.getApplicationContext());
+            writtenByTextView.setText("Written by: " + writtenBy);
+            writtenByTextView.setTextSize(16f);
+            writtenByTextView.setTypeface(References.beautifulFont.get());
+            writtenByTextView.setTextColor(Color.parseColor("#f5f5f5"));
+
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            p.setMargins(dpToPx(30, activity), dpToPx(20, activity), dpToPx(30, activity), 0);
+            writtenByTextView.setLayoutParams(p);
+
+            lyricsContainer.addView(writtenByTextView);
+        }
+
         View spacer = new View(activity);
         LinearLayout.LayoutParams spacerParams = new LinearLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, dpToPx(180, activity));
         spacer.setLayoutParams(spacerParams);
         lyricsContainer.addView(spacer);
 
-        update(vocalGroups, track.position / 1000d, 1.0d / 60d, true);
-        updateProgress(track.position, System.currentTimeMillis(), vocalGroups, (ScrollView) lyricsContainer.getParent());
+        lyricsContainer.post(() -> {
+            computeLogicalLayout(lyricsContainer);
+
+            update(vocalGroups, track.position / 1000d, 1.0d / 60d, true);
+            updateProgress(track.position, System.currentTimeMillis(), vocalGroups, (View) lyricsContainer.getParent());
+        });
     }
 
-    int totalHeight = 0;
-
-    private void renderLineLyrics(Activity activity, String content, LinearLayout lyricsContainer, SpotifyTrack track) {
+    private void renderLineLyrics(Activity activity, String content, LinearLayout lyricsContainer, SpotifyTrack track, String writtenBy) {
         List<View> lines = new ArrayList<>();
         vocalGroups = new HashMap<>();
         Gson gson = new Gson();
@@ -737,7 +1031,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 topGroup.setClipToPadding(false);
                 topGroup.setClipChildren(false);
 
-                FlexboxLayout vocalGroupContainer = new FlexboxLayout(activity);
+                FlexboxLayout vocalGroupContainer = new FlexboxLayout(activity.getApplicationContext());
                 vocalGroupContainer.setClipToPadding(false);
                 vocalGroupContainer.setClipChildren(false);
 
@@ -769,7 +1063,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 topGroup.setClipToPadding(false);
                 topGroup.setClipChildren(false);
 
-                FlexboxLayout vocalGroupContainer = new FlexboxLayout(activity);
+                FlexboxLayout vocalGroupContainer = new FlexboxLayout(activity.getApplicationContext());
                 vocalGroupContainer.setFlexWrap(FlexWrap.WRAP);
                 vocalGroupContainer.setClipToPadding(false);
                 vocalGroupContainer.setClipChildren(false);
@@ -786,12 +1080,14 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 LineVocals lv = new LineVocals(vocalGroupContainer, vocal, false, activity);
                 lv.activityChanged.addListener(info -> {
                     View lineView = (View) info.view.getParent();
-                    ScrollView scrollView = (ScrollView) lyricsContainer.getParent();
+                    View scrollView = (View) lyricsContainer.getParent();
+
+                    onActiveLineChanged(info.view, lyricsContainer);
 
                     if (newScrollingSystem) {
                         experimentalScrollToNewLine(lineView, lyricsContainer, info.immediate);
                     } else {
-                        scrollToNewLine(lineView, scrollView, info.immediate);
+                        scrollToNewLine(lineView, (ScrollView) scrollView, info.immediate);
                     }
                 });
 
@@ -807,16 +1103,35 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 vocalGroupContainer.setBackground(highlightBackground);
 
                 vocalGroupContainer.setOnTouchListener((v, event) -> {
+                    closeButtonHandler.removeCallbacksAndMessages(closeButtonRunnable);
+                    rightContainer.animate()
+                            .alpha(0.8f)
+                            .setDuration(200)
+                            .withEndAction(() ->
+                                    closeButtonHandler.postDelayed(closeButtonRunnable, 3000)
+                            )
+                            .start();
+
+                    if (gestureDetector != null) {
+                        gestureDetector.onTouchEvent(event);
+                    }
+
                     switch (event.getActionMasked()) {
                         case MotionEvent.ACTION_DOWN:
-                            ObjectAnimator startAnimation = ObjectAnimator.ofInt(highlightBackground, "alpha", highlightBackground.getAlpha(), 50).setDuration(400);
+                            ObjectAnimator startAnimation =
+                                    ObjectAnimator.ofInt(highlightBackground, "alpha",
+                                                    highlightBackground.getAlpha(), 50)
+                                            .setDuration(400);
                             startAnimation.setInterpolator(new DecelerateInterpolator(2.0f));
                             startAnimation.start();
                             break;
 
                         case MotionEvent.ACTION_UP:
                         case MotionEvent.ACTION_CANCEL:
-                            ObjectAnimator endAnimation = ObjectAnimator.ofInt(highlightBackground, "alpha", highlightBackground.getAlpha(), 0).setDuration(400);
+                            ObjectAnimator endAnimation =
+                                    ObjectAnimator.ofInt(highlightBackground, "alpha",
+                                                    highlightBackground.getAlpha(), 0)
+                                            .setDuration(400);
                             endAnimation.setInterpolator(new DecelerateInterpolator(2.0f));
                             endAnimation.start();
                             break;
@@ -849,13 +1164,34 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
         lines.forEach(lyricsContainer::addView);
 
+        if (!writtenBy.isBlank()) {
+            TextView writtenByTextView = new TextView(activity.getApplicationContext());
+            writtenByTextView.setText("Written by: " + writtenBy);
+            writtenByTextView.setTextSize(16f);
+            writtenByTextView.setTypeface(References.beautifulFont.get());
+            writtenByTextView.setTextColor(Color.parseColor("#f5f5f5"));
+
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            p.setMargins(dpToPx(30, activity), dpToPx(20, activity), dpToPx(30, activity), 0);
+            writtenByTextView.setLayoutParams(p);
+
+            lyricsContainer.addView(writtenByTextView);
+        }
+
         View spacer = new View(activity);
         LinearLayout.LayoutParams spacerParams = new LinearLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, dpToPx(180, activity));
         spacer.setLayoutParams(spacerParams);
         lyricsContainer.addView(spacer);
 
-        update(vocalGroups, track.position / 1000d, 1.0d / 60d, true);
-        updateProgress(track.position, System.currentTimeMillis(), vocalGroups, (ScrollView) lyricsContainer.getParent());
+        lyricsContainer.post(() -> {
+            computeLogicalLayout(lyricsContainer);
+
+            update(vocalGroups, track.position / 1000d, 1.0d / 60d, true);
+            updateProgress(track.position, System.currentTimeMillis(), vocalGroups, (View) lyricsContainer.getParent());
+        });
     }
 
     private void update(Map<FlexboxLayout, List<SyncableVocals>> vocalGroups, double timestamp, double deltaTime, boolean skipped) {
@@ -873,7 +1209,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
     private long lastUpdatedAt = 0;
     private double lastTimestamp = 0;
 
-    private void updateProgress(long initialPositionS, double startedSyncAtS, Map<FlexboxLayout, List<SyncableVocals>> vocalGroups, ScrollView scrollView) {
+    private void updateProgress(long initialPositionS, double startedSyncAtS, Map<FlexboxLayout, List<SyncableVocals>> vocalGroups, View scrollView) {
         mainLoop = new Thread(() -> {
             try {
                 int[] syncTimings = {50, 100, 150, 750};
@@ -885,30 +1221,31 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 while (!stop) {
                     long updatedAt = System.currentTimeMillis();
 
-                    // If the song is currently playing
-                    if (updatedAt > startedSyncAt + nextSyncAt) {
-                        // Get the current position from Spotify
-                        long position = References.getCurrentPlaybackPosition(bridge, lpparm);
-                        if (position != -1) {
-                            initialPosition = position;
-                            startedSyncAt = updatedAt;
+                    if (isPlaying) {
+                        if (updatedAt > startedSyncAt + nextSyncAt) {
+                            // Get the current position from Spotify
+                            long position = References.getCurrentPlaybackPosition(bridge, lpparm);
+                            if (position != -1) {
+                                initialPosition = position;
+                                startedSyncAt = updatedAt;
 
-                            syncIndex++;
+                                syncIndex++;
 
-                            if (syncIndex < syncTimings.length) {
-                                nextSyncAt = syncTimings[syncIndex];
-                            } else {
-                                nextSyncAt = 33;
+                                if (syncIndex < syncTimings.length) {
+                                    nextSyncAt = syncTimings[syncIndex];
+                                } else {
+                                    nextSyncAt = 33;
+                                }
                             }
                         }
+
+                        double syncedTimestamp = (initialPosition + (updatedAt - startedSyncAt)) / 1000d;
+                        double deltaTime = (updatedAt - lastUpdatedAt) / 1000d;
+
+                        update(vocalGroups, syncedTimestamp, deltaTime, Math.abs(syncedTimestamp - lastTimestamp) > 0.075d);
+                        updateLineAnimations(deltaTime, scrollView);
+                        lastTimestamp = syncedTimestamp;
                     }
-
-                    double syncedTimestamp = (initialPosition + (updatedAt - startedSyncAt)) / 1000d;
-                    double deltaTime = (updatedAt - lastUpdatedAt) / 1000d;
-
-                    update(vocalGroups, syncedTimestamp, deltaTime, Math.abs(syncedTimestamp - lastTimestamp) > 0.075d);
-                    updateLineAnimations(deltaTime, scrollView);
-                    lastTimestamp = syncedTimestamp;
 
                     lastUpdatedAt = updatedAt;
 
@@ -927,33 +1264,195 @@ public class BeautifulLyricsHook extends SpotifyHook {
         mainLoop.start();
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    private void RenderSyncLyrics(Activity activity, LinearLayout lyricsContainer, ScrollView scroller, String id) {
-        List<Object> vocals = new ArrayList<>();
-        AtomicInteger index = new AtomicInteger();
-        AtomicInteger wordIndex = new AtomicInteger();
-        AtomicInteger lineIndex = new AtomicInteger();
-        AtomicLong startedAt = new AtomicLong();
-        AtomicInteger lineCount = new AtomicInteger();
-        final SyllableVocal[] currentLine = {null};
+    private void registerLineRoots(List<View> roots) {
+        lineRoots.clear();
+        lineIndex.clear();
 
-        final boolean[] started = {false};
-        List<LineVocal> lines = lineLyrics.content.stream().filter(x -> x instanceof LineVocal).map(x -> (LineVocal) x).collect(Collectors.toList());
-        lineCount.set(lines.size());
+        for (int i = 0; i < roots.size(); i++) {
+            View v = roots.get(i);
+            lineRoots.add(v);
+            lineIndex.put(v, i);
+        }
 
-        lyricsContainer.post(() -> {
-            for (int i = 0; i < lines.size(); i++) {
-                LineVocal line = lines.get(i);
-                String content = line.text;
+        activeLineIndex = -1;
+        lastAppliedActiveIndex = Integer.MIN_VALUE;
+        lastBlurAllowed = true;
+    }
+
+    private void onActiveLineChanged(View anyViewInsideLine, LinearLayout lyricsContainer) {
+        View root = findLineRoot(anyViewInsideLine, lyricsContainer);
+        if (root == null) return;
+
+        Integer idx = lineIndex.get(root);
+        if (idx == null) idx = lineRoots.indexOf(root);
+        if (idx == null || idx < 0) return;
+
+        activeLineIndex = idx;
+
+        // Apply/refresh focus effects on UI thread
+        lyricsContainer.post(this::applyLineFocusEffects);
+    }
+
+    private View findLineRoot(View v, LinearLayout lyricsContainer) {
+        View cur = v;
+        while (cur != null) {
+            ViewParent p = cur.getParent();
+            if (p == lyricsContainer) return cur;
+            if (!(p instanceof View)) return null;
+            cur = (View) p;
+        }
+        return null;
+    }
+
+    private void applyLineFocusEffects() {
+        boolean blurAllowed = isFollowingPlayback && !isUserInteracting;
+
+        // if user is scrolling or we aren't following playback, clear everything
+        if (!blurAllowed) {
+            if (lastBlurAllowed) {
+                clearAllLineBlur();
+                lastBlurAllowed = false;
+            }
+            return;
+        }
+
+        lastBlurAllowed = true;
+
+        if (activeLineIndex < 0) {
+            clearAllLineBlur();
+            return;
+        }
+
+        // no need to redo if same active line and blur is allowed
+        if (activeLineIndex == lastAppliedActiveIndex) return;
+        lastAppliedActiveIndex = activeLineIndex;
+
+        for (int i = 0; i < lineRoots.size(); i++) {
+            View line = lineRoots.get(i);
+
+            int dist = Math.abs(i - activeLineIndex);
+            int bucket = Math.min(dist, BLUR_MAX_DISTANCE);
+
+            float radiusDp = BLUR_LEVELS_DP[bucket];
+            float radiusPx = dpToPxF(radiusDp, line);
+
+            setLineBlur(line, radiusPx);
+        }
+    }
+
+    private void clearAllLineBlur() {
+        for (View line : lineRoots) {
+            setLineBlur(line, 0f);
+        }
+    }
+
+    private float dpToPxF(float dp, View v) {
+        return TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                dp,
+                v.getResources().getDisplayMetrics()
+        );
+    }
+
+    private void setLineBlur(View line, float radiusPx) {
+        // No blur requested → clear effect
+        if (radiusPx <= 0.01f) {
+            RenderEffectCompat.clear(line);
+            // optional: drop hardware layer if you want
+            // line.setLayerType(View.LAYER_TYPE_NONE, null);
+            return;
+        }
+
+        // optional: force hardware layer for performance stability
+        // line.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
+        RenderEffectCompat.blur(line, radiusPx);
+    }
+
+    private static final class RenderEffectCompat {
+        private static boolean checked;
+        private static boolean available;
+
+        private static Class<?> cRenderEffect;
+        private static java.lang.reflect.Method mCreateBlurEffect;
+        private static java.lang.reflect.Method mSetRenderEffect;
+
+        // cache by integer px so we aren’t allocating a new effect constantly
+        private static final Map<Integer, Object> blurCache = new HashMap<>();
+
+        private static void ensure() {
+            if (checked) return;
+            checked = true;
+
+            try {
+                cRenderEffect = Class.forName("android.graphics.RenderEffect");
+                mCreateBlurEffect = cRenderEffect.getMethod(
+                        "createBlurEffect",
+                        float.class, float.class, android.graphics.Shader.TileMode.class
+                );
+                mSetRenderEffect = View.class.getMethod("setRenderEffect", cRenderEffect);
+                available = true;
+            } catch (Throwable t) {
+                available = false;
+            }
+        }
+
+        static void blur(View v, float radiusPx) {
+            ensure();
+            if (!available) return;
+
+            try {
+                int key = Math.max(1, Math.round(radiusPx));
+                Object effect = blurCache.get(key);
+                if (effect == null) {
+                    effect = mCreateBlurEffect.invoke(null, (float) key, (float) key, android.graphics.Shader.TileMode.CLAMP);
+                    blurCache.put(key, effect);
+                }
+                mSetRenderEffect.invoke(v, effect);
+            } catch (Throwable ignored) {
+            }
+        }
+
+        static void clear(View v) {
+            ensure();
+            if (!available) return;
+
+            try {
+                mSetRenderEffect.invoke(v, new Object[]{null});
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+
+    private void renderSyncLyricsSplitting(Activity activity, LinearLayout lyricsContainer, ScrollView scroller, String id, View root) {
+        var font = References.beautifulFont.get();
+
+        for (var item : lineLyrics.content) {
+            if (item instanceof LineVocal) {
+                LineVocal vocal = (LineVocal) item;
+
+                FlexboxLayout lineGroup = new FlexboxLayout(activity.getApplicationContext());
+                lineGroup.setFlexWrap(FlexWrap.WRAP);
+                lineGroup.setClipToPadding(false);
+                lineGroup.setClipChildren(false);
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                lineGroup.setLayoutParams(params);
+                lineGroup.setPadding(dpToPx(6, activity), dpToPx(8, activity), dpToPx(6, activity), dpToPx(8, activity));
+
+                String content = vocal.text;
 
                 SyllableVocalSet set = new SyllableVocalSet();
                 set.type = "Vocal";
-                set.oppositeAligned = line.oppositeAligned;
+                set.oppositeAligned = vocal.oppositeAligned;
                 SyllableVocal vocalThing = new SyllableVocal();
                 vocalThing.syllables = new ArrayList<>();
                 set.lead = vocalThing;
 
-                if (line.text.contains("(")) {
+                List<Integer> wordStartsForThisLine = new ArrayList<>();
+                int syllableIndex = 0;
+
+                if (vocal.text.contains("(")) {
                     // Filter out backing vocals
                     set.background = new ArrayList<>();
 
@@ -992,28 +1491,209 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                 if (content.isEmpty()) continue;
 
-                String[] words = content.split(" ");
+                String leadVocals = content;
+                XModuleResources res = References.modResources;
+                FrameLayout wordPopup = root.findViewById(res.getIdentifier("split_word_view", "id", "com.lenerd46.spotifyplus"));
+                LinearLayout wordContainer = root.findViewById(res.getIdentifier("split_word_text_container", "id", "com.lenerd46.spotifyplus"));
+                LinearLayout bottomBar = root.findViewById(res.getIdentifier("bottom_bar", "id", "com.lenerd46.spotifyplus"));
+                // It's not really on the bottom, but idk
 
-                FlexboxLayout layout = new FlexboxLayout(activity);
-                layout.setFlexDirection(FlexDirection.ROW);
-                layout.setFlexWrap(FlexWrap.WRAP);
-                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                params.setMargins(dpToPx(25, activity), dpToPx(40, activity), dpToPx(30, activity), 0);
-                layout.setLayoutParams(params);
+                View cursor = root.findViewById(res.getIdentifier("split_word_caret", "id", "com.lenerd46.spotifyplus"));
+                Button leftButton = root.findViewById(res.getIdentifier("split_word_left", "id", "com.lenerd46.spotifyplus"));
+                Button rightButton = root.findViewById(res.getIdentifier("split_word_right", "id", "com.lenerd46.spotifyplus"));
+                Button confirmButton = root.findViewById(res.getIdentifier("split_word_confirm", "id", "com.lenerd46.spotifyplus"));
+                Button splitButton = root.findViewById(res.getIdentifier("split_word_split", "id", "com.lenerd46.spotifyplus"));
 
-                for (int j = 0; j < words.length; j++) {
-                    TextView text = new TextView(activity);
-                    text.setText(words[j]);
-                    text.setTextColor(0x3CFFFFFF);
-                    text.setTextSize(26f);
-                    text.setTypeface(References.beautifulFont.get());
+                Button startSyncConfirmButton = root.findViewById(res.getIdentifier("sync_confirm_button", "id", "com.lenerd46.spotifyplus"));
+                Button skipButton = root.findViewById(res.getIdentifier("sync_skip_button", "id", "com.lenerd46.spotifyplus"));
+
+                leftButton.setOnClickListener((btn) -> {
+                    cursorPosition -= cursorPosition <= 1 ? 0 : 1;
+
+                    TextView text = (TextView) wordContainer.getChildAt(cursorPosition);
+                    var cursorX = text.getX() + text.getWidth();
+
+                    cursor.setX(cursorX);
+                });
+
+                rightButton.setOnClickListener((btn) -> {
+                    cursorPosition += cursorPosition == wordContainer.getChildCount() - 2 ? 0 : 1;
+
+                    TextView text = (TextView) wordContainer.getChildAt(cursorPosition);
+                    var cursorX = text.getX() + text.getWidth();
+
+                    cursor.setX(cursorX);
+                });
+
+                splitButton.setOnClickListener((btn) -> {
+                    splits.add(cursorPosition);
+                    TextView text = (TextView) wordContainer.getChildAt(cursorPosition);
+
+                    LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                    layoutParams.setMargins(0, 0, dpToPx(2, activity), 0);
+
+                    text.setLayoutParams(layoutParams);
+                });
+
+                confirmButton.setOnClickListener((btn) -> {
+                    SyllableVocalSet vocalSet = (SyllableVocalSet) syllables.get(selectedLineIndex);
+                    List<Integer> wordStarts = wordStartIndices.get(selectedLineIndex);
+                    int syllableStartIndex = wordStarts.get(selectedWordIndex);
+                    String word = currentWordText;
+
+                    List<SyllableMetadata> parts = new ArrayList<>();
+                    int start = 0;
+
+                    for (var index : splits) {
+                        SyllableMetadata newMetadata = new SyllableMetadata();
+                        newMetadata.text = word.substring(start, index);
+                        newMetadata.isPartOfWord = true;
+
+                        parts.add(newMetadata);
+                        start = index;
+                    }
+
+                    SyllableMetadata newMetadata = new SyllableMetadata();
+                    newMetadata.text = word.substring(start);
+                    newMetadata.isPartOfWord = false;
+
+                    parts.add(newMetadata);
+
+                    vocalSet.lead.syllables.remove(syllableStartIndex);
+                    vocalSet.lead.syllables.addAll(syllableStartIndex, parts);
+
+                    int delta = parts.size() - 1;
+                    for (int i = selectedWordIndex + 1; i < wordStarts.size(); i++) {
+                        wordStarts.set(i, wordStarts.get(i) + delta);
+                    }
+
+                    wordPopup.setVisibility(View.GONE);
+
+                    selectedLineIndex = 0;
+                    selectedWordIndex = 0;
+                });
+
+                startSyncConfirmButton.setOnClickListener((btn) -> {
+                    lyricsContainer.removeAllViews();
+                    bottomBar.setVisibility(LinearLayout.GONE);
+                    renderSyncLyrics(activity, lyricsContainer, scroller, id);
+                });
+
+                skipButton.setOnClickListener((btn) -> {
+                    lyricsContainer.removeAllViews();
+                    bottomBar.setVisibility(LinearLayout.GONE);
+                    renderSyncLyrics(activity, lyricsContainer, scroller, id);
+                });
+
+                for (var word : leadVocals.split(" ")) {
+                    var button = new TextView(activity);
+                    button.setText(word);
+                    button.setTextColor(0xFFE0E0E0);
+                    button.setTextSize(32f);
+                    button.setPadding(0, 0, dpToPx(1, activity), 0);
+                    button.setTypeface(font);
+
                     FlexboxLayout.LayoutParams textParams = new FlexboxLayout.LayoutParams(FlexboxLayout.LayoutParams.WRAP_CONTENT, FlexboxLayout.LayoutParams.WRAP_CONTENT);
-                    textParams.setMargins(0, 0, dpToPx(8, activity), 0);
-                    text.setLayoutParams(textParams);
+                    textParams.setMargins(0, 0, dpToPx(5, activity), 0);
+                    button.setLayoutParams(textParams);
+
+                    button.setOnClickListener((btn) -> {
+                        TextView self = (TextView) btn;
+
+                        splits.clear();
+                        cursorPosition = 1;
+                        cursor.setX(wordContainer.getChildAt(0).getX());
+
+                        for (int i = wordContainer.getChildCount() - 1; i >= 0; i--) {
+                            View child = wordContainer.getChildAt(i);
+                            if (child instanceof TextView) {
+                                wordContainer.removeViewAt(i);
+                            }
+                        }
+
+
+                        ViewGroup lineLayout = (ViewGroup) self.getParent();
+
+                        selectedLineIndex = lyricsContainer.indexOfChild(lineLayout);
+                        selectedWordIndex = lineLayout.indexOfChild(self);
+                        currentWordText = self.getText().toString();
+
+                        for (var letter : ((String) (self.getText())).toCharArray()) {
+                            TextView text = new TextView(activity);
+                            text.setText(String.valueOf(letter));
+                            text.setTextColor(0x3CFFFFFF);
+                            text.setTextSize(26f);
+                            text.setTypeface(font);
+
+                            wordContainer.addView(text);
+                        }
+
+                        wordPopup.setVisibility(FrameLayout.VISIBLE);
+                    });
+
+                    lineGroup.addView(button);
+                    wordStartsForThisLine.add(syllableIndex);
 
                     SyllableMetadata metadata = new SyllableMetadata();
-                    metadata.text = words[j];
+                    metadata.text = word;
                     metadata.isPartOfWord = false;
+
+                    set.lead.syllables.add(metadata);
+                    syllableIndex++;
+                }
+
+                syllables.add(set);
+                wordStartIndices.add(wordStartsForThisLine);
+                lyricsContainer.addView(lineGroup);
+            }
+        }
+    }
+
+    private int selectedLineIndex = 0;
+    private int selectedWordIndex = 0;
+    private int cursorPosition = 0;
+
+    private final List<Object> syllables = new ArrayList<>();
+    private final List<List<Integer>> wordStartIndices = new ArrayList<>();
+    private final List<Integer> splits = new ArrayList<>();
+    private String currentWordText = "";
+
+    @SuppressLint("ClickableViewAccessibility")
+    private void renderSyncLyrics(Activity activity, LinearLayout lyricsContainer, ScrollView scroller, String id) {
+        AtomicInteger index = new AtomicInteger();
+        AtomicInteger wordIndex = new AtomicInteger();
+        AtomicInteger lineIndex = new AtomicInteger();
+        AtomicLong startedAt = new AtomicLong();
+        AtomicInteger lineCount = new AtomicInteger();
+        final SyllableVocal[] currentLine = {null};
+        var font = References.beautifulFont.get();
+
+        final boolean[] started = {false};
+        List<LineVocal> lines = lineLyrics.content.stream().filter(x -> x instanceof LineVocal).map(x -> (LineVocal) x).collect(Collectors.toList());
+        lineCount.set(lines.size());
+
+        lyricsContainer.post(() -> {
+            for (var lineThing : syllables) {
+                SyllableVocalSet line = (SyllableVocalSet) lineThing;
+                FlexboxLayout layout = new FlexboxLayout(activity.getApplicationContext());
+                layout.setFlexWrap(FlexWrap.WRAP);
+                layout.setClipToPadding(false);
+                layout.setClipChildren(false);
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                layout.setLayoutParams(params);
+                layout.setPadding(dpToPx(6, activity), dpToPx(8, activity), dpToPx(6, activity), dpToPx(8, activity));
+
+                for (int j = 0; j < line.lead.syllables.size(); j++) {
+                    TextView text = new TextView(activity);
+                    text.setText(line.lead.syllables.get(j).text);
+                    text.setTextColor(0x3CFFFFFF);
+                    text.setTextSize(32f);
+                    text.setPadding(0, 0, dpToPx(1, activity), 0);
+                    text.setTypeface(font);
+
+                    FlexboxLayout.LayoutParams textParams = new FlexboxLayout.LayoutParams(FlexboxLayout.LayoutParams.WRAP_CONTENT, FlexboxLayout.LayoutParams.WRAP_CONTENT);
+                    textParams.setMargins(0, 0, dpToPx(5, activity), 0);
+                    text.setLayoutParams(textParams);
 
                     layout.addView(text);
                 }
@@ -1035,7 +1715,10 @@ public class BeautifulLyricsHook extends SpotifyHook {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 if (!started[0]) return true;
 
-                FlexboxLayout container = (FlexboxLayout) lyricsContainer.getChildAt(lineIndex.get());
+                View view = lyricsContainer.getChildAt(lineIndex.get());
+                if (!(view instanceof FlexboxLayout)) return true;
+
+                FlexboxLayout container = (FlexboxLayout) view;
                 TextView textView = (TextView) container.getChildAt(wordIndex.get());
 
                 double seconds = (System.currentTimeMillis() - startedAt.get()) / 1000.0;
@@ -1048,12 +1731,13 @@ public class BeautifulLyricsHook extends SpotifyHook {
                     currentLine[0] = temp;
                 }
 
-                SyllableMetadata metadata = new SyllableMetadata();
-                metadata.startTime = seconds;
-                metadata.text = textView.getText().toString();
-                metadata.isPartOfWord = false;
+                SyllableVocal current = ((SyllableVocalSet) syllables.get(lineIndex.get())).lead;
 
-                currentLine[0].syllables.add(metadata);
+                if (wordIndex.get() == 0) {
+                    current.startTime = seconds;
+                }
+
+                current.syllables.get(wordIndex.get()).startTime = seconds;
 
                 textView.setShadowLayer(4f, 2f, 2f, Color.WHITE);
                 textView.animate().scaleX(1.05f).scaleY(1.05f).translationY(-dpToPx(2, activity)).setInterpolator(new OvershootInterpolator()).setDuration(250).start();
@@ -1080,13 +1764,17 @@ public class BeautifulLyricsHook extends SpotifyHook {
                     return true;
                 }
 
-                FlexboxLayout container = (FlexboxLayout) lyricsContainer.getChildAt(lineIndex.get());
+                View view = lyricsContainer.getChildAt(lineIndex.get());
+                if (!(view instanceof FlexboxLayout)) return true;
+
+                FlexboxLayout container = (FlexboxLayout) view;
+
                 TextView textView = (TextView) container.getChildAt(wordIndex.get());
                 LineVocal line = lines.get(lineIndex.get());
 
                 double seconds = (System.currentTimeMillis() - startedAt.get()) / 1000.0;
 
-                currentLine[0].syllables.get(currentLine[0].syllables.size() - 1).endTime = seconds;
+                ((SyllableVocalSet) syllables.get(lineIndex.get())).lead.syllables.get(wordIndex.get()).endTime = seconds;
 
                 textView.animate().scaleX(1f).scaleY(1f).translationY(0f).setInterpolator(new OvershootInterpolator()).setDuration(250).start();
                 textView.setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT);
@@ -1096,29 +1784,28 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                 // We've reached the last word in the line
                 if (wordIndex.get() == container.getChildCount()) {
+                    ((SyllableVocalSet) syllables.get(lineIndex.get())).lead.endTime = seconds;
+
                     wordIndex.set(0);
                     lineIndex.getAndIncrement();
 
-                    currentLine[0].endTime = seconds;
+//                    SyllableVocalSet newSet = new SyllableVocalSet();
+//                    newSet.type = "Vocal";
+//                    newSet.oppositeAligned = line.oppositeAligned;
+//                    newSet.lead = currentLine[0];
+//
+//                    vocals.add(newSet);
 
-                    SyllableVocalSet newSet = new SyllableVocalSet();
-                    newSet.type = "Vocal";
-                    newSet.oppositeAligned = line.oppositeAligned;
-                    newSet.lead = currentLine[0];
-
-                    vocals.add(newSet);
-
-                    currentLine[0] = null;
+//                    currentLine[0] = null;
                     scrollToNewLine(lyricsContainer.getChildAt(lineIndex.get()), scroller, false);
                 }
 
                 // We've reached the end of the song
                 if (lineIndex.get() == lineCount.get()) {
-
                     SyllableSyncedLyrics syllableLyrics = new SyllableSyncedLyrics();
-                    syllableLyrics.content = vocals;
-                    syllableLyrics.startTime = ((SyllableVocalSet) (vocals.get(0))).lead.startTime;
-                    syllableLyrics.endTime = ((SyllableVocalSet) (vocals.get(vocals.size() - 1))).lead.endTime;
+                    syllableLyrics.content = syllables;
+                    syllableLyrics.startTime = ((SyllableVocalSet) (syllables.get(0))).lead.startTime;
+                    syllableLyrics.endTime = ((SyllableVocalSet) (syllables.get(syllables.size() - 1))).lead.endTime;
 
                     Gson gson = new Gson();
                     String json = gson.toJson(syllableLyrics);
@@ -1133,12 +1820,20 @@ public class BeautifulLyricsHook extends SpotifyHook {
                         @Override
                         public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
                             if (response.isSuccessful()) {
-                                Toast.makeText(activity, "Lyrics Uploaded!", Toast.LENGTH_LONG).show();
+                                Handler mainHandler = new Handler(Looper.getMainLooper());
+                                mainHandler.post(() -> {
+                                    Toast.makeText(activity, "Lyrics Uploaded!", Toast.LENGTH_LONG).show();
+                                });
+
                                 XposedBridge.log("[SpotifyPlus] Success!");
 
                                 activity.onBackPressed();
                             } else {
-                                Toast.makeText(activity, "Failed to upload lyrics", Toast.LENGTH_LONG).show();
+                                Handler mainHandler = new Handler(Looper.getMainLooper());
+                                mainHandler.post(() -> {
+                                    Toast.makeText(activity, "Failed to upload lyrics", Toast.LENGTH_LONG).show();
+                                });
+
                                 XposedBridge.log("[SpotifyPlus] " + response.code() + " " + response.message());
                             }
                         }
@@ -1156,146 +1851,161 @@ public class BeautifulLyricsHook extends SpotifyHook {
         });
     }
 
-    private ValueAnimator lyricsScrollAnimator = new ValueAnimator();
-
-    private Map<View, Spring> lineSprings = new HashMap<>();
-    private Map<View, Long> lineAnimationStartTimes = new HashMap<>();
-    private double currentScrollOffset = 0;
-    private boolean isAnimatingScroll = false;
-    private static final double LINE_ANIMATION_DELAY = 30;
-    private static final double SCROLL_SPRING_FREQUENCY = 1.8;
-    private static final double SCROLL_SPRING_DAMPING = 0.75;
-
-    private void updateLineAnimations(double deltaTime, ScrollView scrollView) {
-        if (lineSprings.isEmpty()) return;
-
+    private void updateLineAnimations(double deltaTime, View containerView) {
         long currentTime = System.currentTimeMillis();
+        List<View> views = new ArrayList<>(lineSprings.keySet());
 
-        for (Map.Entry<View, Spring> entry : lineSprings.entrySet()) {
-            View line = entry.getKey();
-            Spring spring = entry.getValue();
+        containerView.post(() -> {
+            for (View line : views) {
+                Spring spring = lineSprings.get(line);
+                if (spring == null) continue;
 
-            Long startTime = lineAnimationStartTimes.get(line);
-            if (startTime != null && currentTime >= startTime) {
-                lineAnimationStartTimes.remove(line);
-            } else if (startTime != null) {
-                continue;
+                Long startTime = lineAnimationStartTimes.get(line);
+                if (startTime != null) {
+                    if (currentTime < startTime) {
+                        continue;
+                    } else {
+                        lineAnimationStartTimes.remove(line);
+                    }
+                }
+
+                if (isUserInteracting) {
+                    spring.finalPosition = targetScrollOffset;
+                }
+
+                double newOffset = spring.update(deltaTime);
+                line.setTranslationY((float) newOffset);
             }
-
-            double yPosition = spring.update(deltaTime);
-            line.post(() -> line.setTranslationY((float) yPosition));
-        }
-    }
-
-    private void maybeCommitScrollIfAllAtRest(ScrollView scrollView, List<View> lines) {
-        for (View line : lines) {
-            Spring spring = lineSprings.get(line);
-            if (spring == null) continue;
-
-            double positionDifference = Math.abs(spring.position = spring.finalPosition);
-            double velocityMagnitude = Math.abs(spring.velocity);
-
-            if (positionDifference > 1.0 || velocityMagnitude > 0.5) return;
-        }
-
-        commitScroll(scrollView, (int) currentScrollOffset);
-    }
-
-
-    private void commitScroll(ScrollView scrollView, int offset) {
-//        isAnimatingScroll = false;
-//        scrollView.post(() -> {
-//            scrollView.scrollTo(0, offset);
-//
-//            for (View view : lineSprings.keySet()) {
-//                view.setTranslationY(0f);
-//            }
-//
-//            XposedBridge.log("[SpotifyPlus] Scroll offset: " + offset);
-//
-////            currentScrollOffset = offset;
-//            lineSprings.clear();
-//            lineAnimationStartTimes.clear();
-//        });
+        });
     }
 
     private void experimentalScrollToNewLine(View activeLine, LinearLayout lyricsContainer, boolean immediate) {
+        if (isUserInteracting || !isFollowingPlayback) return;
+
         List<View> allLines = new ArrayList<>();
-        for (int i = 0; i < lyricsContainer.getChildCount() - 1; i++) {
-            View child = lyricsContainer.getChildAt(i);
-            allLines.add(child);
+        for (int i = 0; i < lyricsContainer.getChildCount(); i++) {
+            allLines.add(lyricsContainer.getChildAt(i));
         }
 
-        View activeLineContainer = activeLine;
-        while (activeLineContainer.getParent() != lyricsContainer && activeLineContainer.getParent() != null) {
-            activeLineContainer = (View) activeLineContainer.getParent();
+        View finalLine = activeLine;
+        while (finalLine.getParent() != lyricsContainer && finalLine.getParent() != null) {
+            finalLine = (View) finalLine.getParent();
         }
 
-//        Rect r = new Rect();
-//        if(!activeLineContainer.getGlobalVisibleRect(r)) return;
-
-        int activeIndex = -1;
-        for (int i = 0; i < allLines.size(); i++) {
-            if (allLines.get(i) == activeLineContainer) {
-                activeIndex = i;
-                break;
-            }
-        }
-
+        int activeIndex = allLines.indexOf(finalLine);
         if (activeIndex == -1) return;
 
-        View finalActiveLineContainer = activeLineContainer;
-        int finalActiveIndex = activeIndex;
+        final int finalActiveIndex = activeIndex;
+        final View finalLineForCalc = finalLine;
+
         lyricsContainer.post(() -> {
             try {
-                final int containerHeight = lyricsContainer.getHeight();
-                final int activeLineTop = finalActiveLineContainer.getTop();
-                final int activeLineHeight = finalActiveLineContainer.getHeight();
-                final int targetPosition = (int) (containerHeight * SCROLL_POSITION_RATIO) - activeLineHeight / 2;
-                final double newScrollOffset = activeLineTop - targetPosition;
+                if (lyricsContainer.getParent() instanceof View) {
+                    viewportHeight = ((View) lyricsContainer.getParent()).getHeight();
+                }
+                if (viewportHeight <= 0) return;
+
+                int activeLineTop = finalLineForCalc.getTop();
+                int activeLineHeight = finalLineForCalc.getHeight();
+
+                int screenTargetY =
+                        (int) (viewportHeight * SCROLL_POSITION_RATIO) - (activeLineHeight / 2);
+
+                double newGlobalOffset = screenTargetY - activeLineTop;
+                targetScrollOffset = newGlobalOffset;
+
+                limitScrollBounds(lyricsContainer);
 
                 long currentTime = System.currentTimeMillis();
 
                 for (int i = 0; i < allLines.size(); i++) {
                     View line = allLines.get(i);
-
-                    long delay;
-                    int distance = Math.abs(i - finalActiveIndex);
-
-                    if (i == finalActiveIndex) {
-                        delay = 0;
-                    } else if (i < finalActiveIndex) {
-                        delay = (long) (distance * LINE_ANIMATION_DELAY * 0.3);
-                    } else {
-                        delay = (long) (distance * LINE_ANIMATION_DELAY);
-                    }
-
                     Spring spring = lineSprings.get(line);
 
                     if (spring == null) {
-                        spring = new Spring(-currentScrollOffset, SCROLL_SPRING_DAMPING, SCROLL_SPRING_FREQUENCY);
+                        spring = new Spring(targetScrollOffset,
+                                SCROLL_SPRING_DAMPING,
+                                SCROLL_SPRING_FREQUENCY);
                         lineSprings.put(line, spring);
                     }
 
                     if (immediate) {
-                        spring.set(-newScrollOffset);
-                        line.setTranslationY((float) -newScrollOffset);
-
-                        if (i == allLines.size() - 1) {
-                            commitScroll((ScrollView) lyricsContainer.getParent(), (int) newScrollOffset);
-                        }
+                        spring.set(targetScrollOffset);
+                        line.setTranslationY((float) targetScrollOffset);
+                        lineAnimationStartTimes.remove(line);
                     } else {
-                        spring.finalPosition = -newScrollOffset;
-                        lineAnimationStartTimes.put(line, currentTime + delay);
+                        long delay;
+                        int distance = Math.abs(i - finalActiveIndex);
+
+                        if (i == finalActiveIndex) {
+                            delay = 0;
+                        } else if (i < finalActiveIndex) {
+                            delay = (long) (distance * LINE_ANIMATION_DELAY * 0.3);
+                        } else {
+                            delay = (long) (distance * LINE_ANIMATION_DELAY);
+                        }
+
+                        spring.finalPosition = targetScrollOffset;
+
+                        if (delay > 0) {
+                            lineAnimationStartTimes.put(line, currentTime + delay);
+                        } else {
+                            lineAnimationStartTimes.remove(line);
+                        }
                     }
                 }
-
-                currentScrollOffset = newScrollOffset;
             } catch (Exception e) {
                 XposedBridge.log(e);
             }
         });
     }
+
+    private void computeLogicalLayout(LinearLayout container) {
+        logicalLineTops.clear();
+        lineBaseOffsets.clear();
+
+        int width = container.getWidth();
+        if (width == 0) {
+            width = container.getResources().getDisplayMetrics().widthPixels;
+        }
+
+        int widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY);
+        int heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+        container.measure(widthSpec, heightSpec);
+
+        int y = container.getPaddingTop();
+
+        for (int i = 0; i < container.getChildCount(); i++) {
+            View child = container.getChildAt(i);
+            ViewGroup.MarginLayoutParams lp =
+                    (ViewGroup.MarginLayoutParams) child.getLayoutParams();
+
+            y += lp.topMargin;
+            logicalLineTops.put(child, y);
+            y += child.getMeasuredHeight() + lp.bottomMargin;
+        }
+
+        contentHeight = y + container.getPaddingBottom();
+
+        for (int i = 0; i < container.getChildCount(); i++) {
+            View child = container.getChildAt(i);
+            Integer logicalTop = logicalLineTops.get(child);
+            if (logicalTop == null) continue;
+
+            int actualTop = child.getTop();
+            lineBaseOffsets.put(child, (double) (logicalTop - actualTop));
+        }
+
+        View parent = (View) container.getParent();
+        if (parent != null) {
+            viewportHeight = parent.getHeight();
+        }
+    }
+
+    private ValueAnimator lyricsScrollAnimator = new ValueAnimator();
+
+    private double currentScrollOffset = 0;
+    private boolean isAnimatingScroll = false;
 
     private void scrollToNewLine(View activeLine, ScrollView scrollView, boolean immediate) {
         scrollView.post(() -> {
@@ -1314,10 +2024,9 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 lyricsScrollAnimator.cancel();
             }
 
-            // Check if we should scroll at all (is the current line within view)
             if (immediate || (!scrollView.isPressed() && lineTopInSv >= scrollY && lineBottom <= scrollY + scrollViewHeight)) {
                 lyricsScrollAnimator = ValueAnimator.ofFloat(scrollView.getScrollY(), targetScroll);
-                lyricsScrollAnimator.setDuration(SCROLL_ANIMATION_DURATION);
+                lyricsScrollAnimator.setDuration(400);
                 lyricsScrollAnimator.setInterpolator(new DecelerateInterpolator());
 
                 lyricsScrollAnimator.addUpdateListener(animation -> {
@@ -1329,7 +2038,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
             }
 
             activeLine.setPivotY(activeLine.getHeight() / 2.0f);
-            activeLine.animate().scaleX(MAX_SCALE).scaleY(MAX_SCALE).setDuration(ANIMATION_DURATION).setInterpolator(new OvershootInterpolator());
+            activeLine.animate().scaleX(1.008f).scaleY(1.008f).setDuration(400).setInterpolator(new OvershootInterpolator());
         });
     }
 
@@ -1361,6 +2070,34 @@ public class BeautifulLyricsHook extends SpotifyHook {
         }
     }
 
+    private TrackAnalysis getTrackAnalysis(String id) {
+        OkHttpClient client = new OkHttpClient();
+        Gson gson = new Gson();
+
+        Request request = new Request.Builder().url("https://api.reccobeats.com/v1/audio-features?ids=" + id).get().build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                Handler mainHandler = new Handler(Looper.getMainLooper());
+                mainHandler.post(() -> {
+                    Toast.makeText(References.currentActivity, "Failed to get track analysis", Toast.LENGTH_LONG).show();
+                });
+
+                return TrackAnalysis.defaultTrack;
+            }
+
+            String body = response.body().string();
+            return gson.fromJson(body, TrackAnalysis.class);
+        } catch (IOException e) {
+            Handler mainHandler = new Handler(Looper.getMainLooper());
+            mainHandler.post(() -> {
+                Toast.makeText(References.currentActivity, "Failed to get track analysis", Toast.LENGTH_LONG).show();
+            });
+
+            return TrackAnalysis.defaultTrack;
+        }
+    }
+
     private Drawable createChevronDownIcon(Activity context) {
         int size = dpToPx(24, context);
         Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
@@ -1376,7 +2113,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
         float scale = size / 24f;
 
-        // Draw chevron down
         Path path = new Path();
         path.moveTo(6f * scale, 9f * scale);
         path.lineTo(12f * scale, 15f * scale);
