@@ -1,7 +1,6 @@
 package com.lenerd46.spotifyplus;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.Application;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -15,7 +14,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.*;
-import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.TextView;
+import com.google.android.material.button.MaterialButton;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.lenerd46.spotifyplus.hooks.*;
@@ -92,7 +93,8 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
                 try {
                     Resources resources = XModuleResources.createInstance(modulePath, null);
-                    beautifulFont = Typeface.createFromAsset(resources.getAssets(), "fonts/lyrics_medium.ttf");
+//                    beautifulFont = Typeface.createFromAsset(resources.getAssets(), "fonts/lyrics_medium.ttf");
+                    beautifulFont = Typeface.createFromAsset(resources.getAssets(), "fonts/sf-pro-display-bold.ttf");
 
                     XposedBridge.log("[SpotifyPlus] Successfully loaded font!");
                 } catch (Throwable t) {
@@ -131,7 +133,7 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                 new AnimatedAlbumArtwork().init(lpparam, bridge);
                 new TestingHook().init(lpparam, bridge);
                 new NewContextMenuHook().init(lpparam, bridge);
-//                new LikedSongHook().init(lpparam, bridge);
+                //                new LikedSongHook().init(lpparam, bridge);
 //                new KaraokeHook().init(lpparam, bridge);
             }
         });
@@ -209,36 +211,65 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
                     JsonObject json = new JsonParser().parseString(content).getAsJsonObject();
                     String latest = json.get("tag_name").getAsString().replace("v", "");
-                    String current = MODULE_VERSION;
 
-                    if (isVersionGreater(latest, current)) {
+                    if (isVersionGreater(latest, MODULE_VERSION)) {
                         // New update available!
 
+                        ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
+                        if(root == null) return;
+
                         XModuleResources modResources = References.modResources;
-                        LayoutInflater inflater = LayoutInflater.from(activity);
-                        View dialogueView = inflater.inflate(modResources.getLayout(R.layout.dialogue_update), (ViewGroup) activity.getWindow().getDecorView(), false);
+                        int themeOverlayLast = R.style.Theme_SpotifyPlus;
+                        Context themedCtx = new ModuleContextWrapper(activity.getApplicationContext(), themeOverlayLast, modResources, ModuleContextWrapper.class.getClassLoader());
+                        LayoutInflater inflater = LayoutInflater.from(activity.getApplicationContext()).cloneInContext(themedCtx);
+                        View updateWindow = inflater.inflate(modResources.getIdentifier("update_view", "layout", "com.lenerd46.spotifyplus"), root, false);
+                        root.addView(updateWindow);
 
-                        Button download = dialogueView.findViewById(modResources.getIdentifier("download_button", "id", "com.lenerd46.spotifyplus"));
-                        Button later = dialogueView.findViewById(modResources.getIdentifier("later_button", "id", "com.lenerd46.spotifyplus"));
+                        FrameLayout background = updateWindow.findViewById(modResources.getIdentifier("update_popup_root", "id", "com.lenerd46.spotifyplus"));
+                        TextView versionText = updateWindow.findViewById(modResources.getIdentifier("update_popup_version", "id", "com.lenerd46.spotifyplus"));
+                        MaterialButton updateButton = updateWindow.findViewById(modResources.getIdentifier("btn_download_update", "id", "com.lenerd46.spotifyplus"));
+                        MaterialButton dismissButton = updateWindow.findViewById(modResources.getIdentifier("btn_dismiss_update", "id", "com.lenerd46.spotifyplus"));
 
-                        AlertDialog dialogue = new AlertDialog.Builder(activity).setView(dialogueView).create();
+                        versionText.setText("Current: v" + MODULE_VERSION + "  •  Latest: v" + latest);
 
-                        later.setOnClickListener(v -> dialogue.dismiss());
+                        background.setOnClickListener(layout -> {
+                            root.removeView(updateWindow);
+                        });
 
-                        download.setOnClickListener(v -> {
+                        updateButton.setOnClickListener(v -> {
+                            root.removeView(updateWindow);
+
                             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeNerd46/SpotifyPlus/releases"));
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             activity.startActivity(intent);
-                            dialogue.dismiss();
                         });
 
-                        dialogue.show();
+                        dismissButton.setOnClickListener(v -> root.removeView(updateWindow));
 
-                        Window dialogueWindow = dialogue.getWindow();
-                        if (dialogueWindow != null) {
-                            int width = activity.getResources().getDisplayMetrics().widthPixels;
-                            dialogueWindow.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
-                        }
+//                        LayoutInflater inflater = LayoutInflater.from(activity);
+//                        View dialogueView = inflater.inflate(modResources.getLayout(R.layout.dialogue_update), (ViewGroup) activity.getWindow().getDecorView(), false);
+//
+//                        Button download = dialogueView.findViewById(modResources.getIdentifier("download_button", "id", "com.lenerd46.spotifyplus"));
+//                        Button later = dialogueView.findViewById(modResources.getIdentifier("later_button", "id", "com.lenerd46.spotifyplus"));
+//
+//                        AlertDialog dialogue = new AlertDialog.Builder(activity).setView(dialogueView).create();
+//
+//                        later.setOnClickListener(v -> dialogue.dismiss());
+//
+//                        download.setOnClickListener(v -> {
+//                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeNerd46/SpotifyPlus/releases"));
+//                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+//                            activity.startActivity(intent);
+//                            dialogue.dismiss();
+//                        });
+//
+//                        dialogue.show();
+//
+//                        Window dialogueWindow = dialogue.getWindow();
+//                        if (dialogueWindow != null) {
+//                            int width = activity.getResources().getDisplayMetrics().widthPixels;
+//                            dialogueWindow.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
+//                        }
                     }
                 });
             });

@@ -1,6 +1,7 @@
 package com.lenerd46.spotifyplus.beautifullyrics.entities;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.*;
 import android.os.*;
 import android.view.Choreographer;
@@ -15,18 +16,15 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AnimatedBackgroundView extends View {
-    // Settings
-    private static final float DOWNSAMPLE_FACTOR = 0.12f;
+    private static float DOWNSAMPLE_FACTOR = 0.12f;
 
-    // Blur settings
-    private static final int BLUR_RADIUS = 40;
+    private static final int BLUR_RADIUS = 20;
     private static final int BLUR_PASSES = 1;
 
-    private static final int BLOB_COUNT = 16;
+    private static int BLOB_COUNT = 16;
     private static final long TRANSITION_DURATION_MS = 1000L;
     private static final int BUFFER_COUNT = 3;
 
-    // Palette modes
     private static final int PALETTE_COLORFUL = 0;
     private static final int PALETTE_DARK_MUTED = 1;
     private static final int PALETTE_BRIGHT_NEUTRAL = 2;
@@ -39,7 +37,6 @@ public class AnimatedBackgroundView extends View {
     private final AtomicBoolean isRendering = new AtomicBoolean(false);
     private final Object lock = new Object();
 
-    // Random instance (Unseeded for true randomness)
     private final Random random = new Random();
 
     private final Bitmap[] buffers = new Bitmap[BUFFER_COUNT];
@@ -47,7 +44,6 @@ public class AnimatedBackgroundView extends View {
     private int renderHeadIndex = 0;
     private Bitmap renderedBitmap;
 
-    private int viewW, viewH;
     private int offW = 1, offH = 1;
 
     private Bitmap sourceImage;
@@ -64,7 +60,6 @@ public class AnimatedBackgroundView extends View {
     private long transitionStartMs;
     private long lastFrameTimeNanos = 0;
 
-    // Animation modifiers based on analysis
     private float animationSpeedMultiplier = 1.0f;
     private float breathingFrequency = 1.0f;
 
@@ -81,9 +76,42 @@ public class AnimatedBackgroundView extends View {
             this.sourceImage = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
         }
 
+        SharedPreferences prefs = ctx.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
+        String quality = prefs.getString("lyric_background_quality", "high");
+
+        switch (quality) {
+            case "high":
+                DOWNSAMPLE_FACTOR = 0.12f;
+                BLOB_COUNT = 16;
+                break;
+
+            case "mid":
+                DOWNSAMPLE_FACTOR = 0.06f;
+                BLOB_COUNT = 10;
+                break;
+
+            case "low":
+                DOWNSAMPLE_FACTOR = 0.04f;
+                BLOB_COUNT = 6;
+                break;
+
+            case "superlow":
+                DOWNSAMPLE_FACTOR = 0.02f;
+                BLOB_COUNT = 4;
+                break;
+        }
+
         renderThread = new HandlerThread("FluidBG");
         renderThread.start();
         renderHandler = new Handler(renderThread.getLooper());
+
+        overlayBgPaint.setColor(0x88000000);
+        overlayTextPaint.setColor(Color.WHITE);
+        overlayTextPaint.setTextSize(dp(11));
+        overlayTextPaint.setFakeBoldText(true);
+
+        startTimeMs = SystemClock.elapsedRealtime();
+        lastMetricsSecondMs = startTimeMs;
 
         blobPaint.setXfermode(null);
         blobPaint.setStyle(Paint.Style.FILL);
@@ -96,6 +124,8 @@ public class AnimatedBackgroundView extends View {
                     ? 16_000_000
                     : (frameTimeNanos - lastFrameTimeNanos);
             lastFrameTimeNanos = frameTimeNanos;
+            updateUiMetrics(dt);
+
             renderHandler.post(() -> renderFrame(dt));
             Choreographer.getInstance().postFrameCallback(frameCallback);
         };
@@ -159,8 +189,6 @@ public class AnimatedBackgroundView extends View {
 
     private void allocateBuffersIfNeeded(int vw, int vh) {
         if (vw <= 0 || vh <= 0) return;
-        viewW = vw;
-        viewH = vh;
         int targetW = Math.max(1, Math.round(vw * DOWNSAMPLE_FACTOR));
         int targetH = Math.max(1, Math.round(vh * DOWNSAMPLE_FACTOR));
 
@@ -544,6 +572,8 @@ public class AnimatedBackgroundView extends View {
 
     private void renderFrame(long dtNanos) {
         if (!isRendering.compareAndSet(false, true)) return;
+        long renderStartNs = System.nanoTime();
+
         try {
             if (offW <= 0 || offH <= 0) return;
 
@@ -628,6 +658,10 @@ public class AnimatedBackgroundView extends View {
                 renderedBitmap = buffer;
                 renderHeadIndex = index;
             }
+
+            long renderEndNs = System.nanoTime();
+            updateRenderMetrics((renderEndNs - renderStartNs) / 1_000_000f);
+
             mainHandler.post(this::postInvalidateOnAnimation);
         } finally {
             isRendering.set(false);
@@ -647,6 +681,7 @@ public class AnimatedBackgroundView extends View {
 
         if (current == null || current.isRecycled()) {
             canvas.drawColor(baseColor);
+            if (debugOverlayEnabled) drawDebugOverlay(canvas);
             return;
         }
 
@@ -663,11 +698,17 @@ public class AnimatedBackgroundView extends View {
             canvas.drawBitmap(current, null, dst, drawPaint);
             if (p >= 1f) {
                 isTransitioning = false;
-                synchronized (lock) { previousBitmap = null; }
+                synchronized (lock) {
+                    previousBitmap = null;
+                }
             }
         } else {
             drawPaint.setAlpha(255);
             canvas.drawBitmap(current, null, dst, drawPaint);
+        }
+
+        if (debugOverlayEnabled) {
+            drawDebugOverlay(canvas);
         }
     }
 
@@ -756,6 +797,83 @@ public class AnimatedBackgroundView extends View {
         if (v < lo) return lo;
         if (v > hi) return hi;
         return v;
+    }
+
+    private boolean debugOverlayEnabled = false;
+
+    private float uiFps = 0f;
+    private float renderFps = 0f;
+    private float avgRenderMs = 0f;
+    private float worstRenderMs = 0f;
+    private int jankyUiFrames = 0;
+    private int totalUiFrames = 0;
+    private long lastMetricsSecondMs = 0;
+    private int renderCountThisSecond = 0;
+    private final Paint overlayTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint overlayBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    private void drawDebugOverlay(Canvas canvas) {
+        String line1 = String.format("UI %.1f fps", uiFps);
+        String line2 = String.format("BG %.1f fps", renderFps);
+        String line3 = String.format("Render %.2f ms", avgRenderMs);
+        String line4 = String.format("Jank %.1f%%", getUiJankPercent());
+
+        float pad = dp(8);
+        float lineH = dp(14);
+        float boxW = dp(120);
+        float boxH = pad * 2 + lineH * 4;
+        float margin = dp(8);
+
+        float right = canvas.getWidth() - margin;
+        float bottom = canvas.getHeight() - margin;
+        float left = right - boxW;
+        float top = bottom - boxH;
+
+        canvas.drawRoundRect(left, top, right, bottom, dp(10), dp(10), overlayBgPaint);
+
+        float tx = left + pad;
+        float ty = top + pad + lineH - dp(2);
+
+        canvas.drawText(line1, tx, ty, overlayTextPaint);
+        canvas.drawText(line2, tx, ty + lineH, overlayTextPaint);
+        canvas.drawText(line3, tx, ty + lineH * 2, overlayTextPaint);
+        canvas.drawText(line4, tx, ty + lineH * 3, overlayTextPaint);
+    }
+
+    private void updateUiMetrics(long dtNs) {
+        if (dtNs <= 0) return;
+
+        float instantFps = 1_000_000_000f / dtNs;
+        uiFps = (uiFps == 0f) ? instantFps : (uiFps * 0.9f + instantFps * 0.1f);
+
+        totalUiFrames++;
+        if (dtNs > 20_000_000L) { // >20ms
+            jankyUiFrames++;
+        }
+    }
+
+    private void updateRenderMetrics(float renderMs) {
+        avgRenderMs = (avgRenderMs == 0f) ? renderMs : (avgRenderMs * 0.9f + renderMs * 0.1f);
+        if (renderMs > worstRenderMs) worstRenderMs = renderMs;
+
+        renderCountThisSecond++;
+
+        long nowMs = SystemClock.elapsedRealtime();
+        long dt = nowMs - lastMetricsSecondMs;
+        if (dt >= 1000L) {
+            renderFps = renderCountThisSecond * (1000f / dt);
+            renderCountThisSecond = 0;
+            lastMetricsSecondMs = nowMs;
+        }
+    }
+
+    private float dp(float v) {
+        return v * getResources().getDisplayMetrics().density;
+    }
+
+    public float getUiJankPercent() {
+        if (totalUiFrames == 0) return 0f;
+        return (jankyUiFrames * 100f) / totalUiFrames;
     }
 
     private static class Blob {

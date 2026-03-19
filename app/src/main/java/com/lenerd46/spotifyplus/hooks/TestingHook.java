@@ -42,30 +42,33 @@ public class TestingHook extends SpotifyHook {
 
     @Override
     protected void hook() {
-        XposedBridge.hookAllMethods(LayoutInflater.class, "inflate", new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                if (!(param.args[0] instanceof Integer)) return;
+        try {
 
-                LayoutInflater inflater = (LayoutInflater) param.thisObject;
-                Context ctx = inflater.getContext();
+            XposedBridge.hookAllMethods(LayoutInflater.class, "inflate", new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    if (!(param.args[0] instanceof Integer)) return;
 
-                int layoutId = (Integer) param.args[0];
-                String layoutName = "0x" + Integer.toHexString(layoutId);
-                try {
-                    layoutName = ctx.getResources().getResourceName(layoutId);
-                } catch (Throwable ignored) {}
+                    LayoutInflater inflater = (LayoutInflater) param.thisObject;
+                    Context ctx = inflater.getContext();
 
-                // com.spotify.music:id/cwp_header_artwork_background
+                    int layoutId = (Integer) param.args[0];
+                    String layoutName = "0x" + Integer.toHexString(layoutId);
+                    try {
+                        layoutName = ctx.getResources().getResourceName(layoutId);
+                    } catch (Throwable ignored) {
+                    }
 
-                if (layoutName.endsWith("layout/ui_holder_content")) {
-                    View root = (View) param.getResult();
+                    // com.spotify.music:id/cwp_header_artwork_background
 
-                    root.post(() -> {
-                        TextView title = (TextView) findByIdName(root, "com.spotify.music:id/cwp_header_title");
+                    if (layoutName.endsWith("layout/ui_holder_content")) {
+                        View root = (View) param.getResult();
+
+                        root.post(() -> {
+                            TextView title = (TextView) findByIdName(root, "com.spotify.music:id/cwp_header_title");
 //                        XposedBridge.log("[SpotifyPlus] " + title.getText().toString());
 
-                        View artwork = findByIdName(root, "com.spotify.music:id/cwp_header_artwork");
+                            View artwork = findByIdName(root, "com.spotify.music:id/cwp_header_artwork");
 //                        artwork.setVisibility(View.INVISIBLE);
 
 //                        View background = findByIdName(root, "com.spotify.music:id/cwp_header_artwork_background");
@@ -80,15 +83,20 @@ public class TestingHook extends SpotifyHook {
 //                            return;
 //                        }
 
-                        attachOverlay((ViewGroup) artwork.getParent(), artwork, title.getText().toString());
+                            if (artwork != null) {
+                                attachOverlay((ViewGroup) artwork.getParent(), artwork, title.getText().toString());
+                            }
 
 //                        View overlay = (View) background.getTag(TAG_OVERLAY);
 //                        overlay.setBackgroundColor(0x55FF0000); // translucent red
 
-                    });
+                        });
+                    }
                 }
-            }
-        });
+            });
+        } catch (Exception e) {
+            XposedBridge.log(e);
+        }
     }
 
     private String idName(View v) {
@@ -129,7 +137,8 @@ public class TestingHook extends SpotifyHook {
         if (id != View.NO_ID) {
             try {
                 if (idName.equals(root.getContext().getResources().getResourceName(id))) return root;
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         }
         if (root instanceof ViewGroup) {
             ViewGroup vg = (ViewGroup) root;
@@ -171,10 +180,13 @@ public class TestingHook extends SpotifyHook {
         activePlayer.setPlayWhenReady(true);
 
         activePlayer.addListener(new Player.Listener() {
-            @Override public void onPlayerError(PlaybackException error) {
+            @Override
+            public void onPlayerError(PlaybackException error) {
                 XposedBridge.log("[SpotifyPlus] ExoPlayer error: " + error);
             }
-            @Override public void onVideoSizeChanged(VideoSize vs) {
+
+            @Override
+            public void onVideoSizeChanged(VideoSize vs) {
                 FrameLayout o = activeOverlay;
                 if (o == null || vs.height <= 0 || vs.width <= 0) return;
 
@@ -187,7 +199,10 @@ public class TestingHook extends SpotifyHook {
         });
 
         if (activeTextureView != null && activeTextureView != textureView) {
-            try { activePlayer.clearVideoSurface(); } catch (Throwable ignored) {}
+            try {
+                activePlayer.clearVideoSurface();
+            } catch (Throwable ignored) {
+            }
         }
 
         activeOverlay = overlay;
@@ -217,7 +232,8 @@ public class TestingHook extends SpotifyHook {
             float radius = image.getWidth() * 0.02f;
             overlay.setClipToOutline(true);
             overlay.setOutlineProvider(new ViewOutlineProvider() {
-                @Override public void getOutline(View view, Outline outline) {
+                @Override
+                public void getOutline(View view, Outline outline) {
                     outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
                 }
             });
@@ -226,7 +242,7 @@ public class TestingHook extends SpotifyHook {
 
         Runnable sync = () -> {
             overlay.setTranslationX(image.getLeft() - overlay.getLeft());
-            overlay.setTranslationY(image.getTop()  - overlay.getTop());
+            overlay.setTranslationY(image.getTop() - overlay.getTop());
         };
 
         image.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, orr, ob) -> sync.run());

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/update_popup_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CC000000"
+        android:clickable="true"
+        android:focusable="true">
+
+    <com.google.android.material.card.MaterialCardView
+            android:id="@+id/update_popup_card"
+            android:layout_width="320dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_margin="24dp"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="10dp"
+            app:cardBackgroundColor="@color/spotifyplus_background"
+            app:strokeColor="#33FFFFFF"
+            app:strokeWidth="1dp">
+
+        <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+            <ImageView
+                    android:id="@+id/update_popup_icon"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginBottom="14dp"
+                    android:contentDescription="Update available"
+                    android:src="@drawable/info"/>
+
+            <TextView
+                    android:id="@+id/update_popup_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="Update Available"
+                    android:textColor="@color/white"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp"/>
+
+            <TextView
+                    android:id="@+id/update_popup_message"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="A new version of Spotify Plus is available."
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="12dp"/>
+
+            <TextView
+                    android:id="@+id/update_popup_version"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="Current: null  •  Latest: null"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="13sp"
+                    android:layout_marginBottom="20dp"/>
+
+            <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_download_update"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Download"
+                    android:textAllCaps="false"
+                    android:layout_marginBottom="10dp"/>
+
+            <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_dismiss_update"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Dismiss"
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"/>
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+</FrameLayout>

@@ -53,8 +53,8 @@ public class LyricUtilities {
         TransformedLyrics lyrics = new TransformedLyrics();
         lyrics.lyrics = providedLyrics;
         SharedPreferences prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
-        String interludeOption = prefs.getString("lyric_interlude_duration", "Beautiful Lyrics");
-        final int interludeDuration = interludeOption.equals("Beautiful Lyrics") ? 2 : interludeOption.equals("Spotify Plus") ? 4 : 8;
+        String interludeOption = prefs.getString("lyric_interlude_duration", "Spotify Plus");
+        final int interludeDuration = interludeOption.equals("Beautiful Lyrics") ? 2 : interludeOption.equals("Spotify Plus") ? 4 : interludeOption.equals("Spicy Lyrics") ? 3 : 8;
 
         XposedBridge.log(lyrics.lyrics.toString());
 

@@ -97,8 +97,8 @@
                           android:text="Devon Shoutz" android:layout_marginEnd="8dp" android:layout_gravity="center_vertical"/>
             </LinearLayout>
 
-<!--            <TextView android:id="@+id/translate_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="This is a realy cool message"/>-->
-<!--            <com.google.android.material.button.MaterialButton android:id="@+id/translate_button" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Translate!" />-->
+            <TextView android:id="@+id/translate_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="This is a realy cool message"/>
+            <com.google.android.material.button.MaterialButton android:id="@+id/translate_button" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Translate!" />
         </LinearLayout>
     </FrameLayout>
 </com.google.android.material.circularreveal.coordinatorlayout.CircularRevealCoordinatorLayout>

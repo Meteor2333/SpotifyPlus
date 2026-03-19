@@ -1,5 +1,6 @@
 package com.lenerd46.spotifyplus.hooks;
 
+import android.app.AndroidAppHelper;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.XResources;
@@ -15,7 +16,7 @@ public class SpotifyTitleOverride {
 
     public static void overrideSpotifyStringById(int resId, String newValue) {
         try {
-            Resources res = References.currentActivity.getResources();
+            Resources res = AndroidAppHelper.currentApplication().getResources();
             final String entry = res.getResourceEntryName(resId);
 
             References.xresources.setReplacement("com.spotify.music", "string", entry, newValue);

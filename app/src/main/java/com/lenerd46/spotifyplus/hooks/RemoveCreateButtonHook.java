@@ -2,44 +2,44 @@ package com.lenerd46.spotifyplus.hooks;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
+import android.content.*;
+import android.content.res.Resources;
 import android.content.res.XModuleResources;
+import android.graphics.Typeface;
 import android.net.Uri;
+import android.os.Bundle;
+import android.os.IBinder;
+import android.os.Message;
+import android.os.Messenger;
+import android.util.AttributeSet;
 import android.util.Pair;
 import android.util.TypedValue;
 import android.view.*;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.widget.*;
+import androidx.appcompat.widget.AppCompatTextView;
 import androidx.documentfile.provider.DocumentFile;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.radiobutton.MaterialRadioButton;
-import com.lenerd46.spotifyplus.ModuleContextWrapper;
-import com.lenerd46.spotifyplus.R;
-import com.lenerd46.spotifyplus.References;
-import com.lenerd46.spotifyplus.SettingItem;
+import com.google.android.material.textfield.TextInputEditText;
+import com.lenerd46.spotifyplus.*;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import org.luckypray.dexkit.query.FindClass;
 import org.luckypray.dexkit.query.FindField;
 import org.luckypray.dexkit.query.FindMethod;
-import org.luckypray.dexkit.query.NumberEncodeValueMatcherList;
 import org.luckypray.dexkit.query.enums.MatchType;
 import org.luckypray.dexkit.query.matchers.*;
 import org.luckypray.dexkit.result.ClassDataList;
 
 import java.io.*;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 public class RemoveCreateButtonHook extends SpotifyHook {
     private static final int SETTINGS_OVERLAY_ID = 0x53504c53;
@@ -359,7 +359,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 
                     Object tempalte = originalItems[isNewSideDrawer ? originalItems.length - 2 : originalItems.length - 1];
                     Object tempalteLightning = originalItems[isNewSideDrawer ? 2 : 1];
-                    XposedBridge.log("[SpotifyPlus] HEllo!!!");
 
                     Array.set(newArray, originalItems.length, createSideDrawerButton("Spotify Plus Settings", tempalte, buttonClass, sideDrawerItem, propertiesClass, onClickClass, qbpInterface, zpj0Interface, cbpInterface, 2131957897, () -> {
                         try {
@@ -367,6 +366,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                             Activity activity = References.currentActivity;
                             ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
                             AtomicReference<View> currentDetailedSettingsPage = new AtomicReference<>();
+                            AtomicReference<View> lastfmPopup = new AtomicReference<>();
 
                             int themeOverlay = R.style.Theme_SpotifyPlus;
                             Context themedCtx = new ModuleContextWrapper(activity.getApplicationContext(), themeOverlay, modResources, ModuleContextWrapper.class.getClassLoader());
@@ -398,6 +398,12 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 //                                                });
 //                                            } catch(Throwable t) { }
                                         } else {
+                                            if (lastfmPopup.get() != null) {
+                                                root.removeView(lastfmPopup.get());
+                                                lastfmPopup.set(null);
+                                                return;
+                                            }
+
                                             ViewParent parent = settingsPage.getParent();
                                             if (parent instanceof ViewGroup) {
                                                 animatePageOut((ViewGroup) parent, () -> {
@@ -458,14 +464,27 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 
                                 lastfm.setOnClickListener(button -> {
                                     try {
-                                        LayoutInflater inflaterLast = LayoutInflater.from(activity);
-                                        View lastfmThing = inflaterLast.inflate(modResources.getLayout(R.layout.lastfm_dialog), root, false);
+                                        int themeOverlayLast = R.style.Theme_SpotifyPlus;
+                                        Context themedCtxLast = new ModuleContextWrapper(activity.getApplicationContext(), themeOverlayLast, modResources, ModuleContextWrapper.class.getClassLoader());
+                                        LayoutInflater inflaterLast = LayoutInflater.from(activity.getApplicationContext()).cloneInContext(themedCtxLast);
+                                        View lastfmThing = inflaterLast.inflate(modResources.getIdentifier("lastfm_username_view", "layout", "com.lenerd46.spotifyplus"), root, false);
+                                        root.addView(lastfmThing);
+                                        lastfmPopup.set(lastfmThing);
 
-                                        EditText input = lastfmThing.findViewById(modResources.getIdentifier("last_fm_input", "id", "com.lenerd46.spotifyplus"));
-                                        Button confirmButton = lastfmThing.findViewById(modResources.getIdentifier("btn_lastfm_confirm", "id", "com.lenerd46.spotifyplus"));
-                                        Button removeButton = lastfmThing.findViewById(modResources.getIdentifier("btn_lastfm_remove", "id", "com.lenerd46.spotifyplus"));
+                                        FrameLayout background = lastfmThing.findViewById(modResources.getIdentifier("lastfm_popup_root", "id", "com.lenerd46.spotifyplus"));
+                                        TextInputEditText input = lastfmThing.findViewById(modResources.getIdentifier("input_lastfm_username", "id", "com.lenerd46.spotifyplus"));
+                                        MaterialButton confirmButton = lastfmThing.findViewById(modResources.getIdentifier("btn_submit_lastfm", "id", "com.lenerd46.spotifyplus"));
+                                        MaterialButton clearButton = lastfmThing.findViewById(modResources.getIdentifier("btn_clear_lastfm", "id", "com.lenerd46.spotifyplus"));
+                                        MaterialButton closeButton = lastfmThing.findViewById(modResources.getIdentifier("btn_cancel_lastfm", "id", "com.lenerd46.spotifyplus"));
 
-                                        AlertDialog dialog = new AlertDialog.Builder(activity).setView(lastfmThing).create();
+                                        if (!prefs.getString("last_fm_username", "null").equals("null")) {
+                                            input.setText(prefs.getString("last_fm_username", "null"));
+                                        }
+
+                                        background.setOnClickListener(layout -> {
+                                            lastfmPopup.set(null);
+                                            root.removeView(lastfmThing);
+                                        });
 
                                         confirmButton.setOnClickListener(confirm -> {
                                             if (input.getText().toString().isEmpty()) return;
@@ -474,19 +493,50 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 
                                             group.setVisibility(LinearLayout.VISIBLE);
                                             textView.setText("Currently set to " + input.getText().toString());
-                                            dialog.dismiss();
+                                            root.removeView(lastfmThing);
+                                            lastfmPopup.set(null);
                                         });
 
-                                        removeButton.setOnClickListener(remove -> {
+                                        clearButton.setOnClickListener(clear -> {
                                             prefs.edit().putString("last_fm_username", "null").apply();
 
                                             group.setVisibility(LinearLayout.INVISIBLE);
                                             textView.setText("Currently set to ");
-
-                                            dialog.dismiss();
+                                            root.removeView(lastfmThing);
+                                            lastfmPopup.set(null);
                                         });
 
-                                        dialog.show();
+                                        closeButton.setOnClickListener(close -> {
+                                            root.removeView(lastfmThing);
+                                            lastfmPopup.set(null);
+                                        });
+
+//                                        EditText input = lastfmThing.findViewById(modResources.getIdentifier("last_fm_input", "id", "com.lenerd46.spotifyplus"));
+//                                        Button confirmButton = lastfmThing.findViewById(modResources.getIdentifier("btn_lastfm_confirm", "id", "com.lenerd46.spotifyplus"));
+//                                        Button removeButton = lastfmThing.findViewById(modResources.getIdentifier("btn_lastfm_remove", "id", "com.lenerd46.spotifyplus"));
+//
+//                                        AlertDialog dialog = new AlertDialog.Builder(activity).setView(lastfmThing).create();
+//
+//                                        confirmButton.setOnClickListener(confirm -> {
+//                                            if (input.getText().toString().isEmpty()) return;
+//
+//                                            prefs.edit().putString("last_fm_username", input.getText().toString()).apply();
+//
+//                                            group.setVisibility(LinearLayout.VISIBLE);
+//                                            textView.setText("Currently set to " + input.getText().toString());
+//                                            dialog.dismiss();
+//                                        });
+//
+//                                        removeButton.setOnClickListener(remove -> {
+//                                            prefs.edit().putString("last_fm_username", "null").apply();
+//
+//                                            group.setVisibility(LinearLayout.INVISIBLE);
+//                                            textView.setText("Currently set to ");
+//
+//                                            dialog.dismiss();
+//                                        });
+//
+//                                        dialog.show();
                                     } catch (Throwable t) {
                                         XposedBridge.log(t);
                                     }
@@ -568,9 +618,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                 MaterialRadioButton visualBeautiful = view.findViewById(R.id.rb_beautiful_lyrics_anim);
                                 MaterialRadioButton visualApple = view.findViewById(R.id.rb_apple_music_anim);
 
-                                MaterialRadioButton interludeBeautiful = view.findViewById(R.id.rb_beautiful_lyrics_interlude);
-                                MaterialRadioButton interludeSpotifyPlus = view.findViewById(R.id.rb_spotify_plus_interlude);
-                                MaterialRadioButton interludeApple = view.findViewById(R.id.rb_apple_music_interlude);
 
                                 visualBeautiful.setOnClickListener(c -> {
                                     prefs.edit().putString("lyric_animation_style", "Beautiful Lyrics").apply();
@@ -586,10 +633,56 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                     visualApple.setChecked(true);
                                 });
 
+                                MaterialRadioButton fontSpotify = view.findViewById(R.id.font_spotify);
+                                MaterialRadioButton fontBeautifulLyrics = view.findViewById(R.id.font_beautiful_lyrics);
+                                MaterialRadioButton fontApple = view.findViewById(R.id.font_apple_music);
+
+                                fontSpotify.setOnClickListener(c -> {
+                                    References.beautifulFont = new WeakReference<>(Typeface.createFromAsset(modResources.getAssets(), "fonts/spotifymix-medium.ttf"));
+                                    prefs.edit().putString("lyrics_font", "spotify").apply();
+
+                                    fontSpotify.setChecked(true);
+                                    fontBeautifulLyrics.setChecked(false);
+                                    fontApple.setChecked(false);
+                                });
+
+                                fontBeautifulLyrics.setOnClickListener(c -> {
+                                    References.beautifulFont = new WeakReference<>(Typeface.createFromAsset(modResources.getAssets(), "fonts/lyrics_medium.ttf"));
+                                    prefs.edit().putString("lyrics_font", "default").apply();
+
+                                    fontSpotify.setChecked(false);
+                                    fontBeautifulLyrics.setChecked(true);
+                                    fontApple.setChecked(false);
+                                });
+
+                                fontApple.setOnClickListener(c -> {
+                                    References.beautifulFont = new WeakReference<>(Typeface.createFromAsset(modResources.getAssets(), "fonts/sf-pro-display-bold.ttf"));
+                                    prefs.edit().putString("lyrics_font", "apple").apply();
+
+                                    fontSpotify.setChecked(false);
+                                    fontBeautifulLyrics.setChecked(false);
+                                    fontApple.setChecked(true);
+                                });
+
+                                MaterialRadioButton interludeBeautiful = view.findViewById(R.id.rb_beautiful_lyrics_interlude);
+                                MaterialRadioButton interludeSpicy = view.findViewById(R.id.rb_spicy_lyrics_interlude);
+                                MaterialRadioButton interludeSpotifyPlus = view.findViewById(R.id.rb_spotify_plus_interlude);
+                                MaterialRadioButton interludeApple = view.findViewById(R.id.rb_apple_music_interlude);
+
                                 interludeBeautiful.setOnClickListener(c -> {
                                     prefs.edit().putString("lyric_interlude_duration", "Beautiful Lyrics").apply();
 
                                     interludeBeautiful.setChecked(true);
+                                    interludeSpicy.setChecked(false);
+                                    interludeSpotifyPlus.setChecked(false);
+                                    interludeApple.setChecked(false);
+                                });
+
+                                interludeSpicy.setOnClickListener(c -> {
+                                    prefs.edit().putString("lyric_interlude_duration", "Spicy Lyrics").apply();
+
+                                    interludeBeautiful.setChecked(false);
+                                    interludeSpicy.setChecked(true);
                                     interludeSpotifyPlus.setChecked(false);
                                     interludeApple.setChecked(false);
                                 });
@@ -598,6 +691,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                     prefs.edit().putString("lyric_interlude_duration", "Spotify Plus").apply();
 
                                     interludeBeautiful.setChecked(false);
+                                    interludeSpicy.setChecked(false);
                                     interludeSpotifyPlus.setChecked(true);
                                     interludeApple.setChecked(false);
                                 });
@@ -606,12 +700,54 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                     prefs.edit().putString("lyric_interlude_duration", "Apple Music").apply();
 
                                     interludeBeautiful.setChecked(false);
+                                    interludeSpicy.setChecked(false);
                                     interludeSpotifyPlus.setChecked(false);
                                     interludeApple.setChecked(true);
                                 });
 
                                 MaterialSwitch background = view.findViewById(R.id.switch_enable_background);
                                 MaterialSwitch lineGradient = view.findViewById(R.id.switch_enable_line_gradient);
+
+                                MaterialRadioButton high = view.findViewById(R.id.rb_background_high);
+                                MaterialRadioButton mid = view.findViewById(R.id.rb_background_mid);
+                                MaterialRadioButton low = view.findViewById(R.id.rb_background_low);
+                                MaterialRadioButton superLow = view.findViewById(R.id.rb_background_superlow);
+
+                                high.setOnClickListener(c -> {
+                                    prefs.edit().putString("lyric_background_quality", "high").apply();
+
+                                    high.setChecked(true);
+                                    mid.setChecked(false);
+                                    low.setChecked(false);
+                                    superLow.setChecked(false);
+                                });
+
+                                mid.setOnClickListener(c -> {
+                                    prefs.edit().putString("lyric_background_quality", "mid").apply();
+
+                                    high.setChecked(false);
+                                    mid.setChecked(true);
+                                    low.setChecked(false);
+                                    superLow.setChecked(false);
+                                });
+
+                                low.setOnClickListener(c -> {
+                                    prefs.edit().putString("lyric_background_quality", "low").apply();
+
+                                    high.setChecked(false);
+                                    mid.setChecked(false);
+                                    low.setChecked(true);
+                                    superLow.setChecked(false);
+                                });
+
+                                superLow.setOnClickListener(c -> {
+                                    prefs.edit().putString("lyric_background_quality", "superLow").apply();
+
+                                    high.setChecked(false);
+                                    mid.setChecked(false);
+                                    low.setChecked(false);
+                                    superLow.setChecked(true);
+                                });
 
                                 MaterialSwitch sendToken = view.findViewById(R.id.switch_send_token);
                                 MaterialSwitch userLyrics = view.findViewById(R.id.switch_check_user_lyrics);
@@ -636,13 +772,25 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                 visualBeautiful.setChecked(style.equals("Beautiful Lyrics"));
                                 visualApple.setChecked(style.equals("Apple Music"));
 
-                                String interludeDuration = prefs.getString("lyric_interlude_duration", "Beautiful Lyrics");
+                                String font = prefs.getString("lyrics_font", "default");
+                                fontSpotify.setChecked(font.equals("spotify"));
+                                fontBeautifulLyrics.setChecked(font.equals("default"));
+                                fontApple.setChecked(font.equals("apple"));
+
+                                String interludeDuration = prefs.getString("lyric_interlude_duration", "Spotify Plus");
                                 interludeBeautiful.setChecked(interludeDuration.equals("Beautiful Lyrics"));
+                                interludeSpicy.setChecked(interludeDuration.equals("Spicy Lyrics"));
                                 interludeSpotifyPlus.setChecked(interludeDuration.equals("Spotify Plus"));
                                 interludeApple.setChecked(interludeDuration.equals("Apple Music"));
 
                                 background.setChecked(prefs.getBoolean("lyric_enable_background", true));
                                 lineGradient.setChecked(prefs.getBoolean("lyric_enable_line_gradient", true));
+
+                                String quality = prefs.getString("lyric_background_quality", "high");
+                                high.setChecked(quality.equals("high"));
+                                mid.setChecked(quality.equals("mid"));
+                                low.setChecked(quality.equals("low"));
+                                superLow.setChecked(quality.equals("superLow"));
 
                                 sendToken.setChecked(prefs.getBoolean("lyrics_send_token", true));
                                 userLyrics.setChecked(prefs.getBoolean("lyrics_check_custom", false));
@@ -731,15 +879,19 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                     activity.startActivity(browserIntent);
                                 });
 
-//                                TextView text = view.findViewById(R.id.translate_text);
-//                                MaterialButton button = view.findViewById(R.id.translate_button);
-//
-//                                button.setOnClickListener(button1 -> {
-//                                    final String originalText = text.getText().toString();
-//                                    text.setText("Translating...");
-//
-//
-//                                });
+                                TextView text = view.findViewById(R.id.translate_text);
+                                MaterialButton button = view.findViewById(R.id.translate_button);
+
+                                button.setOnClickListener(button1 -> {
+                                    try {
+                                        final String originalText = text.getText().toString();
+                                        text.setText("Translating...");
+
+
+                                    } catch (Exception e) {
+                                        XposedBridge.log("[SpotifyPlus] " + e);
+                                    }
+                                });
                             });
                         } catch (Exception e) {
                             XposedBridge.log("[SpotifyPlus] Could not inflate layout: " + e.getMessage());
