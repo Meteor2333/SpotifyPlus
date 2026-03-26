@@ -211,8 +211,6 @@ public class AnimatedBackgroundView extends View {
         }
     }
 
-    // REMOVED: generateImageSeed(Bitmap b) - We now use pure randomness.
-
     private static class PaletteInfo {
         float avgS;
         float avgV;

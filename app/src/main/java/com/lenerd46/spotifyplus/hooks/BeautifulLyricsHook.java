@@ -95,6 +95,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
     private boolean isUserInteracting = false;
     private boolean isFollowingPlayback = true;
     private View currentActiveLineView = null;
+    private String currentLineSpacingMode = "default";
 
     private final Map<View, Spring> lineSprings = new HashMap<>();
     private final Map<View, Long> lineAnimationStartTimes = new HashMap<>();
@@ -643,8 +644,8 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                 String token = References.accessToken;
                 OkHttpClient lyricsClient = new OkHttpClient();
-                RequestBody body = RequestBody.create("{ \"queries\": [ { \"operation\": \"lyrics\", \"variables\": { \"id\": \"" + id + "\", \"auth\": \"SpicyLyrics-WebAuth\" } } ], \"client\": { \"version\": \"5.19.11\" } }", MediaType.parse("application/json; charset=utf-8"));
-                Request lyricsRequest = new Request.Builder().url("https://api.spicylyrics.org/query").post(body).header("Spicylyrics-Webauth", "Bearer " + (((token != null && !token.isEmpty())) ? token : "0")).header("Spicylyrics-Version", "5.19.11").header("Origin", "https://xpui.app.spotify.com").build();
+                RequestBody body = RequestBody.create("{ \"queries\": [ { \"operation\": \"lyrics\", \"variables\": { \"id\": \"" + id + "\", \"auth\": \"SpicyLyrics-WebAuth\" } } ], \"client\": { \"version\": \"5.21.5\" } }", MediaType.parse("application/json; charset=utf-8"));
+                Request lyricsRequest = new Request.Builder().url("https://api.spicylyrics.org/query").post(body).header("Spicylyrics-Webauth", "Bearer " + (((token != null && !token.isEmpty())) ? token : "0")).header("Spicylyrics-Version", "5.21.5").header("Origin", "https://xpui.app.spotify.com").build();
 
                 lyricsClient.newCall(lyricsRequest).enqueue(new Callback() {
                     @Override
@@ -652,7 +653,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                         assert response.body() != null;
                         String contentFull = response.body().string();
 
-                        JsonObject jsonObject = new JsonParser().parseString(contentFull).getAsJsonObject().get("queries").getAsJsonArray().get(0).getAsJsonObject().get("result").getAsJsonObject().get("data").getAsJsonObject();
+                        JsonObject jsonObject = new JsonParser().parseString(contentFull).getAsJsonObject().get("queries").getAsJsonArray().get(1).getAsJsonObject().get("result").getAsJsonObject().get("data").getAsJsonObject();
                         String content = jsonObject.toString();
                         String type = jsonObject.get("Type").getAsString();
                         var writers = jsonObject.get("SongWriters");
@@ -810,6 +811,37 @@ public class BeautifulLyricsHook extends SpotifyHook {
         rightContainer.removeView(syncButton);
         SharedPreferences prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
         boolean newScrollingSystem = prefs.getBoolean("experiment_scroll", false);
+        currentLineSpacingMode = prefs.getString("line_spacing", "default");
+
+        int lineSpacing;
+        int fontSize;
+
+        switch(currentLineSpacingMode) {
+            case "compact":
+                lineSpacing = 32;
+                fontSize = 28;
+                break;
+
+            case "spacious":
+                lineSpacing = 42;
+                fontSize = 36;
+                break;
+
+            case "more":
+                lineSpacing = 46;
+                fontSize = 38;
+                break;
+
+            case "max":
+                lineSpacing = 46;
+                fontSize= 38;
+                break;
+
+            default:
+                lineSpacing = 36;
+                fontSize = 34;
+                break;
+        }
 
         Gson gson = new Gson();
         SyllableSyncedLyrics providerLyrics = gson.fromJson(content, SyllableSyncedLyrics.class);
@@ -867,7 +899,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 topGroup.setClipToPadding(false);
                 topGroup.setClipChildren(false);
                 RelativeLayout.LayoutParams parms = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-                parms.setMargins(dpToPx(25, activity), dpToPx(36, activity), dpToPx(35, activity), 0);
+                parms.setMargins(dpToPx(25, activity), dpToPx(lineSpacing, activity), dpToPx(35, activity), 0);
 
                 topGroup.setLayoutParams(parms);
 
@@ -881,7 +913,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                 if (set.oppositeAligned) {
                     parms.addRule(RelativeLayout.ALIGN_PARENT_END);
-                    parms.setMargins(dpToPx(35, activity), dpToPx(30, activity), dpToPx(25, activity), 0);
+                    parms.setMargins(dpToPx(35, activity), dpToPx(lineSpacing, activity), dpToPx(25, activity), 0);
 
                     vocalGroupContainer.setJustifyContent(JustifyContent.FLEX_END);
                 }
@@ -893,7 +925,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 List<SyllableVocals> vocals = new ArrayList<>();
                 double startTime = set.lead.startTime;
 
-                SyllableVocals sv = new SyllableVocals(vocalGroupContainer, set.lead.syllables, false, false, set.oppositeAligned, activity);
+                SyllableVocals sv = new SyllableVocals(vocalGroupContainer, set.lead.syllables, false, false, set.oppositeAligned, activity, fontSize);
                 sv.activityChanged.addListener(info -> {
                     View lineView = (View) info.view.getParent().getParent();
                     View scrollView = (View) lyricsContainer.getParent();
@@ -921,7 +953,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                     for (var backgroundVocal : set.background) {
                         startTime = Math.min(startTime, backgroundVocal.startTime);
-                        vocals.add(new SyllableVocals(backgroundVocalGroupContainer, backgroundVocal.syllables, true, false, set.oppositeAligned, activity));
+                        vocals.add(new SyllableVocals(backgroundVocalGroupContainer, backgroundVocal.syllables, true, false, set.oppositeAligned, activity, fontSize));
                     }
                 }
 
@@ -1071,6 +1103,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
         LineSyncedLyrics lyrics = transformedLyrics.lyrics.lineLyrics;
         lineLyrics = lyrics;
+        int lineSpacing = getConfiguredLineSpacingDp(currentLineSpacingMode);
 
         int i = 0;
         for (var vocalGroup : lyrics.content) {
@@ -1118,7 +1151,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 vocalGroupContainer.setClipToPadding(false);
                 vocalGroupContainer.setClipChildren(false);
                 RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-                params.setMargins(dpToPx(25, activity), dpToPx(40, activity), dpToPx(30, activity), 0);
+                params.setMargins(dpToPx(25, activity), dpToPx(lineSpacing, activity), dpToPx(30, activity), 0);
 
                 if (vocal.oppositeAligned) {
                     params.addRule(RelativeLayout.ALIGN_PARENT_END);
@@ -1366,8 +1399,10 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
         activeLineIndex = idx;
 
-        // Apply/refresh focus effects on UI thread
-        lyricsContainer.post(this::applyLineFocusEffects);
+        lyricsContainer.post(() -> {
+            applyCurrentLineTranslations();
+            applyLineFocusEffects();
+        });
     }
 
     private View findLineRoot(View v, LinearLayout lyricsContainer) {
@@ -1952,7 +1987,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 }
 
                 double newOffset = spring.update(deltaTime);
-                line.setTranslationY((float) newOffset);
+                line.setTranslationY(getFinalLineTranslationY(line, newOffset));
             }
 
             applyHeaderFadeToLines();
@@ -2011,7 +2046,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                     if (immediate) {
                         spring.set(targetScrollOffset);
-                        line.setTranslationY((float) targetScrollOffset);
+                        line.setTranslationY(getFinalLineTranslationY(line, targetScrollOffset));
                         lineAnimationStartTimes.remove(line);
                     } else {
                         long delay;
@@ -2057,6 +2092,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
         }
 
         lyricsContainer.post(() -> {
+            applyCurrentLineTranslations();
             applyLineFocusEffects();
             applyHeaderFadeToLines();
         });
@@ -2154,6 +2190,85 @@ public class BeautifulLyricsHook extends SpotifyHook {
         if (parent != null) {
             viewportHeight = parent.getHeight();
         }
+    }
+
+    private int getConfiguredLineSpacingDp(String spacingMode) {
+        switch (spacingMode) {
+            case "compact":
+                return 32;
+            case "spacious":
+                return 42;
+            case "more":
+                return 46;
+            case "max":
+                return 46;
+            default:
+                return 36;
+        }
+    }
+
+    private boolean isMaxPairSpacingEnabled() {
+        return currentLineSpacingMode.equals("max");
+    }
+
+    private float getFocusedPairIsolationAmountPx(View anyLine) {
+        float vh = (float) viewportHeight;
+
+        if (vh <= 0f) {
+            ViewParent parent = anyLine.getParent();
+            if (parent instanceof View) {
+                vh = ((View) parent).getHeight();
+            }
+        }
+
+        float min = dpToPxF(300f, anyLine);
+        float max = dpToPxF(320f, anyLine);
+
+        if (vh <= 0f) return min;
+
+        float preferred = vh * 0.35f;
+        return Math.max(min, Math.min(max, preferred));
+    }
+
+    private float getFocusedPairOffsetPx(View line) {
+        if (!isMaxPairSpacingEnabled()) return 0f;
+        if (activeLineIndex < 0) return 0f;
+
+        Integer idxObj = lineIndex.get(line);
+        if (idxObj == null) {
+            int idx = lineRoots.indexOf(line);
+            if (idx < 0) return 0f;
+            idxObj = idx;
+        }
+
+        int idx = idxObj;
+        int nextIndex = Math.min(activeLineIndex + 1, lineRoots.size() - 1);
+
+        float isolation = getFocusedPairIsolationAmountPx(line);
+
+        if (idx < activeLineIndex) {
+            return -isolation;
+        }
+
+        if (idx > nextIndex) {
+            return isolation;
+        }
+
+        return 0f;
+    }
+
+    private float getFinalLineTranslationY(View line, double baseScrollOffset) {
+        return (float) baseScrollOffset + getFocusedPairOffsetPx(line);
+    }
+
+    private void applyCurrentLineTranslations() {
+        for (View line : lineRoots) {
+            Spring spring = lineSprings.get(line);
+            double base = spring != null ? spring.position : targetScrollOffset;
+            line.setTranslationY(getFinalLineTranslationY(line, base));
+        }
+
+        applyHeaderFadeToLines();
     }
 
     private void applyImmediateScrollOffset(LinearLayout contentContainer, double offset) {

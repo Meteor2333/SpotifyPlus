@@ -214,5 +214,4 @@ public class ContextMenu_AddButton extends SpotifyHook {
         float density = ctx.getResources().getDisplayMetrics().density;
         return (int) (dp * density + 0.5f);
     }
-
 }

@@ -32,14 +32,14 @@ public class SyllableVocals implements SyncableVocals {
 
     public boolean active;
     private LyricState state;
-    private boolean isSleeping;
     private final Typeface font;
+    private final int fontSize;
 
     public final ActivityChangedSource activityChanged;
     public final SharedPreferences prefs;
     public final boolean appleStyle;
 
-    public SyllableVocals(FlexboxLayout lineContainer, List<SyllableMetadata> syllables, boolean isBackground, boolean isRomanized, boolean oppositeAligned, Activity activity) {
+    public SyllableVocals(FlexboxLayout lineContainer, List<SyllableMetadata> syllables, boolean isBackground, boolean isRomanized, boolean oppositeAligned, Activity activity, int fontSize) {
         this.container = lineContainer;
         List<View> views = new ArrayList<>();
         this.activity = activity;
@@ -47,6 +47,7 @@ public class SyllableVocals implements SyncableVocals {
         activityChanged = new ActivityChangedSource();
         font = References.beautifulFont.get();
         prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
+        this.fontSize = fontSize;
 
         if(prefs.getString("lyric_animation_style", "Beautiful Lyrics").equals("Apple Music")) {
             yOffsetRange = List.of(
@@ -383,8 +384,8 @@ public class SyllableVocals implements SyncableVocals {
             activityChanged.invoke(new ScrollInformation(container, true));
         }
 
-        this.isSleeping = !shouldUpdateVisualState;
-        boolean isMoving = this.isSleeping == false;
+        boolean isSleeping1 = !shouldUpdateVisualState;
+        boolean isMoving = isSleeping1 == false;
 
         if(shouldUpdateVisualState || isMoving) {
             double timeScale = Math.max(0, Math.min((double)relativeTime / (double)this.duration, 1));
@@ -429,7 +430,7 @@ public class SyllableVocals implements SyncableVocals {
             }
 
             if(isSleeping) {
-                this.isSleeping = true;
+                isSleeping1 = true;
 
                 if(!isActive) {
                     evaluateClassState();
@@ -468,7 +469,7 @@ public class SyllableVocals implements SyncableVocals {
 
     private void lyricLabelStyle(GradientTextView text) {
         text.setTextColor(0xFFE0E0E0);
-        text.setTextSize(34f);
+        text.setTextSize(fontSize);
         text.setPadding(0,0,dpToPx(1),0);
         text.setTypeface(font);
 
@@ -490,7 +491,7 @@ public class SyllableVocals implements SyncableVocals {
 
     private void emphasizedLyricLabelStyle(GradientTextView text) {
         text.setTextColor(0xFFE0E0E0);
-        text.setTextSize(34f);
+        text.setTextSize(fontSize);
         text.setTypeface(font);
     }
 
@@ -507,5 +508,4 @@ public class SyllableVocals implements SyncableVocals {
                 activity.getResources().getDisplayMetrics()
         );
     }
-
 }

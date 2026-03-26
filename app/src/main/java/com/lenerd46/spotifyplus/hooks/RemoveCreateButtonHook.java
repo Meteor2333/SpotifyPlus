@@ -22,6 +22,8 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.radiobutton.MaterialRadioButton;
+import com.google.android.material.slider.LabelFormatter;
+import com.google.android.material.slider.Slider;
 import com.google.android.material.textfield.TextInputEditText;
 import com.lenerd46.spotifyplus.*;
 import de.robv.android.xposed.XC_MethodHook;
@@ -432,7 +434,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                             View generalSettings = settingsPage.findViewById(R.id.settings_general);
                             View lyricsSettings = settingsPage.findViewById(R.id.settings_lyrics);
                             View experimentalSettings = settingsPage.findViewById(R.id.settings_experimental);
-                            View scriptingSettings = settingsPage.findViewById(R.id.settings_scripting);
+//                            View scriptingSettings = settingsPage.findViewById(R.id.settings_scripting);
                             View aboutSettings = settingsPage.findViewById(R.id.settings_about);
 
                             generalSettings.setOnClickListener(v -> {
@@ -541,6 +543,13 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                         XposedBridge.log(t);
                                     }
                                 });
+
+                                MaterialSwitch blockAds = view.findViewById(R.id.switch_block_ads);
+                                blockAds.setOnCheckedChangeListener((check, value) -> {
+                                    prefs.edit().putBoolean("block_ads", value).apply();
+                                });
+
+                                blockAds.setChecked(prefs.getBoolean("block_ads", false));
 
                                 create.setOnCheckedChangeListener((check, value) -> {
                                     prefs.edit().putBoolean("remove_create", value).apply();
@@ -705,6 +714,82 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                     interludeApple.setChecked(true);
                                 });
 
+                                Slider slider = view.findViewById(R.id.line_spacing_slider);
+                                TextView valueLabel = view.findViewById(R.id.line_spacing_value_label);
+                                FrameLayout sliderContainer = view.findViewById(R.id.line_spacing_slider_container);
+
+                                slider.setThumbRadius(dpToPx(8));
+                                slider.setHaloRadius(0);
+
+                                slider.addOnChangeListener((s, value, fromUser) -> {
+                                    String text;
+                                    switch (Math.round(value)) {
+                                        case 0:
+                                            text = "Compact";
+                                            prefs.edit().putString("line_spacing", "compact").apply();
+                                            break;
+                                        case 1:
+                                            text = "Default";
+                                            prefs.edit().putString("line_spacing", "default").apply();
+                                            break;
+                                        case 2:
+                                            text = "Spacious";
+                                            prefs.edit().putString("line_spacing", "spacious").apply();
+                                            break;
+                                        case 3:
+                                            text = "More Spacious";
+                                            prefs.edit().putString("line_spacing", "more").apply();
+                                            break;
+                                        case 4:
+                                            text = "Max";
+                                            prefs.edit().putString("line_spacing", "max").apply();
+                                            break;
+                                        default:
+                                            text = "";
+                                            break;
+                                    }
+
+                                    valueLabel.setText(text);
+
+                                    slider.post(() -> {
+                                        float fraction = (value - slider.getValueFrom()) / (slider.getValueTo() - slider.getValueFrom());
+                                        int sliderWidth = slider.getWidth();
+                                        int thumbX = (int) (fraction * sliderWidth);
+
+                                        valueLabel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+
+                                        int labelWidth = valueLabel.getMeasuredWidth();
+                                        float x = thumbX - (labelWidth / 2f);
+
+                                        x = Math.max(0, Math.min(x, sliderWidth - labelWidth));
+
+                                        valueLabel.setX(x);
+                                        valueLabel.setY(dpToPx(-12));
+                                    });
+                                });
+
+                                slider.addOnSliderTouchListener(new Slider.OnSliderTouchListener() {
+                                    @Override
+                                    public void onStartTrackingTouch(Slider slider) {
+                                        valueLabel.setVisibility(View.VISIBLE);
+                                    }
+
+                                    @Override
+                                    public void onStopTrackingTouch(Slider slider) {
+                                        valueLabel.setVisibility(View.GONE);
+                                    }
+                                });
+
+                                String sliderValueThing = prefs.getString("line_spacing", "default");
+                                switch(sliderValueThing) {
+                                    case "compact": slider.setValue(0);
+                                    case "default": slider.setValue(1);
+                                    case "spacious": slider.setValue(2);
+                                    case "more": slider.setValue(3);
+                                    case "max": slider.setValue(4);
+                                    default: slider.setValue(1);
+                                }
+
                                 MaterialSwitch background = view.findViewById(R.id.switch_enable_background);
                                 MaterialSwitch lineGradient = view.findViewById(R.id.switch_enable_line_gradient);
 
@@ -829,32 +914,32 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                 newBackground.setChecked(prefs.getBoolean("experiment_animated_art", true));
                             });
 
-                            scriptingSettings.setOnClickListener(v -> {
-                                View view = inflater.inflate(R.layout.scripting_settings_page, root, false);
-                                root.addView(view);
-                                animatePageIn(view);
-                                currentDetailedSettingsPage.set(view);
-
-                                MaterialToolbar detailedToolbar = view.findViewById(R.id.scripting_toolbar);
-                                detailedToolbar.setNavigationOnClickListener(w -> {
-                                    ViewParent parent = settingsPage.getParent();
-                                    if (parent instanceof ViewGroup) {
-                                        animatePageOut((ViewGroup) parent, () -> {
-                                            ((ViewGroup) parent).removeView(view);
-                                        });
-                                    }
-                                });
-
-                                MaterialButton selectDirectory = view.findViewById(R.id.btn_select_directory);
-
-                                selectDirectory.setOnClickListener(button -> {
-                                    if (activity != null && !activity.isFinishing()) {
-                                        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-                                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
-                                        activity.startActivityForResult(intent, 9072022);
-                                    }
-                                });
-                            });
+//                            scriptingSettings.setOnClickListener(v -> {
+//                                View view = inflater.inflate(R.layout.scripting_settings_page, root, false);
+//                                root.addView(view);
+//                                animatePageIn(view);
+//                                currentDetailedSettingsPage.set(view);
+//
+//                                MaterialToolbar detailedToolbar = view.findViewById(R.id.scripting_toolbar);
+//                                detailedToolbar.setNavigationOnClickListener(w -> {
+//                                    ViewParent parent = settingsPage.getParent();
+//                                    if (parent instanceof ViewGroup) {
+//                                        animatePageOut((ViewGroup) parent, () -> {
+//                                            ((ViewGroup) parent).removeView(view);
+//                                        });
+//                                    }
+//                                });
+//
+//                                MaterialButton selectDirectory = view.findViewById(R.id.btn_select_directory);
+//
+//                                selectDirectory.setOnClickListener(button -> {
+//                                    if (activity != null && !activity.isFinishing()) {
+//                                        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+//                                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+//                                        activity.startActivityForResult(intent, 9072022);
+//                                    }
+//                                });
+//                            });
 
                             aboutSettings.setOnClickListener(v -> {
                                 View view = inflater.inflate(R.layout.about_settings_page, root, false);
@@ -879,19 +964,26 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                     activity.startActivity(browserIntent);
                                 });
 
-                                TextView text = view.findViewById(R.id.translate_text);
-                                MaterialButton button = view.findViewById(R.id.translate_button);
+                                View telegram = view.findViewById(R.id.open_telegram);
 
-                                button.setOnClickListener(button1 -> {
-                                    try {
-                                        final String originalText = text.getText().toString();
-                                        text.setText("Translating...");
-
-
-                                    } catch (Exception e) {
-                                        XposedBridge.log("[SpotifyPlus] " + e);
-                                    }
+                                telegram.setOnClickListener(button -> {
+                                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/spotifypluscool"));
+                                    activity.startActivity(browserIntent);
                                 });
+
+//                                TextView text = view.findViewById(R.id.translate_text);
+//                                MaterialButton button = view.findViewById(R.id.translate_button);
+//
+//                                button.setOnClickListener(button1 -> {
+//                                    try {
+//                                        final String originalText = text.getText().toString();
+//                                        text.setText("Translating...");
+//
+//
+//                                    } catch (Exception e) {
+//                                        XposedBridge.log("[SpotifyPlus] " + e);
+//                                    }
+//                                });
                             });
                         } catch (Exception e) {
                             XposedBridge.log("[SpotifyPlus] Could not inflate layout: " + e.getMessage());

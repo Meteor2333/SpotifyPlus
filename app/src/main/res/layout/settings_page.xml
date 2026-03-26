@@ -104,28 +104,28 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <LinearLayout android:layout_width="match_parent" android:layout_height="56dp"
-                          android:orientation="horizontal" android:clickable="true" android:focusable="true"
-                          android:background="@drawable/row_click_bg" android:id="@+id/settings_scripting">
+<!--            <LinearLayout android:layout_width="match_parent" android:layout_height="56dp"-->
+<!--                          android:orientation="horizontal" android:clickable="true" android:focusable="true"-->
+<!--                          android:background="@drawable/row_click_bg" android:id="@+id/settings_scripting">-->
 
-                <ImageView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                           android:layout_gravity="center" android:paddingStart="6dp"
-                           android:contentDescription="Scripting Section" android:src="@drawable/code"/>
+<!--                <ImageView android:layout_width="wrap_content" android:layout_height="wrap_content"-->
+<!--                           android:layout_gravity="center" android:paddingStart="6dp"-->
+<!--                           android:contentDescription="Scripting Section" android:src="@drawable/code"/>-->
 
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                              android:orientation="vertical" android:layout_gravity="center_vertical"
-                              android:paddingLeft="8dp">
+<!--                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"-->
+<!--                              android:orientation="vertical" android:layout_gravity="center_vertical"-->
+<!--                              android:paddingLeft="8dp">-->
 
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                              android:text="Scripting" style="@style/TextAppearance.Material3.TitleMedium"
-                              android:paddingBottom="2dp"/>
+<!--                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"-->
+<!--                              android:text="Scripting" style="@style/TextAppearance.Material3.TitleMedium"-->
+<!--                              android:paddingBottom="2dp"/>-->
 
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                              style="@style/TextAppearance.Material3.BodySmall"
-                              android:text="Enabled • Scripts directory"
-                              android:textColor="?attr/colorOnSurfaceVariant"/>
-                </LinearLayout>
-            </LinearLayout>
+<!--                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"-->
+<!--                              style="@style/TextAppearance.Material3.BodySmall"-->
+<!--                              android:text="Enabled • Scripts directory"-->
+<!--                              android:textColor="?attr/colorOnSurfaceVariant"/>-->
+<!--                </LinearLayout>-->
+<!--            </LinearLayout>-->
 
             <LinearLayout android:layout_width="match_parent" android:layout_height="56dp"
                           android:orientation="horizontal" android:clickable="true" android:focusable="true"

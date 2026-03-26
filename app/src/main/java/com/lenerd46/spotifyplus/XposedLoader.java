@@ -43,7 +43,7 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
     private DexKitBridge bridge;
     private String modulePath = null;
-    private static final String MODULE_VERSION = "0.6.1";
+    private static final String MODULE_VERSION = "0.6.2";
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
@@ -126,13 +126,15 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                 ScriptManager.getInstance().init(context, lpparam.classLoader);
                 new BeautifulLyricsHook().init(lpparam, bridge);
                 new RemoveCreateButtonHook(context).init(lpparam, bridge);
-//                new PremiumHook().init(lpparam, bridge);
+                new NetworkHook(context).init(lpparam, bridge);
                 new LastFmHook().init(lpparam, bridge);
                 new ContextMenu_AddButton().init(lpparam, bridge);
                 new HomePageHook().init(lpparam, bridge);
                 new AnimatedAlbumArtwork().init(lpparam, bridge);
                 new TestingHook().init(lpparam, bridge);
                 new NewContextMenuHook().init(lpparam, bridge);
+//                new ThemeHook().init(lpparam, bridge);
+//                new ThemeTest().init(lpparam, bridge);
                 //                new LikedSongHook().init(lpparam, bridge);
 //                new KaraokeHook().init(lpparam, bridge);
             }
@@ -359,11 +361,71 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
         }
     }
 
+    private static final int COLOR_BACKGROUND_PRIMARY   = 0xFF000000;
+    private static final int COLOR_BACKGROUND_SECONDARY = 0xFF121212;
+    private static final int COLOR_ACCENT               = 0xFF1ED760;
+    private static final int COLOR_ACCENT_PRESSED       = 0xFF1ABC54;
+
     @Override
     public void handleInitPackageResources(XC_InitPackageResources.InitPackageResourcesParam resparam) throws Throwable {
-        if (resparam.packageName.equals("com.spotify.music")) {
-            References.modResources = XModuleResources.createInstance(modulePath, resparam.res);
-            References.xresources = resparam.res;
+        if (!"com.spotify.music".equals(resparam.packageName)) {
+            return;
+        }
+
+        References.modResources = XModuleResources.createInstance(modulePath, resparam.res);
+        References.xresources = resparam.res;
+
+//        final int primaryBackground = 0xFF000000;   // AMOLED black
+//        final int secondaryBackground = 0xFF121212; // elevated cards / surfaces
+//        final int accentColor = 0xFF1ED760;         // Spotify green
+//        final int accentPressed = 0xFF1ABC54;       // darker pressed green
+//
+//        final boolean overridePlayerGradientColor = true;
+//
+//        // Main background color
+//        replaceColor(resparam, "gray_7", primaryBackground);
+//        replaceColor(resparam, "gray_10", primaryBackground);
+//        replaceColor(resparam, "dark_base_background_base", primaryBackground);
+//        replaceColor(resparam, "dark_base_background_elevated_base", primaryBackground);
+//        replaceColor(resparam, "sthlm_blk", primaryBackground);
+//        replaceColor(resparam, "sthlm_blk_grad_start", primaryBackground);
+//        replaceColor(resparam, "image_placeholder_color", primaryBackground);
+//
+//        // Player gradient:
+//        // ReVanced skips bg_gradient_start_color unless overridePlayerGradientColor is enabled,
+//        // but always themes the end color.
+//        if (overridePlayerGradientColor) {
+//            replaceColor(resparam, "bg_gradient_start_color", primaryBackground);
+//        }
+//        replaceColor(resparam, "bg_gradient_end_color", primaryBackground);
+//
+//        // Secondary background color
+//        replaceColor(resparam, "gray_15", secondaryBackground);
+//        replaceColor(resparam, "track_credits_card_bg", secondaryBackground);
+//        replaceColor(resparam, "benefit_list_default_color", secondaryBackground);
+//        replaceColor(resparam, "merch_card_background", secondaryBackground);
+//        replaceColor(resparam, "opacity_white_10", secondaryBackground);
+//        replaceColor(resparam, "dark_base_background_tinted_highlight", secondaryBackground);
+//
+//        // Accent color
+//        replaceColor(resparam, "dark_brightaccent_background_base", accentColor);
+//        replaceColor(resparam, "dark_base_text_brightaccent", accentColor);
+//        replaceColor(resparam, "green_light", accentColor);
+//        replaceColor(resparam, "spotify_green_157", accentColor);
+//
+//        // Pressed accent color
+//        replaceColor(resparam, "dark_brightaccent_background_press", accentPressed);
+//
+//        XposedBridge.log("[SpotifyPlus] Custom theme resources applied");
+    }
+
+    private void replaceColor(XC_InitPackageResources.InitPackageResourcesParam resparam, String name, int color) {
+        try {
+            resparam.res.setReplacement("com.spotify.music", "color", name, color);
+            XposedBridge.log("[SpotifyPlus] Replaced color resource: " + name);
+        } catch (Throwable t) {
+            XposedBridge.log("[SpotifyPlus] Failed to replace color resource: " + name);
+            XposedBridge.log(t);
         }
     }
 }

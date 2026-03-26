@@ -121,6 +121,23 @@
         <item name="android:textColor">@color/spotifyplus_onSurfaceSecondary</item>
     </style>
 
+    <style name="SpotifyPlusSlider" parent="Widget.MaterialComponents.Slider">
+        <item name="haloRadius">0dp</item>
+        <item name="thumbColor">@android:color/white</item>
+        <item name="thumbRadius">8dp</item>
+        <item name="trackHeight">4dp</item>
+        <item name="trackColorActive">#1ED760</item>
+        <item name="trackColorInactive">#5A5A5A</item>
+        <item name="trackStopIndicatorSize">0dp</item>
+        <item name="tickVisible">false</item>
+        <item name="labelStyle">@style/SpotifyPlusSliderLabel</item>
+    </style>
+
+    <style name="SpotifyPlusSliderLabel" parent="Widget.MaterialComponents.Tooltip">
+        <item name="android:textColor">@android:color/white</item>
+        <item name="backgroundTint">#2A2A2A</item>
+    </style>
+
     <dimen name="spx_screen_pad">16dp</dimen>
     <dimen name="spx_card_pad">14dp</dimen>
     <dimen name="spx_list_item_height">56dp</dimen>
