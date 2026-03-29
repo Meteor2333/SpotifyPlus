@@ -10,6 +10,7 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -19,10 +20,12 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.lenerd.spotifyplus.BuildConfig;
 import com.lenerd.spotifyplus.R;
+import com.lenerd.spotifyplus.module.SpotifyCallback;
 import com.lenerd.spotifyplus.module.SpotifyHook;
 import com.lenerd.spotifyplus.module.SpotifyPlusSettings;
 import com.lenerd.spotifyplus.module.Utils;
 import io.github.libxposed.api.XposedInterface;
+import io.github.libxposed.api.annotations.AfterInvocation;
 import io.github.libxposed.api.annotations.BeforeInvocation;
 import io.github.libxposed.api.annotations.XposedHooker;
 import okhttp3.Call;
@@ -32,8 +35,10 @@ import okhttp3.Response;
 import org.jetbrains.annotations.NotNull;
 import org.luckypray.dexkit.query.FindMethod;
 import org.luckypray.dexkit.query.matchers.MethodMatcher;
+import org.xmlpull.v1.XmlPullParser;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.regex.Matcher;
@@ -44,36 +49,105 @@ import static com.lenerd.spotifyplus.module.Utils.bridge;
 @XposedHooker
 public class NetworkHook extends SpotifyHook {
     private static final Pattern LEADING_NUMBER = Pattern.compile("^(\\d+)");
+    private Method httpBuildMethod;
+    private boolean checkedForUpdates = false;
 
     @Override
     protected void hookSetup() throws NoSuchMethodException {
-        Method httpRequest = bridge.findMethod(FindMethod.create().searchInClass(Collections.singletonList(bridge.getClassData(findClass("okhttp3.Request$Builder")))).matcher(MethodMatcher.create().returnType(void.class).paramTypes(String.class, String.class))).get(1).getMethodInstance(classLoader);
+        var requestClassData = bridge.getClassData((findClass("okhttp3.Request$Builder")));
+        Method httpRequest = bridge.findMethod(FindMethod.create().searchInClass(Collections.singletonList(requestClassData)).matcher(MethodMatcher.create().returnType(void.class).paramTypes(String.class, String.class))).get(1).getMethodInstance(classLoader);
         hook(httpRequest);
 
+        httpBuildMethod = bridge.findMethod(FindMethod.create().searchInClass(Collections.singletonList(requestClassData)).matcher(MethodMatcher.create().usingStrings("ws").paramTypes(String.class))).get(0).getMethodInstance(classLoader);
+        hook(httpBuildMethod);
+
         hook(findClass("com.spotify.music.SpotifyMainActivity").getDeclaredMethod("onCreate", Bundle.class));
+
+//        hook(LayoutInflater.class.getDeclaredMethod("inflate", int.class, ViewGroup.class));
+//        hook(LayoutInflater.class.getDeclaredMethod("inflate", int.class, ViewGroup.class, boolean.class));
+//        hook(LayoutInflater.class.getDeclaredMethod("inflate", XmlPullParser.class, ViewGroup.class));
+//        hook(LayoutInflater.class.getDeclaredMethod("inflate", XmlPullParser.class, ViewGroup.class, boolean.class));
     }
 
     @BeforeInvocation
     public static void beforeHook(XposedInterface.BeforeHookCallback callback) {
-        if (callback.getMember().getName().equals("onCreate")) {
-            // I know this doesn't really fit, but I'm not sure where else to put it. I'm not creating an entire new class just for this
-            loadPreferences((Activity) callback.getThisObject());
-            SpotifyHook.currentActivity = (Activity) callback.getThisObject();
+        NetworkHook hook = getHook(NetworkHook.class);
+        if (hook == null) return;
+        hook.beforeHook(buildCallback(callback));
+    }
 
-            // Checking for updates is kind of a network thing, right?
-            checkForUpdates((Activity) callback.getThisObject());
-            return;
+    @Override
+    protected void beforeHook(SpotifyCallback callback) {
+        if (callback.getMember().getName().equals("onCreate")) {
+            try {
+                // I know this doesn't really fit, but I'm not sure where else to put it. I'm not creating an entire new class just for this
+                SpotifyHook.currentActivity = (Activity) callback.getThisObject();
+
+                if (!checkedForUpdates) {
+                    loadPreferences((Activity) callback.getThisObject());
+                    // Checking for updates is kind of a network thing, right?
+                    checkForUpdates((Activity) callback.getThisObject());
+                }
+            } catch (Exception e) {
+                logError(e);
+            }
+        } else if (callback.getMember() == httpBuildMethod) {
+            String url = (String) callback.getArgs()[0];
+
+            if (SpotifyPlusSettings.blockAds) {
+                if (url.contains("/ads")) {
+                    callback.getArgs()[0] = "https://127.0.0.1:404/";
+                }
+            } else if(url.contains("gabo-receiver-service") || url.contains("net-fortune") || url.contains("darwin-experiments") || url.contains("speechless-sharing") || url.contains("pendragon")) {
+                callback.getArgs()[0] = "https://127.0.0.1:404/";
+            }
+        } else if (callback.getArgs().length >= 2) {
+            String headerName = (String) callback.getArgs()[0];
+            String headerValue = (String) callback.getArgs()[1];
+
+            if (headerName != null && headerName.equalsIgnoreCase("authorization") && headerValue != null && !headerValue.isEmpty()) {
+                Utils.token = headerValue.replace("Bearer", "").trim();
+            }
         }
 
-        String headerName = (String) callback.getArgs()[0];
-        String headerValue = (String) callback.getArgs()[1];
+//        if (SpotifyPlusSettings.blockAds) {
+//            try {
+//                Object thisObject = callback.getThisObject();
+//                Object urlObject = thisObject.getClass().getDeclaredField("a").get(thisObject);
+//                String url = urlObject.toString();
+//
+//                if(url.contains("/ads")) {
+//                    urlObject
+//                }
+//            } catch(Exception e) {
+//                logError(e);
+//            }
+//        }
+    }
 
-        if (headerName != null && headerName.equalsIgnoreCase("authorization") && headerValue != null && !headerValue.isEmpty()) {
-            Utils.token = headerValue.replace("Bearer", "").trim();
+    @AfterInvocation
+    public static void after(XposedInterface.AfterHookCallback callback) {
+        NetworkHook hook = getHook(NetworkHook.class);
+        if (hook == null) return;
+        hook.afterHook(buildCallback(callback));
+    }
+
+    @Override
+    protected void afterHook(SpotifyCallback callback) {
+        try {
+            if (callback.getThrowable() == null) return;
+
+            Throwable throwable = callback.getThrowable();
+            LayoutInflater inflater = (LayoutInflater) callback.getThisObject();
+            Context context = inflater.getContext();
+
+            callback.returnAndSkip(new View(context.getApplicationContext()));
+        } catch (Exception e) {
+            logError(e);
         }
     }
 
-    private static void loadPreferences(Activity activity) {
+    private void loadPreferences(Activity activity) {
         SharedPreferences prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
 
         // General
@@ -81,7 +155,9 @@ public class NetworkHook extends SpotifyHook {
         SpotifyPlusSettings.removeCreateButton = prefs.getBoolean("remove_create", false);
         SpotifyPlusSettings.lastfmUsername = prefs.getString("last_fm_username", "null");
         SpotifyPlusSettings.startupPage = SpotifyPlusSettings.StartupPage.valueOf(prefs.getString("startup_page", "HOME"));
-        Log.d("SpotifyPlus", SpotifyPlusSettings.startupPage + " | " + prefs.getString("startup_page", "HOME"));
+        SpotifyPlusSettings.animatedAlbumArtworkEnabled = prefs.getBoolean("animated_art", true);
+        SpotifyPlusSettings.blockAds = prefs.getBoolean("block_ads", false);
+        SpotifyPlusSettings.blockTelemetry = prefs.getBoolean("block_telemetry", false);
 
         // Lyrics
         SpotifyPlusSettings.animationStyle = SpotifyPlusSettings.AnimationStyle.valueOf(prefs.getString("lyric_animation_style", "DEFAULT"));
@@ -93,7 +169,7 @@ public class NetworkHook extends SpotifyHook {
         SpotifyPlusSettings.lineGradient = prefs.getBoolean("lyric_enable_line_gradient", true);
     }
 
-    private static void checkForUpdates(Activity activity) {
+    private void checkForUpdates(Activity activity) {
         if (!SpotifyPlusSettings.checkForUpdates) return;
 
         ConnectivityManager connectivityManager = (ConnectivityManager) activity.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -141,7 +217,7 @@ public class NetworkHook extends SpotifyHook {
                 if (updateAvailable) {
                     activity.runOnUiThread(() -> {
                         ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
-                        if(root == null) return;
+                        if (root == null) return;
 
                         View updateModal = Utils.inflate(activity, R.layout.update_view, root);
                         root.addView(updateModal);
@@ -177,7 +253,7 @@ public class NetworkHook extends SpotifyHook {
         });
     }
 
-    private static long parseSegment(String seg) {
+    private long parseSegment(String seg) {
         seg = seg.trim();
         Matcher m = LEADING_NUMBER.matcher(seg);
         if (m.find()) {

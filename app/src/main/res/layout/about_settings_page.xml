@@ -22,7 +22,7 @@
                 android:background="#272727"
                 android:gravity="center"
                 app:titleCentered="true"
-                app:title="About"
+                app:title="@string/about_title"
                 app:titleTextAppearance="@style/TextAppearance.Material3.TitleMedium"
                 app:navigationIcon="?attr/homeAsUpIndicator"/>
     </com.google.android.material.appbar.AppBarLayout>
@@ -45,14 +45,14 @@
                     <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Version"
+                            android:text="@string/version_label"
                             android:textColor="@color/white"
                             android:textSize="15sp"
                             android:paddingBottom="4dp"/>
                 </LinearLayout>
 
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                          android:text="0.6.1" android:layout_marginEnd="8dp" android:layout_gravity="center_vertical"/>
+                <TextView android:id="@+id/version_text" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="VERSION_NUMBER" android:layout_marginEnd="8dp" android:layout_gravity="center_vertical"/>
             </LinearLayout>
 
             <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:orientation="horizontal">
@@ -65,7 +65,7 @@
                     <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="GitHub"
+                            android:text="@string/github_label"
                             android:textColor="@color/white"
                             android:textSize="15sp"
                             android:paddingBottom="4dp"/>
@@ -87,7 +87,29 @@
                     <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Made With ♡ By"
+                            android:text="@string/telegram_label"
+                            android:textColor="@color/white"
+                            android:textSize="15sp"
+                            android:paddingBottom="4dp"/>
+                </LinearLayout>
+
+                <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/open_telegram"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:src="@drawable/open_in_new" android:layout_gravity="center_vertical" android:paddingEnd="8dp" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:orientation="horizontal">
+                <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1" android:layout_gravity="center_vertical"
+                        android:orientation="vertical">
+
+                    <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/made_by_label"
                             android:textColor="@color/white"
                             android:textSize="15sp"
                             android:paddingBottom="4dp"/>
@@ -97,8 +119,8 @@
                           android:text="Devon Shoutz" android:layout_marginEnd="8dp" android:layout_gravity="center_vertical"/>
             </LinearLayout>
 
-            <TextView android:id="@+id/translate_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="This is a realy cool message"/>
-            <com.google.android.material.button.MaterialButton android:id="@+id/translate_button" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Translate!" />
+<!--            <TextView android:id="@+id/translate_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="This is a realy cool message"/>-->
+<!--            <com.google.android.material.button.MaterialButton android:id="@+id/translate_button" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Translate!" />-->
         </LinearLayout>
     </FrameLayout>
 </com.google.android.material.circularreveal.coordinatorlayout.CircularRevealCoordinatorLayout>

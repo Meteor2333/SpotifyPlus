@@ -45,7 +45,7 @@ public class SyllableVocals implements SyncableVocals {
         font = Utils.loadTypeface(activity, SpotifyPlusSettings.activeFont);
         this.fontSize = fontSize;
 
-        if(SpotifyPlusSettings.animationStyle.equals("default")) {
+        if(SpotifyPlusSettings.animationStyle == SpotifyPlusSettings.AnimationStyle.DEFAULT) {
             yOffsetRange = List.of(
                     Map.entry(0d, 1d / 100d),
                     Map.entry(0.9d, -(1d / 60d)),

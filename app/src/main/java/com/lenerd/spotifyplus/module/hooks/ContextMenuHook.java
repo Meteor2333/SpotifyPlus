@@ -14,6 +14,7 @@ import android.widget.Toast;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.lenerd.spotifyplus.R;
+import com.lenerd.spotifyplus.module.SpotifyCallback;
 import com.lenerd.spotifyplus.module.SpotifyHook;
 import com.lenerd.spotifyplus.module.SpotifyPlusSettings;
 import com.lenerd.spotifyplus.module.Utils;
@@ -137,7 +138,13 @@ public class ContextMenuHook extends SpotifyHook {
     }
 
     @BeforeInvocation
-    public static void beforeHook(XposedInterface.BeforeHookCallback callback) {
+    public static void before(XposedInterface.BeforeHookCallback callback) {
+        ContextMenuHook hook = getHook(ContextMenuHook.class);
+        if(hook == null) return;
+        hook.beforeHook(buildCallback(callback));
+    }
+
+    protected void beforeHook(SpotifyCallback callback) {
         Member member = callback.getMember();
 
         try {
@@ -343,9 +350,14 @@ public class ContextMenuHook extends SpotifyHook {
     }
 
     @AfterInvocation
-    public static void afterHook(XposedInterface.AfterHookCallback callback) {
-        try {
+    public static void after(XposedInterface.AfterHookCallback callback) {
+        ContextMenuHook hook = getHook(ContextMenuHook.class);
+        if (hook == null) return;
+        hook.afterHook(buildCallback(callback));
+    }
 
+    protected void afterHook(SpotifyCallback callback) {
+        try {
             if (callback.getMember().getDeclaringClass() == uweClass && spotifyPlusRenderDepth.get() > 0) {
                 int branch = bridge.findField(FindField.create().searchInClass(Collections.singletonList(bridge.getClassData(uweClass))).matcher(FieldMatcher.create().type(int.class))).get(0).getFieldInstance(classLoader).getInt(callback.getThisObject());
                 if (branch != 10) return;
@@ -361,7 +373,7 @@ public class ContextMenuHook extends SpotifyHook {
         }
     }
 
-    private static Object getLastfmIcon() {
+    private Object getLastfmIcon() {
         try {
             if (cachedSpotifyPlusTrf != null) return cachedSpotifyPlusTrf;
 
@@ -411,11 +423,11 @@ public class ContextMenuHook extends SpotifyHook {
         }
     }
 
-    private static void pushSpotifyPlusRender() {
+    private void pushSpotifyPlusRender() {
         spotifyPlusRenderDepth.set(spotifyPlusRenderDepth.get() + 1);
     }
 
-    private static void popSpotifyPlusRender() {
+    private void popSpotifyPlusRender() {
         int depth = spotifyPlusRenderDepth.get() - 1;
         if (depth <= 0) {
             spotifyPlusRenderDepth.remove();
@@ -424,12 +436,12 @@ public class ContextMenuHook extends SpotifyHook {
         }
     }
 
-    private static boolean isRenderingSpotifyPlusRow() {
+    private boolean isRenderingSpotifyPlusRow() {
         Integer depth = spotifyPlusRenderDepth.get();
         return depth != null && depth > 0;
     }
 
-    private static boolean isSpotifyPlusRow(Object obj) {
+    private boolean isSpotifyPlusRow(Object obj) {
         if (obj == null) return false;
         try {
             Object dsf = obj.getClass().getDeclaredField("a").get(obj);
@@ -441,7 +453,7 @@ public class ContextMenuHook extends SpotifyHook {
         }
     }
 
-    private static Object getField(Object obj, Class<?> wantType) {
+    private Object getField(Object obj, Class<?> wantType) {
         Class<?> c = obj.getClass();
         while (c != null && c != Object.class) {
             for (Field f : c.getDeclaredFields()) {
@@ -458,7 +470,7 @@ public class ContextMenuHook extends SpotifyHook {
         return null;
     }
 
-    private static Boolean[] getFirstBooleans(Object obj) {
+    private Boolean[] getFirstBooleans(Object obj) {
         try {
             ArrayList<Boolean> out = new ArrayList<>();
             for (Field f : obj.getClass().getDeclaredFields()) {

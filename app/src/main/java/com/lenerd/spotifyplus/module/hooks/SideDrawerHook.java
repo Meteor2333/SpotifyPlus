@@ -20,8 +20,10 @@ import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.radiobutton.MaterialRadioButton;
 import com.google.android.material.slider.Slider;
 import com.google.android.material.textfield.TextInputEditText;
+import com.lenerd.spotifyplus.BuildConfig;
 import com.lenerd.spotifyplus.R;
 import com.lenerd.spotifyplus.SettingsSync;
+import com.lenerd.spotifyplus.module.SpotifyCallback;
 import com.lenerd.spotifyplus.module.SpotifyHook;
 import com.lenerd.spotifyplus.module.SpotifyPlusSettings;
 import com.lenerd.spotifyplus.module.Utils;
@@ -99,8 +101,6 @@ public class SideDrawerHook extends SpotifyHook {
 
     @Override
     protected void hookSetup() throws NoSuchMethodException, ClassNotFoundException, NoSuchFieldException {
-        prefs = module.getRemotePreferences("SpotifyPlus");
-
         var constructorClassList = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("NavigationBarItemSet(item1=")));
         var parameterClassList = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("NavigationBarItem(icon=").methodCount(4).fieldCount(5, 6)));
         if (!constructorClassList.isEmpty() && !parameterClassList.isEmpty()) {
@@ -244,19 +244,30 @@ public class SideDrawerHook extends SpotifyHook {
 
     @BeforeInvocation
     public static void beforeHook(XposedInterface.BeforeHookCallback callback) {
+        SideDrawerHook hook = getHook(SideDrawerHook.class);
+        if (hook == null) return;
+        hook.beforeHook(buildCallback(callback));
+    }
+
+    @Override
+    protected void beforeHook(SpotifyCallback callback) {
         Member member = callback.getMember();
 
         try {
             if (member == resourceMethod) {
                 int id = (int) callback.getArgs()[1];
                 if (id == 2131957897) {
-                    callback.returnAndSkip(Utils.getString(currentActivity.get(), R.string.settings_label));
+                    String string = Utils.getString(currentActivity.get(), R.string.settings_label);
+                    callback.returnAndSkip(string);
+                    //                    callback.returnAndSkip(Utils.getString(currentActivity.get().getApplicationContext(), "settings_label"));
                 }
             }
 
             if (member == mainOnCreateMethod) {
-                if (callback.getThisObject() instanceof Activity activity)
+                if (callback.getThisObject() instanceof Activity activity) {
                     currentActivity = new WeakReference<>(activity);
+                    prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
+                }
                 return;
             }
 
@@ -281,7 +292,7 @@ public class SideDrawerHook extends SpotifyHook {
                     log("[SpotifyPlus] " + s);
                     String rewritten = "spotify:settings?spx=spotifyplus&src=" + Uri.encode(s);
                     Object bt = newInstance(bti0Class, rewritten);
-                    returnAndSkip(callback, bt);
+                    callback.returnAndSkip(bt);
                 }
                 return;
             }
@@ -298,7 +309,7 @@ public class SideDrawerHook extends SpotifyHook {
 
                 Object template = originalItems[isNewSideDrawer ? originalItems.length - 2 : originalItems.length - 1];
                 Object templateLightning = originalItems[isNewSideDrawer ? 2 : 1];
-                Array.set(newArray, originalItems.length, createSideDrawerButton("Spotify Plus Settings", template, 2131957897, SideDrawerHook::showSettingsOverlay));
+                Array.set(newArray, originalItems.length, createSideDrawerButton("Spotify Plus Settings", template, 2131957897, this::showSettingsOverlay));
 
                 int index = originalItems.length + 2;
                 for (var item : scriptSideButtons.keySet()) {
@@ -329,6 +340,13 @@ public class SideDrawerHook extends SpotifyHook {
 
     @AfterInvocation
     public static void afterHook(XposedInterface.AfterHookCallback callback) {
+        SideDrawerHook hook = getHook(SideDrawerHook.class);
+        if (hook == null) return;
+        hook.afterHook(buildCallback(callback));
+    }
+
+    @Override
+    protected void afterHook(SpotifyCallback callback) {
         Member member = callback.getMember();
 
         try {
@@ -386,7 +404,7 @@ public class SideDrawerHook extends SpotifyHook {
         }
     }
 
-    private static Object createSideDrawerButton(String title, Object template, int resId, Runnable onClick) {
+    private Object createSideDrawerButton(String title, Object template, int resId, Runnable onClick) {
         try {
             var dwd0List = bridge.findField(FindField.create().searchInClass(fwd0Classes).matcher(FieldMatcher.create().type(sideDrawerItemClass)));
             var fieldList = bridge.findField(FindField.create().searchInClass(dwd0Classes).matcher(FieldMatcher.create().type(Object.class)));
@@ -445,7 +463,7 @@ public class SideDrawerHook extends SpotifyHook {
 
                     for (Method method : originalOnClick.getClass().getDeclaredMethods()) {
                         if (!method.getName().equals("invoke")) continue;
-                        hook(method, SideDrawerHook.class);
+                        hook(method);
                     }
                 }
             }
@@ -488,7 +506,7 @@ public class SideDrawerHook extends SpotifyHook {
         }
     }
 
-    private static void showSettingsOverlay() {
+    private void showSettingsOverlay() {
         try {
             Activity activity = currentActivity.get();
             if (activity == null || activity.isFinishing()) return;
@@ -549,7 +567,7 @@ public class SideDrawerHook extends SpotifyHook {
 
                 View generalSettings = settingsPage.findViewById(R.id.settings_general);
                 View lyricsSettings = settingsPage.findViewById(R.id.settings_lyrics);
-                View experimentalSettings = settingsPage.findViewById(R.id.settings_experimental);
+//                View experimentalSettings = settingsPage.findViewById(R.id.settings_experimental);
                 View aboutSettings = settingsPage.findViewById(R.id.settings_about);
 
                 generalSettings.setOnClickListener(v -> {
@@ -576,6 +594,9 @@ public class SideDrawerHook extends SpotifyHook {
                     MaterialRadioButton search = view.findViewById(R.id.rb_search);
                     MaterialRadioButton explore = view.findViewById(R.id.rb_explore);
                     MaterialRadioButton library = view.findViewById(R.id.rb_library);
+                    MaterialSwitch animatedAlbumArt = view.findViewById(R.id.switch_animated_art);
+                    MaterialSwitch blockAds = view.findViewById(R.id.switch_block_ads);
+                    MaterialSwitch blockTelemetry = view.findViewById(R.id.switch_block_telemetry);
 
                     update.setOnCheckedChangeListener((check, value) -> {
                         setPref("general_check_update", value);
@@ -672,7 +693,25 @@ public class SideDrawerHook extends SpotifyHook {
                         library.setChecked(true);
                     });
 
+                    animatedAlbumArt.setOnCheckedChangeListener((button, value) -> {
+                        setPref("animated_art", value);
+                        SpotifyPlusSettings.animatedAlbumArtworkEnabled = value;
+                    });
+
+                    blockAds.setOnCheckedChangeListener((button, value) -> {
+                        setPref("block_ads", value);
+                        SpotifyPlusSettings.blockAds = value;
+                    });
+
+                    blockTelemetry.setOnCheckedChangeListener((button, value) -> {
+                        setPref("block_telemetry", value);
+                        SpotifyPlusSettings.blockTelemetry = value;
+                    });
+
                     update.setChecked(SpotifyPlusSettings.checkForUpdates);
+                    animatedAlbumArt.setChecked(SpotifyPlusSettings.animatedAlbumArtworkEnabled);
+                    blockAds.setChecked(SpotifyPlusSettings.blockAds);
+                    blockTelemetry.setChecked(SpotifyPlusSettings.blockTelemetry);
 
                     group.setVisibility("null".equals(SpotifyPlusSettings.lastfmUsername) ? LinearLayout.INVISIBLE : LinearLayout.VISIBLE);
                     textView.setText("null".equals(SpotifyPlusSettings.lastfmUsername) ? "" : "Currently set to " + SpotifyPlusSettings.lastfmUsername);
@@ -687,7 +726,7 @@ public class SideDrawerHook extends SpotifyHook {
                 });
 
                 lyricsSettings.setOnClickListener(v -> {
-                    View view = Utils.inflate(activity, R.layout.beautiful_lyrics_settings_page, root);
+                    View view = Utils.inflate(activity, R.layout.lyrics_settings_page, root);
                     if (view == null) return;
                     view.setId(DETAILED_SETTINGS_OVERLAY_ID);
                     root.addView(view);
@@ -718,8 +757,6 @@ public class SideDrawerHook extends SpotifyHook {
                     MaterialRadioButton mid = view.findViewById(R.id.rb_background_mid);
                     MaterialRadioButton low = view.findViewById(R.id.rb_background_low);
                     MaterialRadioButton superLow = view.findViewById(R.id.rb_background_superlow);
-                    MaterialSwitch sendToken = view.findViewById(R.id.switch_send_token);
-//                    MaterialSwitch userLyrics = view.findViewById(R.id.switch_check_user_lyrics);
 
                     visualBeautiful.setOnClickListener(c -> {
                         setPref("lyric_animation_style", "DEFAULT");
@@ -991,6 +1028,9 @@ public class SideDrawerHook extends SpotifyHook {
                     animatePageIn(view);
                     currentDetailedSettingsPage.set(view);
 
+                    TextView versionText = view.findViewById(R.id.version_text);
+                    versionText.setText(BuildConfig.VERSION_NAME);
+
                     MaterialToolbar detailedToolbar = view.findViewById(R.id.about_toolbar);
                     detailedToolbar.setNavigationOnClickListener(w -> {
                         ViewParent parent = settingsPage.getParent();
@@ -1001,16 +1041,19 @@ public class SideDrawerHook extends SpotifyHook {
                     View github = view.findViewById(R.id.open_github);
                     github.setOnClickListener(button -> activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeNerd46/SpotifyPlus"))));
 
-                    TextView text = view.findViewById(R.id.translate_text);
-                    MaterialButton button = view.findViewById(R.id.translate_button);
-                    button.setOnClickListener(button1 -> {
-                        try {
-                            String originalText = text.getText().toString();
-                            text.setText("Translating...");
-                        } catch (Throwable t) {
-                            logError(t);
-                        }
-                    });
+                    View telegram = view.findViewById(R.id.open_telegram);
+                    telegram.setOnClickListener(button -> activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/spotifypluscool"))));
+
+//                    TextView text = view.findViewById(R.id.translate_text);
+//                    MaterialButton button = view.findViewById(R.id.translate_button);
+//                    button.setOnClickListener(button1 -> {
+//                        try {
+//                            String originalText = text.getText().toString();
+//                            text.setText("Translating...");
+//                        } catch (Throwable t) {
+//                            logError(t);
+//                        }
+//                    });
                 });
             });
         } catch (Throwable t) {
@@ -1019,16 +1062,16 @@ public class SideDrawerHook extends SpotifyHook {
         }
     }
 
-    private static void animatePageIn(View page) {
+    private void animatePageIn(View page) {
         page.setAlpha(0.0f);
         page.animate().alpha(1.0f).setDuration(180).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
     }
 
-    private static void animatePageOut(View page, Runnable onComplete) {
+    private void animatePageOut(View page, Runnable onComplete) {
         page.animate().alpha(1.0f).setDuration(150).setInterpolator(new android.view.animation.AccelerateInterpolator()).withEndAction(onComplete).start();
     }
 
-//    public static void registerSettingSection(String title, int id, SettingItem.SettingSection section) {
+//    public void registerSettingSection(String title, int id, SettingItem.SettingSection section) {
 //        var key = scriptSettings.keySet().stream().filter(entry -> entry.first.equals(id)).findFirst().orElse(null);
 //        if (key == null) scriptSettings.put(Pair.create(id, title), new ArrayList<>(List.of(section)));
 //        else {
@@ -1038,7 +1081,7 @@ public class SideDrawerHook extends SpotifyHook {
 //        }
 //    }
 
-    public static void registerSideButton(String title, int id, Runnable onClick) {
+    public void registerSideButton(String title, int id, Runnable onClick) {
         try {
             var key = scriptSideButtons.keySet().stream().filter(entry -> entry.first.equals(id)).findFirst().orElse(null);
             if (key == null) scriptSideButtons.put(Pair.create(id, title), onClick);
@@ -1047,17 +1090,17 @@ public class SideDrawerHook extends SpotifyHook {
         }
     }
 
-    private static int dpToPx(int dp, Activity activity) {
+    private int dpToPx(int dp, Activity activity) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, activity.getResources().getDisplayMetrics());
     }
 
-    private static Object getFieldValue(Object instance, String name) throws Exception {
+    private Object getFieldValue(Object instance, String name) throws Exception {
         Field field = instance.getClass().getDeclaredField(name);
         field.setAccessible(true);
         return field.get(instance);
     }
 
-    private static Object newInstance(Class<?> cls, Object... args) throws Exception {
+    private Object newInstance(Class<?> cls, Object... args) throws Exception {
         for (Constructor<?> ctor : cls.getDeclaredConstructors()) {
             Class<?>[] types = ctor.getParameterTypes();
             if (types.length != args.length) continue;
@@ -1076,7 +1119,7 @@ public class SideDrawerHook extends SpotifyHook {
         throw new NoSuchMethodException("No constructor found for " + cls.getName());
     }
 
-    private static Class<?> wrap(Class<?> cls) {
+    private Class<?> wrap(Class<?> cls) {
         if (!cls.isPrimitive()) return cls;
         if (cls == int.class) return Integer.class;
         if (cls == long.class) return Long.class;
@@ -1089,7 +1132,7 @@ public class SideDrawerHook extends SpotifyHook {
         return cls;
     }
 
-    private static void returnAndSkip(XposedInterface.BeforeHookCallback callback, Object result) throws Exception {
+    private void returnAndSkip(XposedInterface.BeforeHookCallback callback, Object result) throws Exception {
         try {
             Method method = callback.getClass().getMethod("returnAndSkip", Object.class);
             method.invoke(callback, result);
@@ -1099,7 +1142,7 @@ public class SideDrawerHook extends SpotifyHook {
         }
     }
 
-    private static void setPref(String key, Object value) {
+    private void setPref(String key, Object value) {
         Intent intent = new Intent("com.lenerd.spotifyplus.SET_PREF");
         intent.setPackage("com.lenerd.spotifyplus");
         intent.putExtra("key", key);

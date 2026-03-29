@@ -21,6 +21,7 @@ import android.widget.Toast;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.lenerd.spotifyplus.R;
+import com.lenerd.spotifyplus.module.SpotifyCallback;
 import com.lenerd.spotifyplus.module.SpotifyHook;
 import com.lenerd.spotifyplus.module.SpotifyPlusSettings;
 import com.lenerd.spotifyplus.module.Utils;
@@ -60,20 +61,20 @@ public class LegacyContextMenuHook extends SpotifyHook {
     private static final Set<Class<?>> HOOKED_ADAPTER_CLASSES = Collections.synchronizedSet(new HashSet<>());
     private static final Set<ViewGroup> SHEETS = Collections.newSetFromMap(new WeakHashMap<>());
 
-    private static Class<?> f2e;
-    private static Class<?> c3e;
-    private static Class<?> v6e;
-    private static Method f2eAcceptMethod;
-    private static Constructor<?> headerCtor;
-    private static Method setAdapterMethod;
-    private static Method getItemCountMethod;
-    private static Method getItemViewTypeMethod;
-    private static Method onBindViewHolderMethod;
+    private Class<?> f2e;
+    private Class<?> c3e;
+    private Class<?> v6e;
+    private Method f2eAcceptMethod;
+    private Constructor<?> headerCtor;
+    private Method setAdapterMethod;
+    private Method getItemCountMethod;
+    private Method getItemViewTypeMethod;
+    private Method onBindViewHolderMethod;
 
-    private static Field c3eField;
-    private static Field artworkField;
-    private static Field listField;
-    private static FieldDataList stringFields;
+    private Field c3eField;
+    private Field artworkField;
+    private Field listField;
+    private FieldDataList stringFields;
 
     @Override
     protected void hookSetup() {
@@ -110,7 +111,13 @@ public class LegacyContextMenuHook extends SpotifyHook {
     }
 
     @BeforeInvocation
-    public static void beforeHook(XposedInterface.BeforeHookCallback callback) {
+    public static void before(XposedInterface.BeforeHookCallback callback) {
+        LegacyContextMenuHook hook = getHook(LegacyContextMenuHook.class);
+        if(hook == null) return;
+        hook.beforeHook(buildCallback(callback));
+    }
+
+    protected void beforeHook(SpotifyCallback callback) {
         Member member = callback.getMember();
         try {
             if (member == getItemViewTypeMethod) {
@@ -258,7 +265,13 @@ public class LegacyContextMenuHook extends SpotifyHook {
     }
 
     @AfterInvocation
-    public static void afterHook(XposedInterface.AfterHookCallback callback) {
+    public static void after(XposedInterface.AfterHookCallback callback) {
+        LegacyContextMenuHook hook = getHook(LegacyContextMenuHook.class);
+        if(hook == null) return;
+        hook.afterHook(buildCallback(callback));
+    }
+
+    protected void afterHook(SpotifyCallback callback) {
         Member member = callback.getMember();
 
         if (member == headerCtor) {
@@ -280,7 +293,7 @@ public class LegacyContextMenuHook extends SpotifyHook {
         }
     }
 
-    private static View findContextMenuRecycler(ViewGroup root) {
+    private View findContextMenuRecycler(ViewGroup root) {
         ArrayDeque<View> q = new ArrayDeque<>();
         q.add(root);
         while (!q.isEmpty()) {
@@ -303,7 +316,7 @@ public class LegacyContextMenuHook extends SpotifyHook {
         return null;
     }
 
-    private static void hookAdapterWhenReady(View rv) {
+    private void hookAdapterWhenReady(View rv) {
         try {
             Object ad = rv.getClass().getMethod("getAdapter").invoke(rv);
             if (ad != null) {
@@ -320,7 +333,7 @@ public class LegacyContextMenuHook extends SpotifyHook {
         }
     }
 
-    private static void hookAdapterClass(Class<?> cls) {
+    private void hookAdapterClass(Class<?> cls) {
         if (!HOOKED_ADAPTER_CLASSES.add(cls)) return;
 
         try {
@@ -336,9 +349,9 @@ public class LegacyContextMenuHook extends SpotifyHook {
         }
     }
 
-    private static final int TAG_SPOTIFYPLUS_ROW = 0x53474C60;
+    private final int TAG_SPOTIFYPLUS_ROW = 0x53474C60;
 
-    private static void ensureRow(View item) {
+    private void ensureRow(View item) {
         if (!(item instanceof ViewGroup)) return;
         ViewGroup root = (ViewGroup) item;
 
@@ -397,7 +410,7 @@ public class LegacyContextMenuHook extends SpotifyHook {
     }
 
 
-    private static int dpToPx(Context ctx, int dp) {
+    private int dpToPx(Context ctx, int dp) {
         float density = ctx.getResources().getDisplayMetrics().density;
         return (int) (dp * density + 0.5f);
     }

@@ -27,7 +27,6 @@
                 android:orientation="vertical"
                 android:padding="20dp">
 
-            <!-- Icon -->
             <ImageView
                     android:id="@+id/lastfm_icon"
                     android:layout_width="40dp"
@@ -37,36 +36,33 @@
                     android:src="@drawable/lastfm"
                     android:contentDescription="Last.fm"/>
 
-            <!-- Title -->
             <TextView
                     android:id="@+id/lastfm_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:text="Connect Last.fm"
+                    android:text="@string/last_fm_modal_header"
                     android:textColor="@color/white"
                     android:textSize="22sp"
                     android:textStyle="bold"
                     android:layout_marginBottom="8dp"/>
 
-            <!-- Description -->
             <TextView
                     android:id="@+id/lastfm_description"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:text="Enter your Last.fm username so Spotify Plus can show you your scrobbles."
+                    android:text="@string/last_fm_modal_subtitle"
                     android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="14sp"
                     android:layout_marginBottom="16dp"/>
 
-            <!-- Username Input -->
             <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/lastfm_username_layout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="18dp"
-                    android:hint="Last.fm Username"
+                    android:hint="@string/last_fm_modal_text"
                     app:boxStrokeColor="#55FFFFFF"
                     app:hintTextColor="#AAFFFFFF">
 
@@ -80,38 +76,33 @@
                         android:maxLines="1"/>
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Submit -->
             <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_submit_lastfm"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Submit"
+                    android:text="@string/last_fm_modal_submit"
                     android:textAllCaps="false"
                     android:layout_marginBottom="10dp"/>
 
-            <!-- Clear -->
             <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_clear_lastfm"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Clear Username"
+                    android:text="@string/last_fm_modal_clear"
                     android:textAllCaps="false"
                     android:textColor="@color/white"
                     android:layout_marginBottom="10dp"/>
 
-            <!-- Cancel -->
             <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_cancel_lastfm"
                     style="@style/Widget.Material3.Button.TextButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Cancel"
+                    android:text="@string/last_fm_modal_cancel"
                     android:textAllCaps="false"
                     android:textColor="?attr/colorOnSurfaceVariant"/>
 
         </LinearLayout>
-
     </com.google.android.material.card.MaterialCardView>
-
 </FrameLayout>

@@ -25,14 +25,6 @@
         <item name="android:statusBarColor">?attr/colorSurface</item>
     </style>
 
-    <!--    <style name="Widget.SpotifyPlus.Toolbar" parent="Widget.Material3.Toolbar">-->
-    <!--        <item name="android:background">?attr/colorSurface</item>-->
-    <!--        <item name="titleTextColor">?attr/colorOnSurface</item>-->
-    <!--        <item name="subtitleTextColor">?attr/colorOnSurface</item>-->
-    <!--        <item name="navigationIconTint">?attr/colorOnSurface</item>-->
-    <!--        <item name="popupTheme">@style/ThemeOverlay.SpotifyPlus.Material</item>-->
-    <!--    </style>-->
-
     <color name="spotifyplus_background">#141414</color>
     <color name="spotifyplus_black">#121212</color>
     <color name="spotifyplus_surface">#181818</color>

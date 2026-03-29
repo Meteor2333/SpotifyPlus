@@ -22,7 +22,7 @@
                 android:background="#272727"
                 android:gravity="center"
                 app:titleCentered="true"
-                app:title="Beautiful Lyrics"
+                app:title="@string/lyrics_title"
                 app:titleTextAppearance="@style/TextAppearance.Material3.TitleMedium"
                 app:navigationIcon="?attr/homeAsUpIndicator"/>
     </com.google.android.material.appbar.AppBarLayout>
@@ -35,7 +35,7 @@
         <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
                       android:orientation="vertical">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                      android:text="Visuals" style="@style/TextAppearance.Material3.TitleLarge"
+                      android:text="@string/lyrics_visuals_header" style="@style/TextAppearance.Material3.TitleLarge"
                       android:paddingBottom="12dp"/>
 
             <RadioGroup
@@ -58,7 +58,7 @@
                         <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Animation Style"
+                                android:text="@string/animation_style"
                                 android:textColor="@color/white"
                                 android:textSize="15sp"
                                 android:paddingBottom="4dp"
@@ -68,7 +68,7 @@
                                 style="@style/TextAppearance.Material3.BodySmall"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Whether lyrics should be animated more like Beautiful Lyrics or Apple Music"
+                                android:text="@string/animation_style_desc"
                                 android:textColor="?attr/colorOnSurfaceVariant"/>
                     </LinearLayout>
 
@@ -78,11 +78,11 @@
                         <LinearLayout android:layout_width="0dp" android:layout_weight="1"
                                       android:layout_height="wrap_content" android:orientation="vertical">
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Beautiful Lyrics" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/animation_style_default" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
 
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Apple Music" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/animation_style_apple" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
                         </LinearLayout>
 
@@ -125,7 +125,7 @@
                         <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Lyrics Font"
+                                android:text="@string/lyrics_font"
                                 android:textColor="@color/white"
                                 android:textSize="15sp"
                                 android:paddingBottom="4dp"
@@ -135,7 +135,7 @@
                                 style="@style/TextAppearance.Material3.BodySmall"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="What font to use for the lyrics"
+                                android:text="@string/lyrics_font_desc"
                                 android:textColor="?attr/colorOnSurfaceVariant"/>
                     </LinearLayout>
 
@@ -145,15 +145,15 @@
                         <LinearLayout android:layout_width="0dp" android:layout_weight="1"
                                       android:layout_height="wrap_content" android:orientation="vertical">
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Spotify" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/lyrics_font_spotify" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
 
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Beautiful Lyrics" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/lyrics_font_default" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
 
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Apple Music" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/lyrics_font_apple" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
                         </LinearLayout>
 
@@ -201,7 +201,7 @@
                         <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Interlude Duration"
+                                android:text="@string/interlude_duration"
                                 android:textColor="@color/white"
                                 android:textSize="15sp"
                                 android:paddingBottom="4dp"
@@ -211,7 +211,7 @@
                                 style="@style/TextAppearance.Material3.BodySmall"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="The minmum amount of time it takes for an interlude to show up"
+                                android:text="@string/interlude_duration_desc"
                                 android:textColor="?attr/colorOnSurfaceVariant"/>
                     </LinearLayout>
 
@@ -221,19 +221,19 @@
                         <LinearLayout android:layout_width="0dp" android:layout_weight="1"
                                       android:layout_height="wrap_content" android:orientation="vertical">
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Beautiful Lyrics" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/interlude_default" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
 
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Spicy Lyrics" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/interlude_spicy" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
 
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Spotify Plus" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/interlude_spotifyplus" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
 
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Apple Music" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/interlude_apple" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
                         </LinearLayout>
 
@@ -283,7 +283,7 @@
                 <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Line Spacing"
+                        android:text="@string/line_spacing"
                         android:textColor="@color/white"
                         android:textSize="15sp"
                         android:paddingBottom="4dp" />
@@ -292,7 +292,7 @@
                         style="@style/TextAppearance.Material3.BodySmall"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="The amount of space in between lines. A larger amount will have a larger font size and more space in between lines, resulting in fewer lines being visible."
+                        android:text="@string/line_spacing_desc"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:paddingBottom="16dp" />
 
@@ -309,7 +309,7 @@
                             android:id="@+id/line_spacing_min"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Compact"
+                            android:text="@string/line_spacing_compact"
                             android:textColor="#AFAFAF"
                             android:textSize="13sp"
                             android:paddingEnd="12dp" />
@@ -328,7 +328,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="top|start"
                                 android:background="@drawable/slider_value_bubble"
-                                android:text="Default"
+                                android:text="@string/line_spacing_default"
                                 android:textColor="@android:color/white"
                                 android:textSize="12sp"
                                 android:paddingStart="8dp"
@@ -361,7 +361,7 @@
                             android:id="@+id/line_spacing_max"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Max"
+                            android:text="@string/line_spacing_max"
                             android:textColor="#AFAFAF"
                             android:textSize="13sp"
                             android:paddingStart="12dp" />
@@ -387,7 +387,7 @@
                     <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Enable Background"
+                            android:text="@string/enable_background"
                             android:textColor="@color/white"
                             android:textSize="15sp"
                             android:paddingBottom="4dp" />
@@ -396,7 +396,7 @@
                             style="@style/TextAppearance.Material3.BodySmall"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Whether the background should be an animated background or just a static color"
+                            android:text="@string/enable_background_desc"
                             android:textColor="?attr/colorOnSurfaceVariant"/>
                 </LinearLayout>
 
@@ -406,7 +406,7 @@
                         android:layout_height="wrap_content"
                         android:paddingHorizontal="8dp"
                         android:checked="true"
-                        android:contentDescription="Enable Background"/>
+                        android:contentDescription="@string/enable_background_desc"/>
             </LinearLayout>
 
             <LinearLayout
@@ -427,7 +427,7 @@
                     <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Enable Line Lyrics Gradient"
+                            android:text="@string/enable_line_gradient"
                             android:textColor="@color/white"
                             android:textSize="15sp"
                             android:paddingBottom="4dp" />
@@ -436,7 +436,7 @@
                             style="@style/TextAppearance.Material3.BodySmall"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Sets whether lines should have a gradient or stay a solid color in line synced lyrics"
+                            android:text="@string/enable_line_gradient_desc"
                             android:textColor="?attr/colorOnSurfaceVariant"/>
                 </LinearLayout>
 
@@ -446,7 +446,7 @@
                         android:layout_height="wrap_content"
                         android:paddingHorizontal="8dp"
                         android:checked="true"
-                        android:contentDescription="Enable Line Lyrics Gradient"/>
+                        android:contentDescription="@string/enable_line_gradient_desc"/>
             </LinearLayout>
 
             <RadioGroup
@@ -469,7 +469,7 @@
                         <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Background Quality"
+                                android:text="@string/background_quality"
                                 android:textColor="@color/white"
                                 android:textSize="15sp"
                                 android:paddingBottom="4dp"
@@ -479,7 +479,7 @@
                                 style="@style/TextAppearance.Material3.BodySmall"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Changes the quality of the background. Lower quality should give better performance at the cost of detail and variance in colors"
+                                android:text="@string/background_quality_desc"
                                 android:textColor="?attr/colorOnSurfaceVariant"/>
                     </LinearLayout>
 
@@ -489,19 +489,19 @@
                         <LinearLayout android:layout_width="0dp" android:layout_weight="1"
                                       android:layout_height="wrap_content" android:orientation="vertical">
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Quality" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/background_quality_high" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
 
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Balanced" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/background_quality_mid" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
 
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Performance" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/background_quality_low" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
 
                             <TextView android:layout_width="wrap_content" android:layout_height="48dp"
-                                      android:text="Ultra Performance" style="@style/TextAppearance.Material3.BodyMedium"
+                                      android:text="@string/background_quality_superlow" style="@style/TextAppearance.Material3.BodyMedium"
                                       android:gravity="center_vertical"/>
                         </LinearLayout>
 
@@ -534,98 +534,6 @@
                     </LinearLayout>
                 </LinearLayout>
             </RadioGroup>
-
-            <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:alpha="0.08"
-                    android:background="?attr/colorOnSurface"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginBottom="16dp"/>
-
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                      android:text="Privacy" style="@style/TextAppearance.Material3.TitleLarge"
-                      android:paddingBottom="12dp"/>
-
-            <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="16dp"
-                    android:clickable="true" android:focusable="true"
-                    android:background="@drawable/row_click_bg">
-
-                <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                    <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Send Access Token"
-                            android:textColor="@color/white"
-                            android:textSize="15sp"
-                            android:paddingBottom="4dp" />
-
-                    <TextView
-                            style="@style/TextAppearance.Material3.BodySmall"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Send your Spotify access token to the Beautiful Lyrics API. If disabled, some songs will not load lyrics"
-                            android:textColor="?attr/colorOnSurfaceVariant"/>
-                </LinearLayout>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switch_send_token"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:paddingHorizontal="8dp"
-                        android:checked="true"
-                        android:contentDescription="Send Access Token"/>
-            </LinearLayout>
-
-            <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="16dp"
-                    android:clickable="true" android:focusable="true"
-                    android:background="@drawable/row_click_bg">
-
-                <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                    <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Check For User Lyrics"
-                            android:textColor="@color/white"
-                            android:textSize="15sp"
-                            android:paddingBottom="4dp" />
-
-                    <TextView
-                            style="@style/TextAppearance.Material3.BodySmall"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Checks for any syllable synced lyrics that users synced. These lyrics may be inaccureate and it might take longer for line synced lyrics to load"
-                            android:textColor="?attr/colorOnSurfaceVariant"/>
-                </LinearLayout>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switch_check_user_lyrics"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:paddingHorizontal="8dp"
-                        android:checked="true"
-                        android:contentDescription="Check For User Lyrics"/>
-            </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 

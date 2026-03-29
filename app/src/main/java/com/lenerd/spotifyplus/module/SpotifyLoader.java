@@ -17,12 +17,10 @@ public class SpotifyLoader extends XposedModule {
         System.loadLibrary("dexkit");
     }
 
-    public static volatile String MODULE_APK_PATH;
-
     public SpotifyLoader(@NonNull @NotNull XposedInterface base, @NonNull @NotNull XposedModuleInterface.ModuleLoadedParam param) {
         super(base, param);
 
-        MODULE_APK_PATH = getApplicationInfo().sourceDir;
+        Utils.MODULE_APK_PATH = getApplicationInfo().sourceDir;
     }
 
     @Override
@@ -34,7 +32,7 @@ public class SpotifyLoader extends XposedModule {
             try {
                 bridge = DexKitBridge.create(param.getApplicationInfo().sourceDir);
             } catch (Exception e) {
-                Log.e("SpotifyPlus", e.getMessage());
+                Log.e("SpotifyPlus", e.getMessage(), e);
             }
         }
 

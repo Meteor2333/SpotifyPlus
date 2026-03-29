@@ -16,6 +16,8 @@ import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
+import androidx.appcompat.app.AppCompatDelegate;
 import com.lenerd.spotifyplus.R;
 import com.lenerd.spotifyplus.module.entities.SpotifyTrack;
 import org.luckypray.dexkit.DexKitBridge;
@@ -40,7 +42,13 @@ public final class Utils {
     private static Typeface cachedTypeface;
     public static String token;
 
+    private static Resources moduleResources;
+    private static Context moduleContext;
+    private static ResourcesLoader moduleLoader;
+    private static ResourcesProvider moduleProvider;
+
     public static DexKitBridge bridge;
+    public static volatile String MODULE_APK_PATH;
 
     private static final Pattern DIGITS = Pattern.compile("\\d+");
     public static Object playerState;
@@ -49,6 +57,7 @@ public final class Utils {
     public static Object playerStateWrapper;
 
     public static WeakReference<Pair<String, String>> currentContextTrack;
+    private static boolean vectorCompatEnabled = false;
 
     //region Loading Resources
 
@@ -56,15 +65,28 @@ public final class Utils {
         if (context == null) return null;
 
         try {
-            ensureModuleResources(context);
-
-            if (mergedResources == null || wrappedContext == null) {
-                Log.e("SpotifyPlus", "Failed to merge resources");
-                return null;
+            if(!vectorCompatEnabled) {
+                AppCompatDelegate.setCompatVectorFromResourcesEnabled(true);
+                vectorCompatEnabled = true;
             }
 
-            LayoutInflater inflater = LayoutInflater.from(context.getApplicationContext()).cloneInContext(wrappedContext);
-            return inflater.inflate(layoutId, parent, false);
+            ensureModuleResources(context.getApplicationContext());
+
+            Context moduleBase = new ModuleBaseContext(context.getApplicationContext(), moduleResources, SpotifyLoader.class.getClassLoader());
+            ContextThemeWrapper themed = new ContextThemeWrapper(moduleBase, R.style.Theme_SpotifyPlus);
+
+//            if (moduleResources == null || moduleContext == null) {
+//                Log.e("SpotifyPlus", "Failed to merge resources");
+//                return null;
+//            }
+
+//            Context wrapped = new ModuleContextWrapper(baseContext, R.style.Theme_SpotifyPlus, moduleResources, SpotifyLoader.class.getClassLoader());
+
+            LayoutInflater inflater = LayoutInflater.from(themed).cloneInContext(themed);
+            View view = inflater.inflate(layoutId, parent, false);
+            unloadResources();
+
+            return view;
         } catch (Exception e) {
             Log.e("SpotifyPlus", e.getMessage(), e);
             return null;
@@ -91,72 +113,150 @@ public final class Utils {
     }
 
     public static String getString(Context context, int stringId, Object... formatArgs) {
-        if(context == null) return null;
+        if (context == null) return null;
 
         try {
             ensureModuleResources(context);
+            if (moduleResources == null) return null;
 
-            if(mergedResources == null || wrappedContext == null) {
-                Log.e("SpotifyPlus", "Failed to merge resources");
-                return null;
-            }
-
-            if(formatArgs != null && formatArgs.length > 0) {
-                return mergedResources.getString(stringId, formatArgs);
+            String string = "";
+            if (formatArgs != null && formatArgs.length > 0) {
+                string = moduleResources.getString(stringId, formatArgs);
             } else {
-                return mergedResources.getString(stringId);
+                string = moduleResources.getString(stringId);
             }
-        } catch(Exception e) {
+
+            unloadResources();;
+            return string;
+        } catch (Exception e) {
             Log.e("SpotifyPlus", e.getMessage(), e);
             return null;
         }
     }
 
     public static Drawable getDrawable(Context context, int drawableId) {
-        if(context == null) return null;
+        if (context == null) return null;
 
         try {
             ensureModuleResources(context);
 
-            if(mergedResources == null || wrappedContext == null) {
+            if (moduleResources == null) {
                 Log.e("SpotifyPlus", "Failed to merge resources");
                 return null;
             }
 
-            return mergedResources.getDrawable(drawableId);
-        } catch(Exception e) {
+            Drawable drawable = moduleResources.getDrawable(drawableId);
+            unloadResources();
+
+            return drawable;
+        } catch (Exception e) {
             Log.e("SpotifyPlus", e.getMessage(), e);
             return null;
         }
     }
 
-    private static void ensureModuleResources(Context context) throws Exception {
-        if (mergedResources != null && wrappedContext != null) return;
+    private static void unloadResources() {
+        try {
+            if (moduleResources != null && moduleLoader != null) {
+                moduleResources.removeLoaders(moduleLoader);
+            }
+        } catch(Exception e) {
+            Log.e("SpotifyPlus", e.getMessage(), e);
+        } finally {
+            moduleResources = null;
+            moduleContext = null;
+            moduleLoader = null;
 
-        File moduleApk = new File(SpotifyLoader.MODULE_APK_PATH);
-        if (!moduleApk.exists()) {
-            Log.e("SpotifyPlus", "Could not find APK path!");
-            return;
+            if(moduleProvider != null) {
+                try {
+                    moduleProvider.close();
+                } catch (Exception ignored) { }
+                moduleProvider = null;
+            }
         }
-
-        ParcelFileDescriptor pfd = ParcelFileDescriptor.open(moduleApk, ParcelFileDescriptor.MODE_READ_ONLY);
-        ResourcesProvider provider = ResourcesProvider.loadFromApk(pfd);
-
-        ResourcesLoader loader = new ResourcesLoader();
-        loader.addProvider(provider);
-
-        Resources hostRes = context.getApplicationContext().getResources();
-        Resources res = new Resources(hostRes.getAssets(), hostRes.getDisplayMetrics(), hostRes.getConfiguration());
-        res.addLoaders(loader);
-
-//        mergedResources = res;
-//        Context moduleContext = new ModuleResourceContext(context.getApplicationContext(), mergedResources, SpotifyLoader.class.getClassLoader());
-//        wrappedContext = new ContextThemeWrapper(moduleContext, R.style.Theme_SpotifyPlus);
-
-        mergedResources = ModuleContextWrapper.createMergedResources(context.getApplicationContext(), SpotifyLoader.MODULE_APK_PATH);
-        wrappedContext = new ModuleContextWrapper(context.getApplicationContext(), R.style.Theme_SpotifyPlus, mergedResources, ModuleContextWrapper.class.getClassLoader());
     }
 
+//    private static synchronized void ensureModuleResources(Context context) throws Exception {
+//        if (moduleResources != null && moduleContext != null) return;
+//
+//        File moduleApk = new File(MODULE_APK_PATH);
+//        if (!moduleApk.exists()) {
+//            Log.e("SpotifyPlus", "Could not find APK path!");
+//            return;
+//        }
+//
+//        try (ParcelFileDescriptor pfd = ParcelFileDescriptor.open(moduleApk, ParcelFileDescriptor.MODE_READ_ONLY)) {
+//            moduleProvider = ResourcesProvider.loadFromApk(pfd);
+//        }
+//
+//        moduleLoader = new ResourcesLoader();
+//        moduleLoader.addProvider(moduleProvider);
+//
+//        Resources hostRes = context.getResources();
+//        moduleResources = new Resources(hostRes.getAssets(), hostRes.getDisplayMetrics(), hostRes.getConfiguration());
+//        moduleResources.addLoaders(moduleLoader);
+//
+//        moduleContext = new ModuleContextWrapper(context, R.style.Theme_SpotifyPlus, moduleResources, SpotifyLoader.class.getClassLoader());
+//    }
+
+    private static AssetManager moduleAssetManager;
+
+    private static synchronized void ensureModuleResources(Context context) throws Exception {
+        if (moduleResources != null && moduleAssetManager != null) return;
+
+        File moduleApk = new File(MODULE_APK_PATH);
+        if (!moduleApk.exists()) throw new IllegalStateException("Could not find APK path: " + MODULE_APK_PATH);
+
+        Resources hostRes = context.getResources();
+
+        AssetManager am = AssetManager.class.getDeclaredConstructor().newInstance();
+        Method addAssetPath = AssetManager.class.getDeclaredMethod("addAssetPath", String.class);
+        addAssetPath.setAccessible(true);
+
+        int cookie = (Integer) addAssetPath.invoke(am, MODULE_APK_PATH);
+        if (cookie == 0) throw new IllegalStateException("addAssetPath failed for " + MODULE_APK_PATH);
+
+        moduleAssetManager = am;
+        moduleResources = new Resources(am, hostRes.getDisplayMetrics(), hostRes.getConfiguration());
+    }
+
+    private static void ensureWrappedContext(Context context) throws Exception {
+//        ensureModuleResourcesOnly(context, true);
+        if (wrappedContext != null || mergedResources == null) return;
+
+        wrappedContext = new ModuleContextWrapper(context, R.style.Theme_SpotifyPlus, mergedResources, SpotifyLoader.class.getClassLoader());
+    }
+
+//    private static void ensureModuleResources(Context context) throws Exception {
+//        if (mergedResources != null && wrappedContext != null) return;
+//
+//        File moduleApk = new File(MODULE_APK_PATH);
+//        if (!moduleApk.exists()) {
+//            Log.e("SpotifyPlus", "Could not find APK path!");
+//            return;
+//        }
+//
+//        ParcelFileDescriptor pfd = ParcelFileDescriptor.open(moduleApk, ParcelFileDescriptor.MODE_READ_ONLY);
+//        ResourcesProvider provider = ResourcesProvider.loadFromApk(pfd);
+//
+//        ResourcesLoader loader = new ResourcesLoader();
+//        loader.addProvider(provider);
+//
+//        Resources hostRes = context.getApplicationContext().getResources();
+//        Resources res = new Resources(hostRes.getAssets(), hostRes.getDisplayMetrics(), hostRes.getConfiguration());
+//        res.addLoaders(loader);
+//
+////        mergedResources = res;
+////        Context moduleContext = new ModuleResourceContext(context.getApplicationContext(), mergedResources, SpotifyLoader.class.getClassLoader());
+////        wrappedContext = new ContextThemeWrapper(moduleContext, R.style.Theme_SpotifyPlus);
+//
+
+    /// /        mergedResources = ModuleContextWrapper.createMergedResources(context.getApplicationContext(), MODULE_APK_PATH);
+    /// /        wrappedContext = new ModuleContextWrapper(context.getApplicationContext(), R.style.Theme_SpotifyPlus, mergedResources, ModuleContextWrapper.class.getClassLoader());
+//
+//        mergedResources = res;
+//        wrappedContext = new ModuleContextWrapper(context, R.style.Theme_SpotifyPlus, mergedResources, SpotifyLoader.class.getClassLoader());
+//    }
     public static Typeface loadTypeface(Context context, String font) {
         if (cachedTypeface != null) return cachedTypeface;
         if (context == null) return null;
@@ -292,6 +392,34 @@ public final class Utils {
     }
 
     //endregion
+
+    private static final class ModuleBaseContext extends ContextWrapper {
+        private final Resources resources;
+        private final AssetManager assets;
+        private final ClassLoader classLoader;
+
+        ModuleBaseContext(Context base, Resources resources, ClassLoader classLoader) {
+            super(base);
+            this.resources = resources;
+            this.assets = resources.getAssets();
+            this.classLoader = classLoader;
+        }
+
+        @Override
+        public Resources getResources() {
+            return resources;
+        }
+
+        @Override
+        public AssetManager getAssets() {
+            return assets;
+        }
+
+        @Override
+        public ClassLoader getClassLoader() {
+            return classLoader != null ? classLoader : super.getClassLoader();
+        }
+    }
 
     private static final class ModuleResourceContext extends ContextWrapper {
         private final Resources resources;
