@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScriptRegistry = void 0;
+const renderer_1 = require("../ui/renderer");
 class ScriptRegistry {
     constructor(logger) {
         this.logger = logger;
@@ -8,6 +9,8 @@ class ScriptRegistry {
         this.eventHandlers = new Map();
         this.menus = new Map();
         this.sideDrawerItems = new Map();
+        this.renderers = new Map();
+        this.mountedSurfaces = new Map();
     }
     registerScript(script) {
         if (this.scripts.has(script.manifest.id))
@@ -74,6 +77,20 @@ class ScriptRegistry {
     emitSideDrawerPress(scriptId, id) {
         const item = this.sideDrawerItems.get(id);
         item?.item.onClick();
+    }
+    registerSurfaceRenderer(scriptId, surfaceType, renderer) {
+        console.log('Registering surface renderer', { scriptId, surfaceType });
+        const existing = this.renderers.get(surfaceType) ?? [];
+        existing.push({ scriptId, surfaceType, renderer });
+        this.renderers.set(surfaceType, existing);
+    }
+    getSurfaceRenderers(surfaceType) {
+        return this.renderers.get(surfaceType) ?? [];
+    }
+    mountSurface(scriptId, surface, element) {
+        const root = (0, renderer_1.createRoot)(surface.type);
+        root.render(element);
+        this.mountedSurfaces.set(`${scriptId}:${surface.id}`, element);
     }
 }
 exports.ScriptRegistry = ScriptRegistry;

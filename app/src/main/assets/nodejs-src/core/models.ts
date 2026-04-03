@@ -155,3 +155,8 @@ export class Uri {
         return this.id ? `spotify:${this.type}:${this.id}` : `spotify:${this.type}`;
     }
 }
+
+export type Surface = {
+    id: string;
+    type: string;
+}

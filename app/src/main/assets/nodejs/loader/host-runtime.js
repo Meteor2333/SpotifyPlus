@@ -5,6 +5,7 @@ const crypto_1 = require("crypto");
 const bridge_1 = require("../bridge/bridge");
 const models_1 = require("../core/models");
 const script_registry_1 = require("./script-registry");
+const renderer_1 = require("../ui/renderer");
 class HostRuntime {
     constructor(logger) {
         this.logger = logger;
@@ -48,8 +49,19 @@ class HostRuntime {
         });
     }
     async getCurrentTrack() {
-        const payload = await this.request('track.getCurrent', {});
+        const payload = await this.request('player.getCurrent', {});
         return payload ? models_1.SpotifyTrack.from(payload) : null;
+    }
+    seek(position) {
+        const thing = `${position}`;
+        this.sendCommand('player.seek', { thing });
+    }
+    togglePlay(play) {
+        this.sendCommand('player.togglePlay', play ? { play } : {});
+    }
+    async getProgress() {
+        const payload = await this.request('player.getProgress', {});
+        return payload ? payload.position : -1;
     }
     async handleIncomingPacket(packet) {
         this.logger.info(`Incoming ${packet.type}:${packet.name ?? packet.id}`);
@@ -73,6 +85,17 @@ class HostRuntime {
                 if (packet.name === 'side.press') {
                     const payload = packet.payload;
                     this.registry.emitSideDrawerPress(payload.scriptId, payload.id);
+                }
+                if (packet.name === 'react.surfaceEvent') {
+                    const payload = packet.payload;
+                    const renderers = this.registry.getSurfaceRenderers(payload.id);
+                    for (const renderer of renderers) {
+                        const element = renderer.renderer(payload);
+                        (0, renderer_1.setCommitListener)(payload.type, ops => {
+                            this.sendCommand('react.commit', { surfaceId: payload.id, ops });
+                        });
+                        this.registry.mountSurface(renderer.scriptId, payload, element);
+                    }
                 }
                 await this.registry.emit(packet.name, packet.payload);
                 break;

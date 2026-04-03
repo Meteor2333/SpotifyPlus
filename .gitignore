@@ -203,3 +203,4 @@ README.html
 /.gradle
 /app/.cxx
 /app/src/main/assets/nodejs-src/node_modules
+/app/src/main/assets/nodejs

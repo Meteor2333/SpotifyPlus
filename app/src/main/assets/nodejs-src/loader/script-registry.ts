@@ -1,6 +1,8 @@
+import React from "react";
 import { Logger } from "../core/logger";
-import { ContextMenu, SideDrawerItem } from "../core/models";
+import { ContextMenu, SideDrawerItem, Surface } from "../core/models";
 import { ScriptManifest } from "./script-manifest";
+import { createRoot } from "../ui/renderer";
 
 export type EventHandler = (payload: unknown) => void | Promise<void>;
 
@@ -21,11 +23,21 @@ interface RegisteredSideDrawer {
     item: SideDrawerItem;
 }
 
+export type SurfaceRenderer<T extends string = string> = (surface: Surface & { type: T }) => React.ReactElement;
+
+export type RegisteredSurfaceRenderer = {
+    scriptId: string;
+    surfaceType: string;
+    renderer: SurfaceRenderer<any>;
+}
+
 export class ScriptRegistry {
     private readonly scripts = new Map<string, Script>();
     private readonly eventHandlers = new Map<string, Map<string, Set<EventHandler>>>();
     private readonly menus = new Map<string, RegisteredContextMenu>();
     private readonly sideDrawerItems = new Map<string, RegisteredSideDrawer>();
+    private readonly renderers = new Map<string, RegisteredSurfaceRenderer[]>();
+    private readonly mountedSurfaces = new Map<string, React.ReactElement>();
 
     constructor(private readonly logger: Logger) { }
 
@@ -101,5 +113,23 @@ export class ScriptRegistry {
     emitSideDrawerPress(scriptId: string, id: string): void {
         const item = this.sideDrawerItems.get(id);
         item?.item.onClick();
+    }
+
+    registerSurfaceRenderer<T extends string>(scriptId: string, surfaceType: T, renderer: SurfaceRenderer<T>): void {
+        console.log('Registering surface renderer', { scriptId, surfaceType });
+
+        const existing = this.renderers.get(surfaceType) ?? [];
+        existing.push({ scriptId, surfaceType, renderer });
+        this.renderers.set(surfaceType, existing);
+    }
+
+    getSurfaceRenderers(surfaceType: string): RegisteredSurfaceRenderer[] {
+        return this.renderers.get(surfaceType) ?? [];
+    }
+
+    mountSurface(scriptId: string, surface: Surface, element: React.ReactElement): void {
+        const root = createRoot(surface.type);
+        root.render(element);
+        this.mountedSurfaces.set(`${scriptId}:${surface.id}`, element);
     }
 }

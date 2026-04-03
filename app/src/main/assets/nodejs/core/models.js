@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SideDrawerItem = exports.ContextMenu = exports.SpotifyTrack = void 0;
+exports.Uri = exports.SideDrawerItem = exports.ContextMenu = exports.SpotifyTrack = void 0;
 class SpotifyTrack {
     constructor(data) {
         this.uri = data.uri;
@@ -60,3 +60,16 @@ class SideDrawerItem {
     }
 }
 exports.SideDrawerItem = SideDrawerItem;
+class Uri {
+    constructor(type, props) {
+        this.type = type;
+        this.id = props?.id;
+    }
+    static from(data) {
+        return new Uri(data.type, data);
+    }
+    toString() {
+        return this.id ? `spotify:${this.type}:${this.id}` : `spotify:${this.type}`;
+    }
+}
+exports.Uri = Uri;

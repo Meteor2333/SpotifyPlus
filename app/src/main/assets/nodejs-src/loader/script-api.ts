@@ -1,7 +1,8 @@
-import { EventHandler } from "./script-registry";
-import { ContextMenu, MenuItemDefinition, OnClickCallback, PlatformData, Session, ShouldAddCallback, SideDrawerItem, SideOnClickCallback, SpotifyTrack } from "../core/models";
+import { EventHandler, SurfaceRenderer } from "./script-registry";
+import { ContextMenu, MenuItemDefinition, OnClickCallback, PlatformData, Session, ShouldAddCallback, SideDrawerItem, SideOnClickCallback, SpotifyTrack, Surface } from "../core/models";
 import { Logger } from "../core/logger";
 import { HostRuntime } from "./host-runtime";
+import React from "react";
 
 export interface ScriptConsole {
     log: (...args: unknown[]) => void;
@@ -63,12 +64,8 @@ export interface SpotifyPlusApi {
         skipPrevious(): void;
     }
 
-    UI: {
-        toast(text: string, length?: 'short' | 'long'): void;
-    }
-
-    Menu: {
-        addItem(item: MenuItemDefinition): void;
+    Surfaces: {
+        register(surfaceType: string, renderer: SurfaceRenderer<any>): void;
     }
 
     ContextMenu: ContextMenuConstructor;
@@ -147,11 +144,8 @@ export class ScriptApiFactory {
                 skipNext: () => this.runtime.sendCommand('player.skipNext', {}),
                 skipPrevious: () => this.runtime.sendCommand('player.skipPrevious', {})
             },
-            UI: {
-                toast: (text, length = 'short') => this.runtime.sendCommand('ui.toast', { text, length })
-            },
-            Menu: {
-                addItem: item => this.runtime.sendCommand('menu.addItem', { scriptId, ...item })
+            Surfaces: {
+                register: (surfaceType, renderer) => this.runtime.registry.registerSurfaceRenderer(scriptId, surfaceType, renderer)
             },
             ContextMenu: ScriptContextMenu,
             SideDrawer: ScriptSideDrawer

@@ -10,6 +10,8 @@ const vm_1 = __importDefault(require("vm"));
 const module_1 = require("module");
 const script_api_1 = require("./script-api");
 const script_manifest_1 = require("./script-manifest");
+const renderer_1 = require("../ui/renderer");
+const react_1 = __importDefault(require("react"));
 class ScriptLoader {
     constructor(runtime, logger) {
         this.runtime = runtime;
@@ -46,11 +48,18 @@ class ScriptLoader {
         const source = fs_1.default.readFileSync(entryPath, 'utf8');
         const globals = this.apiFactory.create(manifest.id);
         const localRequire = (0, module_1.createRequire)(entryPath);
-        global.require = localRequire;
+        const module = { exports: {} };
+        globals.require = localRequire;
+        globals.module = module;
+        globals.exports = module.exports;
         globals.__filename = entryPath;
-        global.__dirname = path_1.default.dirname(entryPath);
+        globals.__dirname = path_1.default.dirname(entryPath);
         globals.process = process;
         globals.Buffer = Buffer;
+        globals.console = console;
+        globals.global = globals;
+        globals.globalThis = globals;
+        globals.queueMicrotask = typeof queueMicrotask === 'function' ? queueMicrotask : (callback) => Promise.resolve().then(callback);
         const context = vm_1.default.createContext(globals, {
             name: `SpotifyPlusScript:${manifest.id}`,
             codeGeneration: {
@@ -66,7 +75,17 @@ class ScriptLoader {
             directoryPath: scriptDirectory
         });
         script.runInContext(context);
-        this.logger.info(`Loaded script ${manifest.id} form ${entryPath}`);
+        const exported = module.exports?.default ?? module.exports;
+        const config = module.exports?.config ?? {};
+        if (typeof exported === 'function') {
+            const surfaceId = config.surface ?? manifest.id;
+            const root = (0, renderer_1.createRoot)(surfaceId);
+            (0, renderer_1.setCommitListener)(surfaceId, (ops) => {
+                this.runtime.sendCommand('react.commit', { surfaceId, ops });
+            });
+            root.render(react_1.default.createElement(exported));
+        }
+        this.logger.info(`Loaded script ${manifest.id} from ${entryPath}`);
     }
     readManifest(scriptDirectory) {
         const manifestPath = path_1.default.join(scriptDirectory, 'manifest.json');

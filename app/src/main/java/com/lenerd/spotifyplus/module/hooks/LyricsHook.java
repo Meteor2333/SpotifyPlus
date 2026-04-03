@@ -157,53 +157,54 @@ public class LyricsHook extends SpotifyHook {
             targetScrollOffset = 0;
 
             try {
-                SpotifyTrack track = Utils.getTrack(activity.getClassLoader());
-
                 ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
-                View view = Utils.inflate(activity, R.layout.lyrics_page, root);
-                TextView titleText = view.findViewById(R.id.text_title);
-                TextView artistText = view.findViewById(R.id.text_artist);
-                ImageView albumImage = view.findViewById(R.id.album_cover);
-                LinearLayout lyricsContainer = view.findViewById(R.id.lyrics_container);
+                ReactManager.registerSurface("lyrics-view", root);
+//                SpotifyTrack track = Utils.getTrack(activity.getClassLoader());
 
-                getAlbumArtwork(track.imageId, new AlbumArtworkCallback() {
-                    @Override
-                    public void onSuccess(Bitmap albumArt) {
-                        albumImage.setImageBitmap(albumArt);
-
-                        if (albumArt != null) {
-                            AnimatedBackgroundView background = new AnimatedBackgroundView(activity, albumArt, root);
-                            background.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-
-                            activity.runOnUiThread(() -> root.addView(background));
-                        }
-                    }
-
-                    @Override
-                    public void onError(Exception e) {
-                        logError(e);
-                    }
-                });
-
-                titleText.setText(track.title);
-                artistText.setText(track.artist);
-
-                root.addView(view, -2);
-
-                if (SpotifyPlusSettings.appleMusicScroll) {
-                    View viewport = view.findViewById(R.id.apple_music_viewport);
-                    LinearLayout container = view.findViewById(R.id.apple_music_container);
-                    viewport.setVisibility(View.VISIBLE);
-                    lyricsContainer = container;
-
-                    setupGestureDetector(activity, viewport, container);
-                    experimentalTouchSurface = viewport;
-                } else {
-                    View container = view.findViewById(R.id.lyrics_scroller);
-                    container.setVisibility(View.VISIBLE);
-                }
-
-                renderLyrics(activity, track, lyricsContainer, root);
+//                View view = Utils.inflate(activity, R.layout.lyrics_page, root);
+//                TextView titleText = view.findViewById(R.id.text_title);
+//                TextView artistText = view.findViewById(R.id.text_artist);
+//                ImageView albumImage = view.findViewById(R.id.album_cover);
+//                LinearLayout lyricsContainer = view.findViewById(R.id.lyrics_container);
+//
+//                getAlbumArtwork(track.imageId, new AlbumArtworkCallback() {
+//                    @Override
+//                    public void onSuccess(Bitmap albumArt) {
+//                        albumImage.setImageBitmap(albumArt);
+//
+//                        if (albumArt != null) {
+//                            AnimatedBackgroundView background = new AnimatedBackgroundView(activity, albumArt, root);
+//                            background.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+//
+//                            activity.runOnUiThread(() -> root.addView(background));
+//                        }
+//                    }
+//
+//                    @Override
+//                    public void onError(Exception e) {
+//                        logError(e);
+//                    }
+//                });
+//
+//                titleText.setText(track.title);
+//                artistText.setText(track.artist);
+//
+//                root.addView(view, -2);
+//
+//                if (SpotifyPlusSettings.appleMusicScroll) {
+//                    View viewport = view.findViewById(R.id.apple_music_viewport);
+//                    LinearLayout container = view.findViewById(R.id.apple_music_container);
+//                    viewport.setVisibility(View.VISIBLE);
+//                    lyricsContainer = container;
+//
+//                    setupGestureDetector(activity, viewport, container);
+//                    experimentalTouchSurface = viewport;
+//                } else {
+//                    View container = view.findViewById(R.id.lyrics_scroller);
+//                    container.setVisibility(View.VISIBLE);
+//                }
+//
+//                renderLyrics(activity, track, lyricsContainer, root);
             } catch (Exception e) {
                 logError(e);
             }

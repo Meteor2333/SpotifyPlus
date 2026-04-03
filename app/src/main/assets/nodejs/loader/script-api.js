@@ -51,16 +51,26 @@ class ScriptApiFactory {
             emit: (eventName, payload = {}) => this.runtime.sendEvent(eventName, payload),
             Platform: {
                 PlatformData: this.runtime.platformData,
-                Session: this.runtime.session
+                Session: this.runtime.session,
+                Storage: {
+                    set: (key, value) => this.runtime.sendCommand('storage.set', { scriptId, key, value }),
+                    get: async (key) => {
+                        const payload = await this.runtime.request('storage.get', { scriptId, key });
+                        return payload ? payload : null;
+                    }
+                }
             },
             Player: {
-                getCurrentTrack: () => this.runtime.getCurrentTrack()
+                getCurrentTrack: () => this.runtime.getCurrentTrack(),
+                seek: (position) => this.runtime.seek(position),
+                play: () => this.runtime.togglePlay(true),
+                pause: () => this.runtime.togglePlay(false),
+                togglePlay: () => this.runtime.togglePlay(),
+                skipNext: () => this.runtime.sendCommand('player.skipNext', {}),
+                skipPrevious: () => this.runtime.sendCommand('player.skipPrevious', {})
             },
-            UI: {
-                toast: (text, length = 'short') => this.runtime.sendCommand('ui.toast', { text, length })
-            },
-            Menu: {
-                addItem: item => this.runtime.sendCommand('menu.addItem', { scriptId, ...item })
+            Surfaces: {
+                register: (surfaceType, renderer) => this.runtime.registry.registerSurfaceRenderer(scriptId, surfaceType, renderer)
             },
             ContextMenu: ScriptContextMenu,
             SideDrawer: ScriptSideDrawer

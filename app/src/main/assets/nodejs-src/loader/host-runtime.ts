@@ -1,9 +1,10 @@
 import { randomUUID } from "crypto";
 import { Bridge } from '../bridge/bridge';
 import { Logger } from "../core/logger";
-import { GetProgressData, ItemPress, PlatformData, Session, SpotifyTrack, SpotifyTrackData } from "../core/models";
+import { GetProgressData, ItemPress, PlatformData, Session, SpotifyTrack, SpotifyTrackData, Surface } from "../core/models";
 import { ErrorPacket, Packet, ResponsePacket } from "../core/protocol";
 import { ScriptRegistry } from "./script-registry";
+import { setCommitListener } from "../ui/renderer";
 
 interface PendingRequest {
     resolve: (payload: unknown) => void;
@@ -109,6 +110,19 @@ export class HostRuntime {
                 if (packet.name === 'side.press') {
                     const payload = packet.payload as ItemPress;
                     this.registry.emitSideDrawerPress(payload.scriptId, payload.id);
+                }
+                if (packet.name === 'react.surfaceEvent') {
+                    const payload = packet.payload as Surface;
+                    const renderers = this.registry.getSurfaceRenderers(payload.id);
+
+                    for (const renderer of renderers) {
+                        const element = renderer.renderer(payload as any);
+                        setCommitListener(payload.type, ops => {
+                            this.sendCommand('react.commit', { surfaceId: payload.id, ops })
+                        });
+
+                        this.registry.mountSurface(renderer.scriptId, payload, element);
+                    }
                 }
 
                 await this.registry.emit(packet.name!, packet.payload);

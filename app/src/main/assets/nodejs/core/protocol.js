@@ -38,5 +38,15 @@ function parsePacket(json) {
     return parsed;
 }
 function stringify(packet) {
-    return JSON.stringify(packet);
+    const seen = new WeakSet();
+    return JSON.stringify(packet, (_key, value) => {
+        if (typeof value === 'object' && value !== null) {
+            if (seen.has(value))
+                return '[Circular]';
+            seen.add(value);
+        }
+        if (typeof value === 'function')
+            return '[Function]';
+        return value;
+    });
 }

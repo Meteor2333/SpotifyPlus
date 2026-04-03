@@ -1,9 +1,11 @@
-SpotifyPlus.toast("Loading test script", "long");
-
-const menuItem = new SpotifyPlus.ContextMenu('Test Item', () => {
-    SpotifyPlus.toast('Clicked!');
-}).register();
-
-const sideDrawer = new SpotifyPlus.SideDrawer('Test Item', () => {
-    SpotifyPlus.toast('Clicked!');
-}).register();
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const react_1 = __importDefault(require("react"));
+const test_overlay_1 = __importDefault(require("./test-overlay"));
+//@ts-expect-error
+SpotifyPlus.Surfaces.register('lyrics-view', (surface) => {
+    return react_1.default.createElement(test_overlay_1.default, null);
+});

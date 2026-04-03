@@ -154,7 +154,7 @@ Java_com_lenerd_spotifyplus_manager_scripting_ScriptManager_startNodeWithArgumen
     }
 
     // Enable for full debug logging. Honestly this is really only disabled because it prints a ton of errors
-    bool enable = false;
+    bool enable = true;
     if (enable && start_redirecting_stdout_stderr() == -1)
     {
         __android_log_write(ANDROID_LOG_ERROR, ADBTAG, "Couldn't start redirecting stdout and stderr to logcat.");

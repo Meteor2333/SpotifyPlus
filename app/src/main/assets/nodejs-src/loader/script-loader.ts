@@ -6,6 +6,8 @@ import { Logger } from '../core/logger';
 import { ScriptApiFactory } from './script-api';
 import { ScriptManifest, parseManifest } from './script-manifest';
 import { HostRuntime } from './host-runtime';
+import { createRoot, setCommitListener } from '../ui/renderer';
+import React from 'react';
 
 export class ScriptLoader {
     private readonly apiFactory: ScriptApiFactory;
@@ -46,11 +48,19 @@ export class ScriptLoader {
         const globals = this.apiFactory.create(manifest.id) as unknown as Record<string, unknown>;
         const localRequire = createRequire(entryPath);
 
-        global.require = localRequire;
+        const module = { exports: {} as any };
+
+        globals.require = localRequire;
+        globals.module = module;
+        globals.exports = module.exports;
         globals.__filename = entryPath;
-        global.__dirname = path.dirname(entryPath);
+        globals.__dirname = path.dirname(entryPath);
         globals.process = process;
         globals.Buffer = Buffer;
+        globals.console = console;
+        globals.global = globals;
+        globals.globalThis = globals;
+        globals.queueMicrotask = typeof queueMicrotask === 'function' ? queueMicrotask : (callback: () => void) => Promise.resolve().then(callback);
 
         const context = vm.createContext(globals, {
             name: `SpotifyPlusScript:${manifest.id}`,
@@ -70,7 +80,20 @@ export class ScriptLoader {
         });
 
         script.runInContext(context);
-        this.logger.info(`Loaded script ${manifest.id} form ${entryPath}`);
+        const exported = module.exports?.default ?? module.exports;
+        const config = module.exports?.config ?? {};
+
+        if (typeof exported === 'function') {
+            const surfaceId = config.surface ?? manifest.id;
+            const root = createRoot(surfaceId);
+            setCommitListener(surfaceId, (ops) => {
+                this.runtime.sendCommand('react.commit', { surfaceId, ops });
+            });
+
+            root.render(React.createElement(exported));
+        }
+
+        this.logger.info(`Loaded script ${manifest.id} from ${entryPath}`);
     }
 
     private readManifest(scriptDirectory: string): ScriptManifest {

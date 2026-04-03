@@ -101,6 +101,8 @@ public class NetworkHook extends SpotifyHook {
 
                 BridgeClient.connect(platform);
 
+                ReactManager.registerSurface("root-view", (ViewGroup) currentActivity.getWindow().getDecorView());
+
                 if (!checkedForUpdates) {
                     loadPreferences(activity);
                     // Checking for updates is kind of a network thing, right?
