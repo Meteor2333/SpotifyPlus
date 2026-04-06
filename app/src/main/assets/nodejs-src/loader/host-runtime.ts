@@ -4,7 +4,8 @@ import { Logger } from "../core/logger";
 import { GetProgressData, ItemPress, PlatformData, Session, SpotifyTrack, SpotifyTrackData, Surface } from "../core/models";
 import { ErrorPacket, Packet, ResponsePacket } from "../core/protocol";
 import { ScriptRegistry } from "./script-registry";
-import { setCommitListener } from "../ui/renderer";
+import { clearCommitListener, dispatchReactEvent, setCommitListener } from "../ui/renderer";
+import React from "react";
 
 interface PendingRequest {
     resolve: (payload: unknown) => void;
@@ -109,7 +110,24 @@ export class HostRuntime {
                 }
                 if (packet.name === 'side.press') {
                     const payload = packet.payload as ItemPress;
-                    this.registry.emitSideDrawerPress(payload.scriptId, payload.id);
+                    const items = this.registry.getSideDrawerItems();
+                    const item = items.get(payload.id);
+
+                    const result = item?.item.onClick();
+                    if (result && React.isValidElement(result)) {
+                        setCommitListener('sideDrawer', ops => {
+                            this.sendCommand('react.commit', { surfaceId: 'sideDrawer', ops });
+                        });
+
+                        this.registry.mountSurface(payload.scriptId, { id: 'sideDrawer', type: 'sideDrawer' }, result);
+                    }
+                    // this.registry.emitSideDrawerPress(payload.scriptId, payload.id);
+                }
+                if (packet.name === 'side.close') {
+                    const payload = packet.payload as ItemPress;
+
+                    this.registry.unmountSurface(payload.scriptId, 'sideDrawer');
+                    clearCommitListener('sideDrawer');
                 }
                 if (packet.name === 'react.surfaceEvent') {
                     const payload = packet.payload as Surface;
@@ -123,6 +141,23 @@ export class HostRuntime {
 
                         this.registry.mountSurface(renderer.scriptId, payload, element);
                     }
+                }
+                if (packet.name === 'react.event') {
+                    const payload = packet.payload as { eventId: number; payload: any, targetId: string, surfaceId: string, eventName: string };
+                    const eventId = Number(payload?.eventId);
+                    if (!Number.isFinite(eventId)) return;
+
+                    dispatchReactEvent(eventId, {
+                        ...(payload?.payload ?? {}),
+                        targetId: payload.targetId,
+                        surfaceId: payload.surfaceId,
+                        eventName: payload.eventName
+                    });
+                }
+                if (packet.name === 'react.surfaceClose') {
+                    const payload = packet.payload as { surfaceId: string };
+                    this.registry.unmountAllSurfaces(payload.surfaceId);
+                    clearCommitListener(payload.surfaceId);
                 }
 
                 await this.registry.emit(packet.name!, packet.payload);

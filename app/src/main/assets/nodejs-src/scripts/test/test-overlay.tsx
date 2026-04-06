@@ -51,7 +51,7 @@ export default function RendererTestScreen() {
             setRadioEnabled(value => !value);
             setMarqueeIndex(value => (value + 1) % palette.length);
             setTextValue(value => `${value.split(' • ')[0]} • tick ${Date.now() % 10000}`);
-        }, 1200);
+        }, 1000);
 
         return () => clearInterval(timer);
     }, []);
@@ -298,7 +298,9 @@ export default function RendererTestScreen() {
                     <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700' }}>Buttons</Text>
 
                     <Row style={{ marginTop: 12 }}>
-                        <Button title="Primary" />
+                        <Button title="Primary" onClick={() => {
+                            console.log('Clicked primary button!');
+                        }} />
                         <Button title="Secondary" style={{ marginLeft: 8 }} />
                         <Button title={`Tick ${tick}`} style={{ marginLeft: 8 }} />
                     </Row>

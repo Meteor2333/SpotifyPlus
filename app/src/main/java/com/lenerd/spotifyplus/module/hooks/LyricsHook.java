@@ -209,12 +209,18 @@ public class LyricsHook extends SpotifyHook {
                 logError(e);
             }
         } else if (member.getName().equals("finish")) {
-            stop = true;
-            lineSprings.clear();
-            lineAnimationStartTimes.clear();
-            if (mainLoop != null) mainLoop.interrupt();
-            vocalGroups = null;
-            if (inertiaAnimator != null) inertiaAnimator.cancel();
+            try {
+                BridgeClient.send("", "event", "react.surfaceClose", new JSONObject().put("surfaceId", "lyrics-view"));
+
+                stop = true;
+                lineSprings.clear();
+                lineAnimationStartTimes.clear();
+                if (mainLoop != null) mainLoop.interrupt();
+                vocalGroups = null;
+                if (inertiaAnimator != null) inertiaAnimator.cancel();
+            } catch (Exception e) {
+                logError(e);
+            }
         } else if (member == seekConstructor) {
             seekInstance = callback.getThisObject();
         }

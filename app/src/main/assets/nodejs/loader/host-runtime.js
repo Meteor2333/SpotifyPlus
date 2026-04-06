@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HostRuntime = void 0;
 const crypto_1 = require("crypto");
@@ -6,6 +9,7 @@ const bridge_1 = require("../bridge/bridge");
 const models_1 = require("../core/models");
 const script_registry_1 = require("./script-registry");
 const renderer_1 = require("../ui/renderer");
+const react_1 = __importDefault(require("react"));
 class HostRuntime {
     constructor(logger) {
         this.logger = logger;
@@ -84,7 +88,21 @@ class HostRuntime {
                 }
                 if (packet.name === 'side.press') {
                     const payload = packet.payload;
-                    this.registry.emitSideDrawerPress(payload.scriptId, payload.id);
+                    const items = this.registry.getSideDrawerItems();
+                    const item = items.get(payload.id);
+                    const result = item?.item.onClick();
+                    if (result && react_1.default.isValidElement(result)) {
+                        (0, renderer_1.setCommitListener)('sideDrawer', ops => {
+                            this.sendCommand('react.commit', { surfaceId: 'sideDrawer', ops });
+                        });
+                        this.registry.mountSurface(payload.scriptId, { id: 'sideDrawer', type: 'sideDrawer' }, result);
+                    }
+                    // this.registry.emitSideDrawerPress(payload.scriptId, payload.id);
+                }
+                if (packet.name === 'side.close') {
+                    const payload = packet.payload;
+                    this.registry.unmountSurface(payload.scriptId, 'sideDrawer');
+                    (0, renderer_1.clearCommitListener)('sideDrawer');
                 }
                 if (packet.name === 'react.surfaceEvent') {
                     const payload = packet.payload;
@@ -96,6 +114,23 @@ class HostRuntime {
                         });
                         this.registry.mountSurface(renderer.scriptId, payload, element);
                     }
+                }
+                if (packet.name === 'react.event') {
+                    const payload = packet.payload;
+                    const eventId = Number(payload?.eventId);
+                    if (!Number.isFinite(eventId))
+                        return;
+                    (0, renderer_1.dispatchReactEvent)(eventId, {
+                        ...(payload?.payload ?? {}),
+                        targetId: payload.targetId,
+                        surfaceId: payload.surfaceId,
+                        eventName: payload.eventName
+                    });
+                }
+                if (packet.name === 'react.surfaceClose') {
+                    const payload = packet.payload;
+                    this.registry.unmountAllSurfaces(payload.surfaceId);
+                    (0, renderer_1.clearCommitListener)(payload.surfaceId);
                 }
                 await this.registry.emit(packet.name, packet.payload);
                 break;

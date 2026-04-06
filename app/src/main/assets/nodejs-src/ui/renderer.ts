@@ -5,6 +5,96 @@ import { DefaultEventPriority } from 'react-reconciler/constants';
 const HOST_CONTEXT = {};
 let currentUpdatePriority = DefaultEventPriority;
 
+type RegisteredEventHandler = {
+    eventName: string;
+    handler: Function;
+};
+
+const eventHandlers = new Map<number, RegisteredEventHandler>();
+const nodeEventIds = new Map<number, Set<number>>();
+let nextEventId = 1;
+
+function registerEventHandler(nodeId: number, eventName: string, handler: Function): number {
+    const id = nextEventId++;
+    eventHandlers.set(id, { eventName, handler });
+
+    console.log('Registering event handler', { nodeId, eventName, id });
+    let ids = nodeEventIds.get(nodeId);
+    if (!ids) {
+        ids = new Set<number>();
+        nodeEventIds.set(nodeId, ids);
+    }
+
+    ids.add(id);
+    return id;
+}
+
+function clearNodeEventHandlers(nodeId: number) {
+    const ids = nodeEventIds.get(nodeId);
+    if (!ids) return;
+
+    for (const id of ids) eventHandlers.delete(id);
+    nodeEventIds.delete(nodeId);
+}
+
+function normalizeEventPayload(eventName: string, payload: any) {
+    switch (eventName) {
+        case 'onChangeText':
+            return payload?.text ?? '';
+        case 'onValueChange':
+        case 'onSlidingStart':
+        case 'onSlidingComplete':
+            return payload?.value ?? payload?.checked ?? 0;
+        default:
+            return payload;
+    }
+}
+
+export function dispatchReactEvent(eventId: number, payload?: any) {
+    console.log('Dispatching react event', { eventId, count: eventHandlers.size });
+    const entry = eventHandlers.get(eventId);
+    if (!entry) return;
+    console.log('Found react event handler', { eventId, eventName: entry.eventName });
+
+    try {
+        entry.handler(normalizeEventPayload(entry.eventName, payload));
+    } catch (error) {
+        console.error('Failed running react event handler', error);
+    }
+}
+
+function encodeProps(
+    props: Record<string, any> | null | undefined,
+    nodeId: number,
+    registerEvents: boolean,
+) {
+    const result: Record<string, any> = {};
+    if (!props) return result;
+
+    for (const [key, value] of Object.entries(props)) {
+        if (key === 'children') continue;
+
+        if (value === undefined) {
+            result[key] = null;
+        } else if (isEventProp(key, value)) {
+            result[key] = registerEvents ? { __type: 'event_handler', id: registerEventHandler(nodeId, key, value), eventName: key } : '[event_handler]';
+        } else if (
+            value === null ||
+            typeof value === 'string' ||
+            typeof value === 'number' ||
+            typeof value === 'boolean'
+        ) {
+            result[key] = value;
+        } else if (Array.isArray(value)) {
+            result[key] = '[Array]';
+        } else {
+            result[key] = `[${typeof value}]`;
+        }
+    }
+
+    return result;
+}
+
 type HostNode = {
     id: number;
     type: string;
@@ -42,6 +132,10 @@ function createId() {
     return nextId++;
 }
 
+function isEventProp(key: string, value: unknown): value is Function {
+    return key.startsWith('on') && typeof value === 'function';
+}
+
 function sanitizeProps(props: Record<string, any> | null | undefined) {
     const result: Record<string, any> = {};
     if (!props) return result;
@@ -51,14 +145,11 @@ function sanitizeProps(props: Record<string, any> | null | undefined) {
 
         if (value === undefined) {
             result[key] = null;
-        } else if (typeof value === 'function') {
-            result[key] = '[Function]';
-        } else if (
-            value === null ||
-            typeof value === 'string' ||
-            typeof value === 'number' ||
-            typeof value === 'boolean'
-        ) {
+        } else if (isEventProp(key, value)) {
+            console.log('Creating event handler for prop', key);
+            // const id = registerEventHandler(value);
+            // result[key] = { __type: 'event_handler', id, eventName: key };
+        } else if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
             result[key] = value;
         } else if (Array.isArray(value)) {
             result[key] = '[Array]';
@@ -82,7 +173,7 @@ function serializeNode(node: HostNode | TextNode): any {
     return {
         id: node.id,
         type: node.type,
-        props: sanitizeProps((node as HostNode).props),
+        props: (node as HostNode).props,
         children: (node as HostNode).children.map(serializeNode),
     };
 }
@@ -107,6 +198,7 @@ export function clearCommitListener(surfaceId: string) {
 
 function destroyInstance(instance: HostNode | TextNode | null | undefined) {
     if (!instance) return;
+    clearNodeEventHandlers(instance.id);
     pendingOps.push({ op: 'destroyNode', id: instance.id });
 }
 
@@ -156,10 +248,12 @@ const hostConfig = {
 
     createInstance(type: string, props: any): HostNode {
         const { children, ...rest } = props ?? {};
+        const id = createId();
+
         const node: HostNode = {
-            id: createId(),
+            id,
             type,
-            props: sanitizeProps(rest),
+            props: encodeProps(rest, id, true),
             children: [],
         };
 
@@ -243,30 +337,35 @@ const hostConfig = {
     removeChildFromContainer(container: RootContainer, child: HostNode | TextNode) {
         container.children = container.children.filter(c => c !== child);
         pendingOps.push({ op: 'removeFromRoot', childId: child.id });
+        destroySubtree(child);
     },
 
     finalizeInitialChildren() {
         return false;
     },
 
-    prepareUpdate(_instance: HostNode, _type: string, oldProps: any, newProps: any) {
+    prepareUpdate(instance: HostNode, _type: string, oldProps: any, newProps: any) {
         const { children: _oldChildren, ...oldRest } = oldProps ?? {};
         const { children: _newChildren, ...newRest } = newProps ?? {};
 
-        const oldSanitized = sanitizeProps(oldRest);
-        const newSanitized = sanitizeProps(newRest);
+        const oldPreview = encodeProps(oldRest, instance.id, false);
+        const newPreview = encodeProps(newRest, instance.id, false);
 
-        return JSON.stringify(oldSanitized) !== JSON.stringify(newSanitized) ? newSanitized : null;
+        return JSON.stringify(oldPreview) !== JSON.stringify(newPreview) ? newRest : null;
     },
 
-    commitUpdate(instance: HostNode, _type: string, _oldProps: any, _newProps: any, updatePayload: any) {
-        if (!updatePayload) return;
+    commitUpdate(instance: HostNode, _type: string, _oldProps: any, newProps: any) {
+        const { children, ...rest } = newProps ?? {};
 
-        instance.props = updatePayload;
+        clearNodeEventHandlers(instance.id);
+
+        const encoded = encodeProps(rest, instance.id, true);
+        instance.props = encoded;
+
         pendingOps.push({
             op: 'updateProps',
             id: instance.id,
-            props: updatePayload,
+            props: encoded,
         });
     },
 
@@ -373,7 +472,25 @@ const hostConfig = {
 const reconciler = Reconciler(hostConfig as any);
 const noop = () => { };
 
-export function createRoot(surfaceId: string) {
+export interface RenderRoot {
+    render(element: React.ReactNode): void;
+    unmount(): void;
+    getTree(): any;
+}
+
+function destroySubtree(instance: HostNode | TextNode | null | undefined) {
+    if (!instance) return;
+
+    clearNodeEventHandlers(instance.id);
+
+    if (instance.type !== 'TEXT_INSTANCE') {
+        for (const child of (instance as HostNode).children) destroySubtree(child);
+    }
+
+    pendingOps.push({ op: 'destroyNode', id: instance.id });
+}
+
+export function createRoot(surfaceId: string): RenderRoot {
     const container: RootContainer = { children: [] };
     (container as any).__surfaceId = surfaceId;
 

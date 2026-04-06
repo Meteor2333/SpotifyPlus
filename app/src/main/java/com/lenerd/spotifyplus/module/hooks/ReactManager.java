@@ -33,8 +33,6 @@ public class ReactManager extends SpotifyHook {
     public void handle(String id, String command, JSONObject json) {
         if (command.equals("commit")) {
             try {
-                log("Commit received: " + json.toString());
-
                 String surfaceId = json.getString("surfaceId");
                 applyCommit(surfaceId, json.getJSONArray("ops"));
             } catch (Exception e) {
@@ -45,12 +43,20 @@ public class ReactManager extends SpotifyHook {
 
     public static void registerSurface(String surfaceId, ViewGroup root) {
         try {
-            surfaces.put(surfaceId, new UiSurfaceHost(root));
+            surfaces.put(surfaceId, new UiSurfaceHost(surfaceId, root));
             JSONObject json = new JSONObject();
             json.put("id", surfaceId);
             json.put("surfaceType", surfaceId);
 
             BridgeClient.send("", "event", "react.surfaceEvent", json);
+        } catch (Exception e) {
+            logError(e);
+        }
+    }
+
+    public static void registerSurfaceSilent(String surfaceId, ViewGroup root) {
+        try {
+            surfaces.put(surfaceId, new UiSurfaceHost(surfaceId, root));
         } catch (Exception e) {
             logError(e);
         }

@@ -57,6 +57,27 @@ class ScriptApiFactory {
                     get: async (key) => {
                         const payload = await this.runtime.request('storage.get', { scriptId, key });
                         return payload ? payload : null;
+                    },
+                    remove: (key) => this.runtime.sendCommand('storage.remove', { scriptId, key }),
+                    write: (path, value) => {
+                        this.runtime.sendCommand('storage.write', { scriptId, path, value });
+                    },
+                    // write: <T = Uint8Array>(path: string, data: Uint8Array): void => {
+                    //     const bytes = Buffer.from(data).toString('base64');
+                    //     this.runtime.sendCommand('storage.writeBinary', { scriptId, path, data: bytes });
+                    // },
+                    read: async (path) => {
+                        const payload = await this.runtime.request('storage.read', { scriptId, path });
+                        if (!payload.data)
+                            return null;
+                        if (typeof payload.data === 'string') {
+                            //@ts-ignore
+                            return Uint8Array.from(Buffer.from(payload.data, 'base64'));
+                        }
+                        else if (typeof payload.data === 'object') {
+                            return payload.data;
+                        }
+                        return null;
                     }
                 }
             },

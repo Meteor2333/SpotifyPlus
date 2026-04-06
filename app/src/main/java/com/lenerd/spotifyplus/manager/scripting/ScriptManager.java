@@ -45,6 +45,17 @@ public class ScriptManager implements NodePacketSink {
         File hostFile = new File(projectDir, "host.js");
         File scripts = new File(projectDir, "scripts");
 
+        File otherScript = new File(scripts, "test-too");
+        if(otherScript.exists() && otherScript.isDirectory()) {
+            otherScript.delete();
+        } else {
+            Log.w("SpotifyPlus", "Could not delete test-too");
+
+            for(var script : scripts.list()) {
+                Log.w("SpotifyPlus", script);
+            }
+        }
+
         new Thread(() -> {
             int result = startNodeWithArguments(new String[]{"node", hostFile.getAbsolutePath(), scripts.getAbsolutePath()});
         }).start();

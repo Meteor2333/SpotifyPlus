@@ -36,6 +36,31 @@ type ReactChildren = React.ReactNode;
 
 type HostProps = Record<string, unknown>;
 
+export interface PressEvent {
+    targetId: number;
+    x: number;
+    y: number;
+}
+
+export interface FocusEvent {
+    targetId: number;
+    hasFocus: boolean;
+}
+
+export interface ScrollEvent {
+    targetId: number;
+    x: number;
+    y: number;
+    oldX: number;
+    oldY: number;
+}
+
+export interface SubmitEditingEvent {
+    targetId: number;
+    text: string;
+    actionId: number;
+}
+
 export interface LayoutStyle {
     width?: LayoutSize;
     height?: LayoutSize;
@@ -206,6 +231,11 @@ export interface CommonViewProps extends RelativeLayoutRuleProps {
     right?: SizeValue;
 
     clickable?: boolean;
+
+    onClick?: () => void;
+    onLongClick?: (event: PressEvent) => void;
+    onFocus?: (event: FocusEvent) => void;
+    onBlur?: (event: FocusEvent) => void;
 }
 
 export interface ViewProps extends CommonViewProps { }
@@ -245,6 +275,9 @@ export interface TextInputProps extends TextProps {
     selectTextOnFocus?: boolean;
     caretHidden?: boolean;
     editable?: boolean;
+
+    onChangeText?: (text: string) => void;
+    onSubmitEditing?: (event: SubmitEditingEvent) => void;
 }
 
 export interface ButtonProps extends TextProps {
@@ -275,12 +308,18 @@ export interface ActivityIndicatorProps extends CommonViewProps {
 
 export interface SliderProps extends ProgressBarProps {
     thumbTintColor?: ColorValue;
+
+    onValueChange?: (value: number) => void;
+    onSlidingStart?: (value: number) => void;
+    onSlidingComplete?: (value: number) => void;
 }
 
 export interface CompoundButtonProps extends TextProps {
     checked?: boolean;
     value?: boolean;
     buttonTintColor?: ColorValue;
+
+    onValueChange?: (value: boolean) => void;
 }
 
 export interface SwitchProps extends CompoundButtonProps {
@@ -295,6 +334,8 @@ export interface ScrollViewProps extends CommonViewProps {
     style?: StyleProp<ViewStyle>;
     fillViewport?: boolean;
     smoothScrollingEnabled?: boolean;
+
+    onScroll?: (event: ScrollEvent) => void;
 }
 
 export interface HorizontalScrollViewProps extends ScrollViewProps { }

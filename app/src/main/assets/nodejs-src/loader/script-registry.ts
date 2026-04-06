@@ -2,7 +2,7 @@ import React from "react";
 import { Logger } from "../core/logger";
 import { ContextMenu, SideDrawerItem, Surface } from "../core/models";
 import { ScriptManifest } from "./script-manifest";
-import { createRoot } from "../ui/renderer";
+import { createRoot, RenderRoot } from "../ui/renderer";
 
 export type EventHandler = (payload: unknown) => void | Promise<void>;
 
@@ -37,7 +37,7 @@ export class ScriptRegistry {
     private readonly menus = new Map<string, RegisteredContextMenu>();
     private readonly sideDrawerItems = new Map<string, RegisteredSideDrawer>();
     private readonly renderers = new Map<string, RegisteredSurfaceRenderer[]>();
-    private readonly mountedSurfaces = new Map<string, React.ReactElement>();
+    private readonly mountedSurfaces = new Map<string, RenderRoot>();
 
     constructor(private readonly logger: Logger) { }
 
@@ -110,9 +110,16 @@ export class ScriptRegistry {
         this.sideDrawerItems.set(id, { scriptId, id, item });
     }
 
+    getSideDrawerItems() {
+        return this.sideDrawerItems;
+    }
+
     emitSideDrawerPress(scriptId: string, id: string): void {
         const item = this.sideDrawerItems.get(id);
-        item?.item.onClick();
+        const result = item?.item.onClick();
+        if (result && React.isValidElement(result)) {
+            this.mountSurface(scriptId, { id: 'sideDrawer', type: 'sideDrawer' }, result);
+        }
     }
 
     registerSurfaceRenderer<T extends string>(scriptId: string, surfaceType: T, renderer: SurfaceRenderer<T>): void {
@@ -130,6 +137,19 @@ export class ScriptRegistry {
     mountSurface(scriptId: string, surface: Surface, element: React.ReactElement): void {
         const root = createRoot(surface.type);
         root.render(element);
-        this.mountedSurfaces.set(`${scriptId}:${surface.id}`, element);
+        this.mountedSurfaces.set(`${scriptId}:${surface.id}`, root);
+    }
+
+    unmountSurface(scriptId: string, surfaceId: string): void {
+        const root = this.mountedSurfaces.get(`${scriptId}:${surfaceId}`);
+        root?.unmount();
+    }
+
+    unmountAllSurfaces(surfaceId: string): void {
+        this.mountedSurfaces.forEach((root, key) => {
+            if (key.endsWith(`:${surfaceId}`)) {
+                root.unmount();
+            }
+        });
     }
 }

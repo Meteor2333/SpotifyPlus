@@ -9,3 +9,7 @@ const test_overlay_1 = __importDefault(require("./test-overlay"));
 SpotifyPlus.Surfaces.register('lyrics-view', (surface) => {
     return react_1.default.createElement(test_overlay_1.default, null);
 });
+//@ts-expect-error
+const sideDrawer = new SpotifyPlus.SideDrawer('React Item!', () => {
+    return react_1.default.createElement(test_overlay_1.default, null);
+}).register();

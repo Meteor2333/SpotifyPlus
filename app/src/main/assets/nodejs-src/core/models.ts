@@ -1,3 +1,4 @@
+import React from "react";
 import { SpotifyPlusApi } from "../loader/script-api";
 
 export interface SpotifyTrackData {
@@ -109,7 +110,7 @@ export class ContextMenu {
 }
 
 export type SideDrawerRegister = (drawer: SideDrawerItem) => void;
-export type SideOnClickCallback = () => void;
+export type SideOnClickCallback = () => React.ReactElement | void;
 
 export class SideDrawerItem {
     private readonly registerThing?: SideDrawerRegister;

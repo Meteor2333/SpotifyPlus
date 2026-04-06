@@ -101,7 +101,7 @@ public class NetworkHook extends SpotifyHook {
 
                 BridgeClient.connect(platform);
 
-                ReactManager.registerSurface("root-view", (ViewGroup) currentActivity.getWindow().getDecorView());
+//                ReactManager.registerSurface("root-view", (ViewGroup) currentActivity.getWindow().getDecorView());
 
                 if (!checkedForUpdates) {
                     loadPreferences(activity);

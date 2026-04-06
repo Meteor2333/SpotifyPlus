@@ -97,7 +97,8 @@ public class SideDrawerHook extends SpotifyHook {
     private static Runnable onClickRunnable;
     private static Method resourceMethod;
 
-    private final List<ScriptSideDrawerItem> scriptItems = new ArrayList<>();
+    private static final List<ScriptSideDrawerItem> scriptItems = new ArrayList<>();
+    private static final Map<Pair<String, String>, Runnable> clickHandlers = Collections.synchronizedMap(new WeakHashMap<>());
 
     //    private static final ConcurrentHashMap<Pair<Integer, String>, List<SettingItem.SettingSection>> scriptSettings = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Pair<Integer, String>, Runnable> scriptSideButtons = new ConcurrentHashMap<>();
@@ -119,22 +120,33 @@ public class SideDrawerHook extends SpotifyHook {
 
 //        SpotifyTitleOverride.install();
 
-        Class<?> id30 = findClass("p.id30");
-        for (Method method : id30.getDeclaredMethods()) {
-            if (method.getName().equals("a") && method.getParameterCount() == 1) {
-                routeIntentMethod = method;
-                hook(routeIntentMethod);
-                break;
-            }
-        }
+        Class<?> id30 = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("FeatureIdentifier.InternalReferrer.Persistable", "extra_animation_in"))).get(0).getInstance(classLoader);
+        log("id30: " + id30.getName());
+        routeIntentMethod = bridge.findMethod(FindMethod.create().searchInClass(Collections.singletonList(bridge.getClassData(id30))).matcher(MethodMatcher.create().returnType(Intent.class))).get(0).getMethodInstance(classLoader);
+        hook(routeIntentMethod);
 
-        Class<?> ysi0 = findClass("p.ysi0");
-        bti0Class = findClass("p.bti0");
-        for (Method method : ysi0.getDeclaredMethods()) {
-            if (method.getName().equals("g") && method.getParameterCount() == 1 && method.getParameterTypes()[0] == String.class) {
+        var ysi0Classes = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("spotify:concept:").fieldCount(1).modifiers(Modifier.PUBLIC | Modifier.FINAL)));
+        Class<?> ysi0 = ysi0Classes.get(0).getInstance(classLoader);
+        log("ysi0: " + ysi0.getName());
+        bti0Class = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("user:([^:]+)"))).get(0).getInstance(classLoader);
+        log("bti0: " + bti0Class.getName());
+        var classData = bridge.getClassData(ysi0);
+
+        // Bro it can't find the method if we look for it the normal way (with bridge.FindMethod())
+        for (var methodData : classData.getMethods()) {
+            try {
+                if (methodData.getName().equals("<init>")) continue;
+                if (!methodData.getUsingStrings().isEmpty()) continue;
+                if (!methodData.getReturnType().getName().equals(bti0Class.getName())) continue;
+                if (methodData.getParamTypeNames().size() != 1 && methodData.getParamTypeNames().get(0).equals("String"))
+                    continue;
+
+                Method method = methodData.getMethodInstance(classLoader);
                 routeRewriteMethod = method;
                 hook(routeRewriteMethod);
                 break;
+            } catch (Throwable t) {
+                logError(t);
             }
         }
 
@@ -270,7 +282,7 @@ public class SideDrawerHook extends SpotifyHook {
                 }
 
                 var thing = scriptItems.stream().filter(x -> x.resourceId == id).findFirst();
-                if(thing.isEmpty()) return;
+                if (thing.isEmpty()) return;
 
                 ScriptSideDrawerItem item = thing.get();
                 callback.returnAndSkip(item.title);
@@ -301,16 +313,46 @@ public class SideDrawerHook extends SpotifyHook {
 
             if (member == routeRewriteMethod) {
                 String s = (String) callback.getArgs()[0];
-                if (s != null && s.startsWith("spotifyplus:")) {
-                    log("[SpotifyPlus] " + s);
-                    String rewritten = "spotify:settings?spx=spotifyplus&src=" + Uri.encode(s);
-                    Object bt = newInstance(bti0Class, rewritten);
-                    callback.returnAndSkip(bt);
+                if (s == null) return;
+
+                Uri uri = Uri.parse(s);
+                if (s.contains("spotifyplus")) {
+                    log(s);
+                }
+                if (!uri.isHierarchical()) return;
+                String spotifyPlus = uri.getQueryParameter("spotifyplus");
+
+                if (spotifyPlus != null && spotifyPlus.equals("side")) {
+                    try {
+                        log(s);
+
+                        if (uri.getHost().equals("side")) {
+                            JSONObject json = new JSONObject();
+                            json.put("id", uri.getQueryParameter("id"));
+                            json.put("scriptId", uri.getQueryParameter("scriptId"));
+
+                            BridgeClient.send("", "event", "side.press", json);
+
+                            callback.returnAndSkip(newInstance(bti0Class, "spotify:home"));
+                            return;
+                        }
+                    } catch (Exception e) {
+                        logError(e);
+                        return;
+                    }
+
+                    if (uri.getHost().equals("settings")) {
+                        showSettingsOverlay();
+                        callback.returnAndSkip(newInstance(bti0Class, "spotify:settings"));
+                        return;
+                    }
                 }
                 return;
             }
 
             if (member == invokeSuspendMethod) {
+                ReactManager.registerSurfaceSilent("sideDrawer", (ViewGroup) currentActivity.get().getWindow().getDecorView());
+
                 Object[] originalItemsWithNull = (Object[]) sideDrawerArrayField.get(callback.getThisObject());
                 if (originalItemsWithNull == null) return;
                 Object[] originalItems = Arrays.stream(originalItemsWithNull).filter(Objects::nonNull).toArray(Object[]::new);
@@ -322,22 +364,11 @@ public class SideDrawerHook extends SpotifyHook {
 
                 Object template = originalItems[isNewSideDrawer ? originalItems.length - 2 : originalItems.length - 1];
                 Object templateLightning = originalItems[isNewSideDrawer ? 2 : 1];
-                Array.set(newArray, originalItems.length, createSideDrawerButton("Spotify Plus Settings", template, 2131957897, this::showSettingsOverlay));
+                Array.set(newArray, originalItems.length, createSideDrawerButton("Spotify Plus Settings", template, 2131957897, "spotifyplus:settings"));
 
                 int index = originalItems.length + 2;
                 for (var item : scriptItems) {
-                    Array.set(newArray, index, createSideDrawerButton(item.title, templateLightning, item.resourceId, () -> {
-                        try {
-                            JSONObject json = new JSONObject();
-                            json.put("id", item.id);
-                            json.put("scriptId", item.scriptId);
-
-                            BridgeClient.send("", "event", "side.press", json);
-                        } catch(Exception e) {
-                            logError(e);
-                        }
-                    }));
-
+                    Array.set(newArray, index, createSideDrawerButton(item.title, templateLightning, item.resourceId, "spotifyplus:side?scriptId=" + Uri.encode(item.scriptId) + "&id=" + Uri.encode(item.id)));
                     index++;
                 }
 
@@ -345,12 +376,14 @@ public class SideDrawerHook extends SpotifyHook {
             }
 
             if (member.getName().equals("invoke")) {
-                if (callback.getThisObject() != targetOnClick) return;
+//                if (callback.getThisObject() != targetOnClick) return;
+//                if (!overlayShown.compareAndSet(false, true)) return;
 
-                if (!overlayShown.compareAndSet(false, true)) return;
+                Runnable runnable = clickHandlers.get(callback.getThisObject());
+                if (runnable == null) return;
 
                 try {
-                    onClickRunnable.run();
+                    runnable.run();
                 } catch (Exception e) {
                     logError(e);
                 }
@@ -378,16 +411,68 @@ public class SideDrawerHook extends SpotifyHook {
                 if (raw != null && raw.startsWith("spotifyplus:")) {
                     Intent intent = (Intent) callback.getResult();
                     String path = raw.substring("spotifyplus:".length());
-                    intent.setData(Uri.parse("spotify:settings"));
-                    intent.putExtra("is_internal_navigation", true);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                    intent.putExtra("spx", "spotifyplus:" + path);
-                    intent.putExtra("spx_src", raw);
-                    Context appCtx = (Context) getFieldValue(callback.getThisObject(), "b");
-                    String activityClass = (String) getFieldValue(callback.getThisObject(), "a");
-                    intent.setClassName(appCtx, activityClass);
-                    callback.setResult(intent);
-                    log("[SpotifyPlus][id30.a] rewrote to spotify:settings with extras");
+                    if (path.startsWith("side")) {
+                        Map<String, String> params = new HashMap<>();
+
+                        for (String part : path.split("\\?")[1].split("&")) {
+                            int equals = part.indexOf("=");
+
+                            if (equals >= 0) {
+                                String key = Uri.decode(part.substring(0, equals));
+                                String value = Uri.decode(part.substring(equals + 1));
+
+                                params.put(key, value);
+                                log(key + " | " + value);
+                            } else {
+                                params.put(Uri.decode(part), "");
+                            }
+                        }
+
+                        String scriptId = params.get("scriptId");
+                        String id = params.get("id");
+
+                        try {
+                            JSONObject json = new JSONObject();
+                            json.put("id", id);
+                            json.put("scriptId", scriptId);
+
+                            BridgeClient.send("", "event", "side.press", json);
+
+                            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                                Activity activity = currentActivity.get();
+                                final android.window.OnBackInvokedDispatcher dispatcher = activity.getOnBackInvokedDispatcher();
+                                final android.window.OnBackInvokedCallback backCallback = new android.window.OnBackInvokedCallback() {
+                                    @Override
+                                    public void onBackInvoked() {
+                                        log("Back pressed!");
+                                        BridgeClient.send("", "event", "side.close", json);
+                                    }
+                                };
+
+                                dispatcher.registerOnBackInvokedCallback(1000001, backCallback);
+                            }
+                        } catch (Exception e) {
+                            logError(e);
+                        }
+
+                        Intent newIntent = new Intent();
+                        newIntent.setData(Uri.parse("spotify:null"));
+                        newIntent.setClassName("com.spotify.music", "com.spotify.music.SpotifyMainActivity");
+
+                        callback.setResult(newIntent);
+                    }
+
+
+//                    intent.setData(Uri.parse("spotify:settings"));
+//                    intent.putExtra("is_internal_navigation", true);
+//                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+//                    intent.putExtra("spx", "spotifyplus:" + path);
+//                    intent.putExtra("spx_src", raw);
+//                    Context appCtx = (Context) getFieldValue(callback.getThisObject(), "b");
+//                    String activityClass = (String) getFieldValue(callback.getThisObject(), "a");
+//                    intent.setClassName(appCtx, activityClass);
+//                    callback.setResult(intent);
+//                    log("[SpotifyPlus][id30.a] rewrote to spotify:settings with extras");
                 }
                 return;
             }
@@ -436,6 +521,7 @@ public class SideDrawerHook extends SpotifyHook {
 
                 ScriptSideDrawerItem item = new ScriptSideDrawerItem(itemId, scriptId, title);
                 if (scriptItems.contains(item)) return;
+                log("Registering " + itemId + " | " + scriptId);
 
                 item.resourceId = resourceIdToUse;
                 resourceIdToUse++;
@@ -446,7 +532,7 @@ public class SideDrawerHook extends SpotifyHook {
         }
     }
 
-    private Object createSideDrawerButton(String title, Object template, int resId, Runnable onClick) {
+    private Object createSideDrawerButton(String title, Object template, int resId, String uri) {
         try {
             var dwd0List = bridge.findField(FindField.create().searchInClass(fwd0Classes).matcher(FieldMatcher.create().type(sideDrawerItemClass)));
             var fieldList = bridge.findField(FindField.create().searchInClass(dwd0Classes).matcher(FieldMatcher.create().type(Object.class)));
@@ -500,8 +586,7 @@ public class SideDrawerHook extends SpotifyHook {
                 }
 
                 if (originalOnClick != null) {
-                    targetOnClick = originalOnClick;
-                    onClickRunnable = onClick;
+//                    clickHandlers.put(originalOnClick, onClick);
 
                     for (Method method : originalOnClick.getClass().getDeclaredMethods()) {
                         if (!method.getName().equals("invoke")) continue;
@@ -510,18 +595,10 @@ public class SideDrawerHook extends SpotifyHook {
                 }
             }
 
-            Object newOnClick = java.lang.reflect.Proxy.newProxyInstance(classLoader, new Class[]{qbpInterface}, (proxy, method, args) -> {
-                try {
-                    onClick.run();
-                } catch (Throwable t) {
-                    logError(t);
-                }
-                return null;
-            });
+            Object newOnClick = java.lang.reflect.Proxy.newProxyInstance(classLoader, new Class[]{qbpInterface}, (proxy, method, args) -> null);
 
             Constructor<?> bwd0Ctor = onClickClass.getConstructor(zpj0Interface, qbpInterface, cbpInterface);
             Constructor<?> propsCtor = propertiesClass.getConstructors()[0];
-            log(propertiesClass.getName());
             int mask = 1 | 2 | 4 | 16;
 
             Object newInstrumentation;
@@ -535,9 +612,9 @@ public class SideDrawerHook extends SpotifyHook {
 //            SpotifyTitleOverride.overrideSpotifyStringById(resId, title);
             Object newProps;
             try {
-                newProps = propsCtor.newInstance(weirdField, 2131957897, "spotify:null", false, newInstrumentation, false, mask);
+                newProps = propsCtor.newInstance(weirdField, resId, uri, false, newInstrumentation, false, mask);
             } catch (Throwable t) {
-                newProps = propsCtor.newInstance(originalProps.getClass().getFields()[0].get(originalProps), resId, "spotify:null", false, newInstrumentation, originalProps.getClass().getFields()[5].get(originalProps));
+                newProps = propsCtor.newInstance(originalProps.getClass().getFields()[0].get(originalProps), resId, uri, false, newInstrumentation, originalProps.getClass().getFields()[5].get(originalProps));
             }
 
             Object newDwd0 = !isNewSideDrawer ? newInstance(sideDrawerItemClass, originalIcon, newProps) : newInstance(sideDrawerItemClass, newProps);

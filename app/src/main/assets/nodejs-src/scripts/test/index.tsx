@@ -5,3 +5,8 @@ import App from "./test-overlay";
 SpotifyPlus.Surfaces.register('lyrics-view', (surface: any) => {
     return <App />;
 });
+
+//@ts-expect-error
+const sideDrawer = new SpotifyPlus.SideDrawer('React Item!', () => {
+    return <App />;
+}).register();

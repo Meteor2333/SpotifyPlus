@@ -204,3 +204,4 @@ README.html
 /app/.cxx
 /app/src/main/assets/nodejs-src/node_modules
 /app/src/main/assets/nodejs
+/scripts/node_modules

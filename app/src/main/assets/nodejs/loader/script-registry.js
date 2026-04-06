@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScriptRegistry = void 0;
+const react_1 = __importDefault(require("react"));
 const renderer_1 = require("../ui/renderer");
 class ScriptRegistry {
     constructor(logger) {
@@ -74,9 +78,15 @@ class ScriptRegistry {
     registerSideDrawer(scriptId, id, item) {
         this.sideDrawerItems.set(id, { scriptId, id, item });
     }
+    getSideDrawerItems() {
+        return this.sideDrawerItems;
+    }
     emitSideDrawerPress(scriptId, id) {
         const item = this.sideDrawerItems.get(id);
-        item?.item.onClick();
+        const result = item?.item.onClick();
+        if (result && react_1.default.isValidElement(result)) {
+            this.mountSurface(scriptId, { id: 'sideDrawer', type: 'sideDrawer' }, result);
+        }
     }
     registerSurfaceRenderer(scriptId, surfaceType, renderer) {
         console.log('Registering surface renderer', { scriptId, surfaceType });
@@ -90,7 +100,18 @@ class ScriptRegistry {
     mountSurface(scriptId, surface, element) {
         const root = (0, renderer_1.createRoot)(surface.type);
         root.render(element);
-        this.mountedSurfaces.set(`${scriptId}:${surface.id}`, element);
+        this.mountedSurfaces.set(`${scriptId}:${surface.id}`, root);
+    }
+    unmountSurface(scriptId, surfaceId) {
+        const root = this.mountedSurfaces.get(`${scriptId}:${surfaceId}`);
+        root?.unmount();
+    }
+    unmountAllSurfaces(surfaceId) {
+        this.mountedSurfaces.forEach((root, key) => {
+            if (key.endsWith(`:${surfaceId}`)) {
+                root.unmount();
+            }
+        });
     }
 }
 exports.ScriptRegistry = ScriptRegistry;

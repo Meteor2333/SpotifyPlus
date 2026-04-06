@@ -51,6 +51,10 @@ export interface SpotifyPlusApi {
         Storage: {
             set(key: string, value: any): void;
             get(key: string): any;
+            remove(key: string): void;
+            write<T = any>(path: string, value: T): void;
+            write<T = Uint8Array>(path: string, data: Uint8Array): void;
+            read<T = any>(path: string): Promise<T | Uint8Array | null>;
         }
     }
 
@@ -132,6 +136,27 @@ export class ScriptApiFactory {
                     get: async (key) => {
                         const payload = await this.runtime.request('storage.get', { scriptId, key });
                         return payload ? payload : null;
+                    },
+                    remove: (key) => this.runtime.sendCommand('storage.remove', { scriptId, key }),
+                    write: <T = any>(path: string, value: T): void => {
+                        this.runtime.sendCommand('storage.write', { scriptId, path, value });
+                    },
+                    // write: <T = Uint8Array>(path: string, data: Uint8Array): void => {
+                    //     const bytes = Buffer.from(data).toString('base64');
+                    //     this.runtime.sendCommand('storage.writeBinary', { scriptId, path, data: bytes });
+                    // },
+                    read: async <T = any>(path: string): Promise<T | Uint8Array | null> => {
+                        const payload = await this.runtime.request('storage.read', { scriptId, path }) as { data: T | string | null };
+                        if (!payload.data) return null;
+
+                        if (typeof payload.data === 'string') {
+                            //@ts-ignore
+                            return Uint8Array.from(Buffer.from(payload.data, 'base64'));
+                        } else if (typeof payload.data === 'object') {
+                            return payload.data as T;
+                        }
+
+                        return null;
                     }
                 }
             },
@@ -185,3 +210,5 @@ function formatLogArgs(args: unknown[]): string {
         }
     }).join(' ');
 }
+
+export declare const SpotifyPlus: SpotifyPlusApi;
