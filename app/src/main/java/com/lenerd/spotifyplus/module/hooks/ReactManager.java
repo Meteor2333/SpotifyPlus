@@ -1,11 +1,14 @@
 package com.lenerd.spotifyplus.module.hooks;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.ViewGroup;
 import com.lenerd.spotifyplus.manager.bridge.BridgeClient;
 import com.lenerd.spotifyplus.module.SpotifyCallback;
 import com.lenerd.spotifyplus.module.SpotifyHook;
 import com.lenerd.spotifyplus.module.scripting.ScriptManager;
+import com.lenerd.spotifyplus.module.scripting.ScriptViewHost;
 import com.lenerd.spotifyplus.module.scripting.UiSurfaceHost;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -14,7 +17,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ReactManager extends SpotifyHook {
-    private static final Map<String, UiSurfaceHost> surfaces = new HashMap<>();
+    private static final Map<String, SurfaceEntry> surfaces = new HashMap<>();
+
+    private static class SurfaceEntry {
+        final ViewGroup root;
+        final ScriptViewHost host;
+
+        SurfaceEntry(ViewGroup root, ScriptViewHost host) {
+            this.root = root;
+            this.host = host;
+        }
+    }
 
     @Override
     protected void hookSetup() throws NoSuchMethodException, ClassNotFoundException, NoSuchFieldException {
@@ -42,37 +55,52 @@ public class ReactManager extends SpotifyHook {
     }
 
     public static void registerSurface(String surfaceId, ViewGroup root) {
-        try {
-            surfaces.put(surfaceId, new UiSurfaceHost(surfaceId, root));
-            JSONObject json = new JSONObject();
-            json.put("id", surfaceId);
-            json.put("surfaceType", surfaceId);
-
-            BridgeClient.send("", "event", "react.surfaceEvent", json);
-        } catch (Exception e) {
-            logError(e);
-        }
+//        new Handler(Looper.getMainLooper()).post(() -> {
+//            try {
+//                surfaces.put(surfaceId, new ScriptViewHost(surfaceId, root));
+//
+//                JSONObject json = new JSONObject();
+//                json.put("id", surfaceId);
+//                json.put("surfaceType", surfaceId);
+//
+//                BridgeClient.send("", "event", "react.surfaceEvent", json);
+//            } catch (Exception e) {
+//                logError(e);
+//            }
+//        });
     }
 
     public static void registerSurfaceSilent(String surfaceId, ViewGroup root) {
-        try {
-            surfaces.put(surfaceId, new UiSurfaceHost(surfaceId, root));
-        } catch (Exception e) {
-            logError(e);
-        }
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                SurfaceEntry existing = surfaces.get(surfaceId);
+                if (existing != null) {
+                    if (existing.root == root) return;
+                    existing.host.dispose();
+                    surfaces.remove(surfaceId);
+                }
+                ScriptViewHost host = new ScriptViewHost(surfaceId, root);
+                surfaces.put(surfaceId, new SurfaceEntry(root, host));
+            } catch (Exception e) {
+                logError(e);
+            }
+        });
     }
 
     public static void unregisterSurface(String surfaceId) {
-        surfaces.remove(surfaceId);
+        new Handler(Looper.getMainLooper()).post(() -> {
+            SurfaceEntry existing = surfaces.remove(surfaceId);
+            if (existing != null) existing.host.dispose();
+        });
     }
 
     private void applyCommit(String surfaceId, JSONArray ops) {
-        UiSurfaceHost host = surfaces.get(surfaceId);
-        if (host == null) {
+        SurfaceEntry entry = surfaces.get(surfaceId);
+        if (entry == null) {
             Log.w("SpotifyPlus", "No surface registered for " + surfaceId);
             return;
         }
 
-        host.applyOps(ops);
+        entry.host.applyOps(ops);
     }
 }

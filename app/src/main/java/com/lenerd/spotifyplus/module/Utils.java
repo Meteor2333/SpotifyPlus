@@ -38,8 +38,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class Utils {
-    private static Resources mergedResources;
-    private static Context wrappedContext;
+    public static Resources mergedResources;
+    public static Context wrappedContext;
     private static Typeface cachedTypeface;
     public static String token;
     public static String clientToken;
@@ -206,7 +206,7 @@ public final class Utils {
 
     private static AssetManager moduleAssetManager;
 
-    private static synchronized void ensureModuleResources(Context context) throws Exception {
+    public static synchronized void ensureModuleResources(Context context) throws Exception {
         if (moduleResources != null && moduleAssetManager != null) return;
 
         File moduleApk = new File(MODULE_APK_PATH);

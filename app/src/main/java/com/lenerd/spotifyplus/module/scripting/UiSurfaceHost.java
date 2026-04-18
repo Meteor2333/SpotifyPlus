@@ -2,8 +2,13 @@ package com.lenerd.spotifyplus.module.scripting;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.*;
 import android.util.Log;
 import android.util.TypedValue;
@@ -18,21 +23,30 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Space;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.ToggleButton;
+import android.widget.ImageView;
 
+import java.io.InputStream;
+import java.util.WeakHashMap;
+
+import com.lenerd.spotifyplus.R;
 import com.lenerd.spotifyplus.manager.bridge.BridgeClient;
+import com.lenerd.spotifyplus.module.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.*;
 
 public class UiSurfaceHost {
@@ -46,6 +60,10 @@ public class UiSurfaceHost {
     private final Map<Integer, Integer> parentByChild = new HashMap<>();
     private final Map<Integer, TextWatcher> textWatchers = new HashMap<>();
     private final Set<Integer> suppressedEventNodes = new HashSet<>();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Map<ImageView, String> appliedImageSources = new WeakHashMap<>();
+    private final Map<ImageView, Integer> imageRequestIds = new WeakHashMap<>();
+    private int nextImageRequestId = 1;
 
     public UiSurfaceHost(String surfaceId, ViewGroup root) {
         this.surfaceId = surfaceId;
@@ -63,8 +81,6 @@ public class UiSurfaceHost {
 
     private void applyOp(JSONObject op) throws Exception {
         String kind = op.getString("op");
-//        Log.d(TAG, "applyOp: " + kind);
-//        Log.d(TAG, op.toString());
 
         switch (kind) {
             case "createNode":
@@ -93,6 +109,12 @@ public class UiSurfaceHost {
                 break;
             case "destroyNode":
                 destroyNode(op);
+                break;
+            case "insertBefore":
+                insertBefore(op);
+                break;
+            case "insertInRootBefore":
+                insertInRootBefore(op);
                 break;
             default:
                 Log.w(TAG, "Unknown op " + kind);
@@ -143,6 +165,7 @@ public class UiSurfaceHost {
                 return new EditText(context);
             case "Button":
                 return new Button(context);
+            case "Image":
             case "ImageView":
                 return new ImageView(context);
             case "ImageButton":
@@ -159,6 +182,10 @@ public class UiSurfaceHost {
                 return new CheckBox(context);
             case "RadioButton":
                 return new RadioButton(context);
+            case "RadioGroup":
+                return new RadioGroup(context);
+            case "ToggleButton":
+                return new ToggleButton(context);
             case "Space":
                 return new Space(context);
             default:
@@ -198,6 +225,11 @@ public class UiSurfaceHost {
             parentView.addView(childView, buildLayoutParams(parentView, childView, getProps(childId)));
             parentByChild.put(childId, parentId);
             applyProps(childView, getProps(childId));
+
+            if (childView instanceof ImageView) {
+                applyImageViewProps((ImageView) childView, getProps(childId));
+            }
+
             return;
         }
 
@@ -218,6 +250,7 @@ public class UiSurfaceHost {
         root.addView(childView, buildLayoutParams(root, childView, getProps(childId)));
         parentByChild.put(childId, -1);
         applyProps(childView, getProps(childId));
+        maybeLoadImageForView(childView, getProps(childId));
     }
 
     private void removeChild(JSONObject op) throws Exception {
@@ -283,6 +316,78 @@ public class UiSurfaceHost {
         if (node instanceof View) detachFromParent((View) node);
     }
 
+    private void insertBefore(JSONObject op) throws Exception {
+        int parentId = op.getInt("parentId");
+        int childId = op.getInt("childId");
+        int beforeChildId = op.getInt("beforeChildId");
+
+        Object parent = nodes.get(parentId);
+        Object child = nodes.get(childId);
+        Object beforeChild = nodes.get(beforeChildId);
+
+        if (!(parent instanceof ViewGroup parentView) || !(child instanceof View childView)) {
+            Log.w(TAG, "insertBefore unsupported parent=" + parent + " child=" + child);
+            return;
+        }
+
+        if (parentView instanceof ScrollView || parentView instanceof HorizontalScrollView) {
+            parentView.removeAllViews();
+            detachFromParent(childView);
+            parentView.addView(childView, buildLayoutParams(parentView, childView, getProps(childId)));
+            parentByChild.put(childId, parentId);
+            applyProps(childView, getProps(childId));
+            maybeLoadImageForView(childView, getProps(childId));
+            return;
+        }
+
+        int beforeIndex = -1;
+        if (beforeChild instanceof View beforeView) {
+            beforeIndex = parentView.indexOfChild(beforeView);
+        }
+
+        detachFromParent(childView);
+
+        if (beforeIndex >= 0) {
+            parentView.addView(childView, beforeIndex, buildLayoutParams(parentView, childView, getProps(childId)));
+        } else {
+            parentView.addView(childView, buildLayoutParams(parentView, childView, getProps(childId)));
+        }
+
+        parentByChild.put(childId, parentId);
+        applyProps(childView, getProps(childId));
+        maybeLoadImageForView(childView, getProps(childId));
+    }
+
+    private void insertInRootBefore(JSONObject op) throws Exception {
+        int childId = op.getInt("childId");
+        int beforeChildId = op.getInt("beforeChildId");
+
+        Object child = nodes.get(childId);
+        Object beforeChild = nodes.get(beforeChildId);
+
+        if (!(child instanceof View childView)) {
+            Log.w(TAG, "insertInRootBefore child is not a View: " + child);
+            return;
+        }
+
+        int beforeIndex = -1;
+        if (beforeChild instanceof View beforeView) {
+            beforeIndex = root.indexOfChild(beforeView);
+        }
+
+        detachFromParent(childView);
+
+        if (beforeIndex >= 0) {
+            root.addView(childView, beforeIndex, buildLayoutParams(root, childView, getProps(childId)));
+        } else {
+            root.addView(childView, buildLayoutParams(root, childView, getProps(childId)));
+        }
+
+        parentByChild.put(childId, -1);
+        applyProps(childView, getProps(childId));
+        maybeLoadImageForView(childView, getProps(childId));
+    }
+
     private void applyProps(View view, JSONObject props) throws Exception {
         Integer nodeId = findNodeIdForView(view);
 
@@ -293,16 +398,20 @@ public class UiSurfaceHost {
                 view.setLayoutParams(buildLayoutParams((ViewGroup) view.getParent(), view, props));
             }
 
+            if (view instanceof ViewGroup) applyViewGroupProps((ViewGroup) view, props);
             if (view instanceof LinearLayout) applyLinearLayoutProps((LinearLayout) view, props);
+            if (view instanceof RadioGroup) applyRadioGroupProps((RadioGroup) view, props);
+            if (view instanceof ImageView) applyImageViewProps((ImageView) view, props);
             if (view instanceof TextView) applyTextViewProps((TextView) view, props);
             if (view instanceof EditText) applyEditTextProps((EditText) view, props);
-            if (view instanceof ImageView) applyImageViewProps((ImageView) view, props);
             if (view instanceof ProgressBar) applyProgressBarProps((ProgressBar) view, props);
             if (view instanceof SeekBar) applySeekBarProps((SeekBar) view, props);
             if (view instanceof CompoundButton) applyCompoundButtonProps((CompoundButton) view, props);
             if (view instanceof Switch) applySwitchProps((Switch) view, props);
+            if (view instanceof ToggleButton) applyToggleButtonProps((ToggleButton) view, props);
             if (view instanceof ScrollView) applyScrollViewProps((ScrollView) view, props);
-            if (view instanceof HorizontalScrollView) applyHorizontalScrollViewProps((HorizontalScrollView) view, props);
+            if (view instanceof HorizontalScrollView)
+                applyHorizontalScrollViewProps((HorizontalScrollView) view, props);
             return;
         }
 
@@ -313,16 +422,20 @@ public class UiSurfaceHost {
                 view.setLayoutParams(buildLayoutParams((ViewGroup) view.getParent(), view, props));
             }
 
+            if (view instanceof ViewGroup) applyViewGroupProps((ViewGroup) view, props);
             if (view instanceof LinearLayout) applyLinearLayoutProps((LinearLayout) view, props);
+            if (view instanceof RadioGroup) applyRadioGroupProps((RadioGroup) view, props);
+            if (view instanceof ImageView) applyImageViewProps((ImageView) view, props);
             if (view instanceof TextView) applyTextViewProps((TextView) view, props);
             if (view instanceof EditText) applyEditTextProps((EditText) view, props);
-            if (view instanceof ImageView) applyImageViewProps((ImageView) view, props);
             if (view instanceof ProgressBar) applyProgressBarProps((ProgressBar) view, props);
             if (view instanceof SeekBar) applySeekBarProps((SeekBar) view, props);
             if (view instanceof CompoundButton) applyCompoundButtonProps((CompoundButton) view, props);
             if (view instanceof Switch) applySwitchProps((Switch) view, props);
+            if (view instanceof ToggleButton) applyToggleButtonProps((ToggleButton) view, props);
             if (view instanceof ScrollView) applyScrollViewProps((ScrollView) view, props);
-            if (view instanceof HorizontalScrollView) applyHorizontalScrollViewProps((HorizontalScrollView) view, props);
+            if (view instanceof HorizontalScrollView)
+                applyHorizontalScrollViewProps((HorizontalScrollView) view, props);
         });
 
         applyEventProps(view, props, nodeId);
@@ -333,6 +446,7 @@ public class UiSurfaceHost {
 
         if (view instanceof EditText) applyEditTextEventProps((EditText) view, props, nodeId);
         if (view instanceof CompoundButton) applyCompoundButtonEventProps((CompoundButton) view, props, nodeId);
+        if (view instanceof RadioGroup) applyRadioGroupEventProps((RadioGroup) view, props, nodeId);
         if (view instanceof SeekBar) applySeekBarEventProps((SeekBar) view, props, nodeId);
         if (view instanceof ScrollView) applyScrollEventProps((View) view, props, nodeId);
         if (view instanceof HorizontalScrollView) applyScrollEventProps((View) view, props, nodeId);
@@ -366,7 +480,8 @@ public class UiSurfaceHost {
                     payload.put("x", v.getX());
                     payload.put("y", v.getY());
                     sendEventToNode(nodeId, "onLongClick", onLongClickEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
 
                 return true;
             });
@@ -392,7 +507,8 @@ public class UiSurfaceHost {
                     } else if (!hasFocus && onBlurEventId != null) {
                         sendEventToNode(nodeId, "onBlur", onBlurEventId, payload);
                     }
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
             });
         } else {
             view.setOnFocusChangeListener(null);
@@ -407,7 +523,8 @@ public class UiSurfaceHost {
         if (onChangeTextEventId != null) {
             TextWatcher watcher = new TextWatcher() {
                 @Override
-                public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                }
 
                 @Override
                 public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -417,11 +534,13 @@ public class UiSurfaceHost {
                         JSONObject payload = basePayload(nodeId);
                         payload.put("text", String.valueOf(s));
                         sendEventToNode(nodeId, "onChangeText", onChangeTextEventId, payload);
-                    } catch (Exception ignored) { }
+                    } catch (Exception ignored) {
+                    }
                 }
 
                 @Override
-                public void afterTextChanged(Editable s) { }
+                public void afterTextChanged(Editable s) {
+                }
             };
 
             view.addTextChangedListener(watcher);
@@ -438,7 +557,8 @@ public class UiSurfaceHost {
                     payload.put("text", v.getText() != null ? v.getText().toString() : "");
                     payload.put("actionId", actionId);
                     sendEventToNode(nodeId, "onSubmitEditing", onSubmitEditingEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
 
                 return false;
             });
@@ -459,7 +579,30 @@ public class UiSurfaceHost {
                     payload.put("checked", isChecked);
                     payload.put("value", isChecked);
                     sendEventToNode(nodeId, "onValueChange", onValueChangeEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
+            });
+        } else {
+            view.setOnCheckedChangeListener(null);
+        }
+    }
+
+    private void applyRadioGroupEventProps(RadioGroup view, JSONObject props, int nodeId) {
+        Integer onValueChangeEventId = getEventId(props, "onValueChange");
+
+        if (onValueChangeEventId != null) {
+            view.setOnCheckedChangeListener((group, checkedViewId) -> {
+                if (isDispatchSuppressed(nodeId)) return;
+
+                try {
+                    JSONObject payload = basePayload(nodeId);
+                    Integer checkedNodeId = findNodeIdByAndroidViewId(checkedViewId);
+                    if (checkedNodeId != null) payload.put("checkedId", checkedNodeId);
+                    else payload.put("checkedId", JSONObject.NULL);
+                    payload.put("value", checkedNodeId != null ? checkedNodeId : JSONObject.NULL);
+                    sendEventToNode(nodeId, "onValueChange", onValueChangeEventId, payload);
+                } catch (Exception ignored) {
+                }
             });
         } else {
             view.setOnCheckedChangeListener(null);
@@ -486,7 +629,8 @@ public class UiSurfaceHost {
                     payload.put("value", progress);
                     payload.put("fromUser", fromUser);
                     sendEventToNode(nodeId, "onValueChange", onValueChangeEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
             }
 
             @Override
@@ -497,7 +641,8 @@ public class UiSurfaceHost {
                     JSONObject payload = basePayload(nodeId);
                     payload.put("value", seekBar.getProgress());
                     sendEventToNode(nodeId, "onSlidingStart", onSlidingStartEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
             }
 
             @Override
@@ -508,7 +653,8 @@ public class UiSurfaceHost {
                     JSONObject payload = basePayload(nodeId);
                     payload.put("value", seekBar.getProgress());
                     sendEventToNode(nodeId, "onSlidingComplete", onSlidingCompleteEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
             }
         });
     }
@@ -527,7 +673,8 @@ public class UiSurfaceHost {
                     payload.put("oldX", oldScrollX);
                     payload.put("oldY", oldScrollY);
                     sendEventToNode(nodeId, "onScroll", onScrollEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
             });
         } else {
             view.setOnScrollChangeListener(null);
@@ -538,11 +685,18 @@ public class UiSurfaceHost {
         if (props.has("visibility")) view.setVisibility(parseVisibility(props.opt("visibility")));
         if (props.has("enabled")) view.setEnabled(parseBoolean(props.opt("enabled"), view.isEnabled()));
         if (props.has("clickable")) view.setClickable(parseBoolean(props.opt("clickable"), view.isClickable()));
+        if (props.has("longClickable")) view.setLongClickable(parseBoolean(props.opt("longClickable"), view.isLongClickable()));
         if (props.has("focusable")) view.setFocusable(parseBoolean(props.opt("focusable"), view.isFocusable()));
         if (props.has("focusableInTouchMode"))
             view.setFocusableInTouchMode(parseBoolean(props.opt("focusableInTouchMode"), view.isFocusableInTouchMode()));
         if (props.has("selected")) view.setSelected(parseBoolean(props.opt("selected"), view.isSelected()));
         if (props.has("activated")) view.setActivated(parseBoolean(props.opt("activated"), view.isActivated()));
+        if (props.has("duplicateParentStateEnabled"))
+            view.setDuplicateParentStateEnabled(parseBoolean(props.opt("duplicateParentStateEnabled"), view.isDuplicateParentStateEnabled()));
+        if (props.has("hapticFeedbackEnabled"))
+            view.setHapticFeedbackEnabled(parseBoolean(props.opt("hapticFeedbackEnabled"), view.isHapticFeedbackEnabled()));
+        if (props.has("soundEffectsEnabled"))
+            view.setSoundEffectsEnabled(parseBoolean(props.opt("soundEffectsEnabled"), view.isSoundEffectsEnabled()));
         if (props.has("alpha")) view.setAlpha((float) parseDouble(props.opt("alpha"), view.getAlpha()));
         if (props.has("rotation")) view.setRotation((float) parseDouble(props.opt("rotation"), view.getRotation()));
         if (props.has("rotationX")) view.setRotationX((float) parseDouble(props.opt("rotationX"), view.getRotationX()));
@@ -565,60 +719,49 @@ public class UiSurfaceHost {
             view.setKeepScreenOn(parseBoolean(props.opt("keepScreenOn"), view.getKeepScreenOn()));
         if (props.has("fitsSystemWindows"))
             view.setFitsSystemWindows(parseBoolean(props.opt("fitsSystemWindows"), view.getFitsSystemWindows()));
+        if (props.has("clipToOutline"))
+            view.setClipToOutline(parseBoolean(props.opt("clipToOutline"), view.getClipToOutline()));
         if (props.has("tag")) view.setTag(String.valueOf(props.opt("tag")));
-        if (props.has("backgroundColor") || props.has("borderRadius")) {
+        if (props.has("backgroundColor") || props.has("borderRadius") || props.has("borderWidth") || props.has("borderColor") || props.has("borderTopLeftRadius") || props.has("borderTopRightRadius") || props.has("borderBottomLeftRadius") || props.has("borderBottomRightRadius")) {
             applyBackgroundProps(view, props);
         }
         if (props.has("textAlignment")) view.setTextAlignment(parseTextAlignment(props.optString("textAlignment", "")));
-
-        Integer onClickEventId = getEventId(props, "onClick");
-        if (onClickEventId != null) {
-            view.setOnClickListener(v -> {
-                JSONObject payload = new JSONObject();
-                try {
-                    payload.put("x", v.getX());
-                    payload.put("y", v.getY());
-                } catch (Exception ignored) {
-                }
-
-                Integer nodeId = findNodeIdForView(v);
-                sendEventToNode(nodeId != null ? nodeId : -1, "onClick", onClickEventId, payload);
-            });
-
-            view.setClickable(true);
-        } else {
-            view.setOnClickListener(null);
-        }
 
         applyPadding(view, props);
     }
 
     private void applyBackgroundProps(View view, JSONObject props) {
         Integer color = props.has("backgroundColor") ? parseColor(props.opt("backgroundColor")) : null;
+        Integer borderColor = props.has("borderColor") ? parseColor(props.opt("borderColor")) : null;
+        int borderWidth = props.has("borderWidth") ? parseSize(props.opt("borderWidth"), 0) : 0;
         int radius = props.has("borderRadius") ? parseSize(props.opt("borderRadius"), 0) : 0;
+        boolean hasPerCornerRadius = props.has("borderTopLeftRadius") || props.has("borderTopRightRadius") || props.has("borderBottomLeftRadius") || props.has("borderBottomRightRadius");
 
-        if (color == null && radius <= 0) return;
+        if (color == null && radius <= 0 && borderWidth <= 0 && !hasPerCornerRadius) return;
 
         GradientDrawable drawable = new GradientDrawable();
         drawable.setShape(GradientDrawable.RECTANGLE);
         drawable.setColor(color != null ? color : Color.TRANSPARENT);
 
-        if (radius > 0) {
+        if (hasPerCornerRadius) {
+            float topLeft = props.has("borderTopLeftRadius") ? parseSize(props.opt("borderTopLeftRadius"), radius) : radius;
+            float topRight = props.has("borderTopRightRadius") ? parseSize(props.opt("borderTopRightRadius"), radius) : radius;
+            float bottomRight = props.has("borderBottomRightRadius") ? parseSize(props.opt("borderBottomRightRadius"), radius) : radius;
+            float bottomLeft = props.has("borderBottomLeftRadius") ? parseSize(props.opt("borderBottomLeftRadius"), radius) : radius;
+            drawable.setCornerRadii(new float[]{topLeft, topLeft, topRight, topRight, bottomRight, bottomRight, bottomLeft, bottomLeft});
+        } else if (radius > 0) {
             drawable.setCornerRadius(radius);
+        }
+
+        if (borderWidth > 0) {
+            drawable.setStroke(borderWidth, borderColor != null ? borderColor : Color.TRANSPARENT);
         }
 
         view.setBackground(drawable);
     }
 
     private void applyPadding(View view, JSONObject props) throws Exception {
-        boolean hasAnyPadding =
-                props.has("padding") ||
-                        props.has("paddingHorizontal") ||
-                        props.has("paddingVertical") ||
-                        props.has("paddingLeft") ||
-                        props.has("paddingTop") ||
-                        props.has("paddingRight") ||
-                        props.has("paddingBottom");
+        boolean hasAnyPadding = props.has("padding") || props.has("paddingHorizontal") || props.has("paddingVertical") || props.has("paddingLeft") || props.has("paddingTop") || props.has("paddingRight") || props.has("paddingBottom") || props.has("paddingStart") || props.has("paddingEnd");
 
         if (!hasAnyPadding) return;
 
@@ -626,12 +769,24 @@ public class UiSurfaceHost {
         int horizontal = parseSize(props.opt("paddingHorizontal"), -1);
         int vertical = parseSize(props.opt("paddingVertical"), -1);
 
-        int left = props.has("paddingLeft") ? parseSize(props.opt("paddingLeft"), view.getPaddingLeft()) : (horizontal >= 0 ? horizontal : (all >= 0 ? all : view.getPaddingLeft()));
+        int start = props.has("paddingStart") ? parseSize(props.opt("paddingStart"), view.getPaddingStart()) : (horizontal >= 0 ? horizontal : (all >= 0 ? all : view.getPaddingStart()));
         int top = props.has("paddingTop") ? parseSize(props.opt("paddingTop"), view.getPaddingTop()) : (vertical >= 0 ? vertical : (all >= 0 ? all : view.getPaddingTop()));
-        int right = props.has("paddingRight") ? parseSize(props.opt("paddingRight"), view.getPaddingRight()) : (horizontal >= 0 ? horizontal : (all >= 0 ? all : view.getPaddingRight()));
+        int end = props.has("paddingEnd") ? parseSize(props.opt("paddingEnd"), view.getPaddingEnd()) : (horizontal >= 0 ? horizontal : (all >= 0 ? all : view.getPaddingEnd()));
         int bottom = props.has("paddingBottom") ? parseSize(props.opt("paddingBottom"), view.getPaddingBottom()) : (vertical >= 0 ? vertical : (all >= 0 ? all : view.getPaddingBottom()));
 
-        view.setPadding(left, top, right, bottom);
+        int left = props.has("paddingLeft") ? parseSize(props.opt("paddingLeft"), view.getPaddingLeft()) : start;
+        int right = props.has("paddingRight") ? parseSize(props.opt("paddingRight"), view.getPaddingRight()) : end;
+
+        view.setPaddingRelative(start, top, end, bottom);
+
+        if (props.has("paddingLeft") || props.has("paddingRight")) {
+            view.setPadding(left, top, right, bottom);
+        }
+    }
+
+    private void applyViewGroupProps(ViewGroup view, JSONObject props) throws Exception {
+        if (props.has("clipChildren")) view.setClipChildren(parseBoolean(props.opt("clipChildren"), view.getClipChildren()));
+        if (props.has("clipToPadding")) view.setClipToPadding(parseBoolean(props.opt("clipToPadding"), view.getClipToPadding()));
     }
 
     private void applyLinearLayoutProps(LinearLayout layout, JSONObject props) throws Exception {
@@ -646,6 +801,18 @@ public class UiSurfaceHost {
             layout.setDividerPadding(parseSize(props.opt("dividerPadding"), layout.getDividerPadding()));
         if (props.has("baselineAligned"))
             layout.setBaselineAligned(parseBoolean(props.opt("baselineAligned"), layout.isBaselineAligned()));
+    }
+
+    private void applyRadioGroupProps(RadioGroup view, JSONObject props) throws Exception {
+        if (props.has("checkedId")) {
+            Object raw = props.opt("checkedId");
+            if (raw == null || raw == JSONObject.NULL) {
+                view.clearCheck();
+            } else if (raw instanceof Number) {
+                Object child = nodes.get(((Number) raw).intValue());
+                if (child instanceof View childView) view.check(childView.getId());
+            }
+        }
     }
 
     private void applyTextViewProps(TextView view, JSONObject props) throws Exception {
@@ -684,6 +851,173 @@ public class UiSurfaceHost {
             view.setFilters(new InputFilter[]{new InputFilter.LengthFilter(props.optInt("maxLength", Integer.MAX_VALUE))});
     }
 
+    private void applyImageViewProps(ImageView view, JSONObject props) throws Exception {
+        if (props.has("scaleType")) {
+            view.setScaleType(parseScaleType(props.optString("scaleType", "")));
+        }
+
+        if (props.has("adjustViewBounds")) {
+            view.setAdjustViewBounds(parseBoolean(props.opt("adjustViewBounds"), view.getAdjustViewBounds()));
+        }
+
+        if (props.has("cropToPadding")) {
+            view.setCropToPadding(parseBoolean(props.opt("cropToPadding"), view.getCropToPadding()));
+        }
+
+        if (props.has("tintColor")) {
+            Integer color = parseColor(props.opt("tintColor"));
+            if (color != null) view.setImageTintList(ColorStateList.valueOf(color));
+        }
+
+        String src = props.has("src") ? props.optString("src", null) : null;
+        String oldSrc = appliedImageSources.get(view);
+
+        if (Objects.equals(oldSrc, src)) return;
+
+        if (view.getParent() == null) {
+            Log.d(TAG, "Skipping image load because view is not attached yet");
+            return;
+        }
+
+        appliedImageSources.put(view, src);
+        loadImage(view, src);
+    }
+
+    private void maybeLoadImageForView(View view, JSONObject props) {
+        if (!(view instanceof ImageView imageView)) return;
+
+        Runnable task = () -> {
+            String src = props.has("src") ? props.optString("src", null) : null;
+            String oldSrc = appliedImageSources.get(imageView);
+
+            if (!Objects.equals(oldSrc, src)) {
+                appliedImageSources.put(imageView, src);
+                loadImage(imageView, src);
+            }
+        };
+
+        if (view.isAttachedToWindow()) {
+            task.run();
+        } else {
+            view.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+                @Override
+                public void onViewAttachedToWindow(View v) {
+                    v.removeOnAttachStateChangeListener(this);
+                    task.run();
+                }
+
+                @Override
+                public void onViewDetachedFromWindow(View v) { }
+            });
+        }
+    }
+
+    private void loadImage(ImageView view, String src) {
+        final int requestId = nextImageRequestId++;
+        imageRequestIds.put(view, requestId);
+
+        if (src == null || src.isEmpty()) {
+            view.setImageDrawable(null);
+            return;
+        }
+
+        if (src.startsWith("http://") || src.startsWith("https://")) {
+            new Thread(() -> {
+                try (InputStream stream = new URL(src).openConnection().getInputStream()) {
+                    Bitmap bitmap = BitmapFactory.decodeStream(stream);
+
+                    mainHandler.post(() -> {
+                        Integer latestId = imageRequestIds.get(view);
+                        if (latestId == null || latestId != requestId) return;
+
+                        Log.d(TAG, "Applying bitmap"
+                                + " view=" + System.identityHashCode(view)
+                                + " attached=" + view.isAttachedToWindow()
+                                + " parent=" + view.getParent()
+                                + " width=" + view.getWidth()
+                                + " height=" + view.getHeight()
+                                + " measuredWidth=" + view.getMeasuredWidth()
+                                + " measuredHeight=" + view.getMeasuredHeight()
+                                + " visibility=" + view.getVisibility()
+                                + " alpha=" + view.getAlpha()
+                                + " drawableBefore=" + (view.getDrawable() != null)
+                                + " bitmap=" + bitmap.getWidth() + "x" + bitmap.getHeight());
+
+                        view.setImageBitmap(bitmap);
+
+                        Log.d(TAG, "Applied bitmap"
+                                + " drawableAfter=" + (view.getDrawable() != null)
+                                + " attached=" + view.isAttachedToWindow()
+                                + " width=" + view.getWidth()
+                                + " height=" + view.getHeight()
+                                + " measuredWidth=" + view.getMeasuredWidth()
+                                + " measuredHeight=" + view.getMeasuredHeight());
+
+                        view.requestLayout();
+                        view.invalidate();
+                    });
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed loading image: " + src, e);
+
+                    mainHandler.post(() -> {
+                        Integer latestId = imageRequestIds.get(view);
+                        if (latestId == null || latestId != requestId) return;
+
+                        view.setImageDrawable(null);
+                    });
+                }
+            }).start();
+
+            return;
+        }
+
+        try {
+            if (src.startsWith("content://") || src.startsWith("file://") || src.startsWith("android.resource://")) {
+                view.setImageURI(Uri.parse(src));
+                view.requestLayout();
+                view.invalidate();
+                return;
+            }
+
+            Bitmap bitmap = BitmapFactory.decodeFile(src);
+            view.setImageBitmap(bitmap);
+            view.requestLayout();
+            view.invalidate();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed loading local image: " + src, e);
+            view.setImageDrawable(null);
+        }
+    }
+
+    private ImageView.ScaleType parseScaleType(String value) {
+        switch (value.toLowerCase()) {
+            case "centercrop":
+            case "center_crop":
+                return ImageView.ScaleType.CENTER_CROP;
+            case "fitcenter":
+            case "fit_center":
+                return ImageView.ScaleType.FIT_CENTER;
+            case "fitxy":
+            case "fit_xy":
+                return ImageView.ScaleType.FIT_XY;
+            case "center":
+                return ImageView.ScaleType.CENTER;
+            case "centerinside":
+            case "center_inside":
+                return ImageView.ScaleType.CENTER_INSIDE;
+            case "fitstart":
+            case "fit_start":
+                return ImageView.ScaleType.FIT_START;
+            case "fitend":
+            case "fit_end":
+                return ImageView.ScaleType.FIT_END;
+            case "matrix":
+                return ImageView.ScaleType.MATRIX;
+            default:
+                return ImageView.ScaleType.FIT_CENTER;
+        }
+    }
+
     private void applyEditTextProps(EditText view, JSONObject props) throws Exception {
         if (props.has("inputType")) view.setInputType(parseInputType(props.opt("inputType")));
         if (props.has("imeOptions")) view.setImeOptions(parseImeOptions(props.opt("imeOptions")));
@@ -691,23 +1025,10 @@ public class UiSurfaceHost {
         if (props.has("cursorVisible")) view.setCursorVisible(parseBoolean(props.opt("cursorVisible"), true));
     }
 
-    private void applyImageViewProps(ImageView view, JSONObject props) throws Exception {
-        if (props.has("scaleType")) view.setScaleType(parseScaleType(props.optString("scaleType", "")));
-        if (props.has("adjustViewBounds"))
-            view.setAdjustViewBounds(parseBoolean(props.opt("adjustViewBounds"), view.getAdjustViewBounds()));
-        if (props.has("tintColor")) {
-            Integer color = parseColor(props.opt("tintColor"));
-            if (color != null) view.setImageTintList(ColorStateList.valueOf(color));
-        }
-        if (props.has("imageResource")) {
-            Object value = props.opt("imageResource");
-            if (value instanceof Number) view.setImageResource(((Number) value).intValue());
-        }
-    }
-
     private void applyProgressBarProps(ProgressBar view, JSONObject props) throws Exception {
         if (props.has("indeterminate"))
             view.setIndeterminate(parseBoolean(props.opt("indeterminate"), view.isIndeterminate()));
+        if (props.has("min")) view.setMin(props.optInt("min", view.getMin()));
         if (props.has("max")) view.setMax(props.optInt("max", view.getMax()));
         if (props.has("progress")) view.setProgress(props.optInt("progress", view.getProgress()));
         if (props.has("secondaryProgress"))
@@ -716,13 +1037,31 @@ public class UiSurfaceHost {
             Integer color = parseColor(props.opt("progressTintColor"));
             if (color != null) view.setProgressTintList(ColorStateList.valueOf(color));
         }
+        if (props.has("secondaryProgressTintColor")) {
+            Integer color = parseColor(props.opt("secondaryProgressTintColor"));
+            if (color != null) view.setSecondaryProgressTintList(ColorStateList.valueOf(color));
+        }
+        if (props.has("progressBackgroundTintColor")) {
+            Integer color = parseColor(props.opt("progressBackgroundTintColor"));
+            if (color != null) view.setProgressBackgroundTintList(ColorStateList.valueOf(color));
+        }
+        if (props.has("indeterminateTintColor")) {
+            Integer color = parseColor(props.opt("indeterminateTintColor"));
+            if (color != null) view.setIndeterminateTintList(ColorStateList.valueOf(color));
+        }
     }
 
     private void applySeekBarProps(SeekBar view, JSONObject props) throws Exception {
+        if (props.has("min")) view.setMin(props.optInt("min", view.getMin()));
         if (props.has("thumbTintColor")) {
             Integer color = parseColor(props.opt("thumbTintColor"));
             if (color != null) view.setThumbTintList(ColorStateList.valueOf(color));
         }
+        if (props.has("tickMarkTintColor")) {
+            Integer color = parseColor(props.opt("tickMarkTintColor"));
+            if (color != null) view.setTickMarkTintList(ColorStateList.valueOf(color));
+        }
+        if (props.has("splitTrack")) view.setSplitTrack(parseBoolean(props.opt("splitTrack"), view.getSplitTrack()));
     }
 
     private void applyCompoundButtonProps(CompoundButton view, JSONObject props) throws Exception {
@@ -747,11 +1086,23 @@ public class UiSurfaceHost {
         }
     }
 
+    private void applyToggleButtonProps(ToggleButton view, JSONObject props) throws Exception {
+        if (props.has("textOn")) view.setTextOn(String.valueOf(props.opt("textOn")));
+        if (props.has("textOff")) view.setTextOff(String.valueOf(props.opt("textOff")));
+        if (props.has("disabledAlpha")) view.setAlpha((float) parseDouble(props.opt("disabledAlpha"), view.getDisabledAlpha()));
+    }
+
     private void applyScrollViewProps(ScrollView view, JSONObject props) throws Exception {
         if (props.has("fillViewport"))
             view.setFillViewport(parseBoolean(props.opt("fillViewport"), view.isFillViewport()));
         if (props.has("smoothScrollingEnabled"))
             view.setSmoothScrollingEnabled(parseBoolean(props.opt("smoothScrollingEnabled"), true));
+        if (props.has("verticalScrollBarEnabled"))
+            view.setVerticalScrollBarEnabled(parseBoolean(props.opt("verticalScrollBarEnabled"), view.isVerticalScrollBarEnabled()));
+        if (props.has("horizontalScrollBarEnabled"))
+            view.setHorizontalScrollBarEnabled(parseBoolean(props.opt("horizontalScrollBarEnabled"), view.isHorizontalScrollBarEnabled()));
+        if (props.has("overScrollMode"))
+            view.setOverScrollMode(parseOverScrollMode(props.opt("overScrollMode")));
     }
 
     private void applyHorizontalScrollViewProps(HorizontalScrollView view, JSONObject props) throws Exception {
@@ -759,6 +1110,12 @@ public class UiSurfaceHost {
             view.setFillViewport(parseBoolean(props.opt("fillViewport"), view.isFillViewport()));
         if (props.has("smoothScrollingEnabled"))
             view.setSmoothScrollingEnabled(parseBoolean(props.opt("smoothScrollingEnabled"), true));
+        if (props.has("verticalScrollBarEnabled"))
+            view.setVerticalScrollBarEnabled(parseBoolean(props.opt("verticalScrollBarEnabled"), view.isVerticalScrollBarEnabled()));
+        if (props.has("horizontalScrollBarEnabled"))
+            view.setHorizontalScrollBarEnabled(parseBoolean(props.opt("horizontalScrollBarEnabled"), view.isHorizontalScrollBarEnabled()));
+        if (props.has("overScrollMode"))
+            view.setOverScrollMode(parseOverScrollMode(props.opt("overScrollMode")));
     }
 
     private ViewGroup.LayoutParams buildLayoutParams(ViewGroup parent, View child, JSONObject props) throws Exception {
@@ -792,14 +1149,7 @@ public class UiSurfaceHost {
     }
 
     private void applyMargins(ViewGroup.MarginLayoutParams lp, JSONObject props) throws Exception {
-        boolean hasAnyMargin =
-                props.has("margin") ||
-                        props.has("marginHorizontal") ||
-                        props.has("marginVertical") ||
-                        props.has("marginLeft") ||
-                        props.has("marginTop") ||
-                        props.has("marginRight") ||
-                        props.has("marginBottom");
+        boolean hasAnyMargin = props.has("margin") || props.has("marginHorizontal") || props.has("marginVertical") || props.has("marginLeft") || props.has("marginTop") || props.has("marginRight") || props.has("marginBottom") || props.has("marginStart") || props.has("marginEnd");
 
         if (!hasAnyMargin) return;
 
@@ -807,12 +1157,17 @@ public class UiSurfaceHost {
         int horizontal = parseSize(props.opt("marginHorizontal"), -1);
         int vertical = parseSize(props.opt("marginVertical"), -1);
 
-        int left = props.has("marginLeft") ? parseSize(props.opt("marginLeft"), lp.leftMargin) : (horizontal >= 0 ? horizontal : all);
+        int start = props.has("marginStart") ? parseSize(props.opt("marginStart"), lp.getMarginStart()) : (horizontal >= 0 ? horizontal : all);
         int top = props.has("marginTop") ? parseSize(props.opt("marginTop"), lp.topMargin) : (vertical >= 0 ? vertical : all);
-        int right = props.has("marginRight") ? parseSize(props.opt("marginRight"), lp.rightMargin) : (horizontal >= 0 ? horizontal : all);
+        int end = props.has("marginEnd") ? parseSize(props.opt("marginEnd"), lp.getMarginEnd()) : (horizontal >= 0 ? horizontal : all);
         int bottom = props.has("marginBottom") ? parseSize(props.opt("marginBottom"), lp.bottomMargin) : (vertical >= 0 ? vertical : all);
 
+        int left = props.has("marginLeft") ? parseSize(props.opt("marginLeft"), lp.leftMargin) : start;
+        int right = props.has("marginRight") ? parseSize(props.opt("marginRight"), lp.rightMargin) : end;
+
         lp.setMargins(left, top, right, bottom);
+        lp.setMarginStart(start);
+        lp.setMarginEnd(end);
     }
 
     private void applyRelativeLayoutRules(RelativeLayout.LayoutParams lp, JSONObject props) throws Exception {
@@ -882,11 +1237,7 @@ public class UiSurfaceHost {
     }
 
     private boolean isContainer(View view) {
-        return view instanceof LinearLayout ||
-                view instanceof FrameLayout ||
-                view instanceof RelativeLayout ||
-                view instanceof ScrollView ||
-                view instanceof HorizontalScrollView;
+        return view instanceof LinearLayout || view instanceof FrameLayout || view instanceof RelativeLayout || view instanceof ScrollView || view instanceof HorizontalScrollView;
     }
 
     private int parseLayoutSize(Object value, int fallback) throws Exception {
@@ -977,6 +1328,13 @@ public class UiSurfaceHost {
             default:
                 return View.TEXT_ALIGNMENT_INHERIT;
         }
+    }
+
+    private int parseOverScrollMode(Object value) {
+        String text = String.valueOf(value).toLowerCase();
+        if ("always".equals(text)) return View.OVER_SCROLL_ALWAYS;
+        if ("never".equals(text)) return View.OVER_SCROLL_NEVER;
+        return View.OVER_SCROLL_IF_CONTENT_SCROLLS;
     }
 
     private int parseGravity(String value) {
@@ -1073,18 +1431,6 @@ public class UiSurfaceHost {
             default:
                 return TextUtils.TruncateAt.END;
         }
-    }
-
-    private ImageView.ScaleType parseScaleType(String value) {
-        return switch (value.toLowerCase()) {
-            case "center" -> ImageView.ScaleType.CENTER;
-            case "center_crop", "centercrop" -> ImageView.ScaleType.CENTER_CROP;
-            case "center_inside", "centerinside" -> ImageView.ScaleType.CENTER_INSIDE;
-            case "fit_start", "fitstart" -> ImageView.ScaleType.FIT_START;
-            case "fit_end", "fitend" -> ImageView.ScaleType.FIT_END;
-            case "fit_xy", "fitxy" -> ImageView.ScaleType.FIT_XY;
-            default -> ImageView.ScaleType.FIT_CENTER;
-        };
     }
 
     private int parseInputType(Object value) {
@@ -1206,6 +1552,17 @@ public class UiSurfaceHost {
         return null;
     }
 
+    private Integer findNodeIdByAndroidViewId(int viewId) {
+        if (viewId == View.NO_ID || viewId == -1) return null;
+
+        for (Map.Entry<Integer, Object> entry : nodes.entrySet()) {
+            Object node = entry.getValue();
+            if (node instanceof View view && view.getId() == viewId) return entry.getKey();
+        }
+
+        return null;
+    }
+
     private void withSuppressedEvents(int nodeId, ThrowingRunnable runnable) throws Exception {
         suppressedEventNodes.add(nodeId);
         try {
@@ -1239,8 +1596,18 @@ public class UiSurfaceHost {
             compoundButton.setOnCheckedChangeListener(null);
         }
 
+        if (node instanceof RadioGroup radioGroup) {
+            radioGroup.setOnCheckedChangeListener(null);
+        }
+
         if (node instanceof SeekBar seekBar) {
             seekBar.setOnSeekBarChangeListener(null);
+        }
+
+        if (node instanceof ImageView imageView) {
+            appliedImageSources.remove(imageView);
+            imageRequestIds.remove(imageView);
+            imageView.setImageDrawable(null);
         }
 
         if (node instanceof EditText editText) {

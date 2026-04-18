@@ -131,12 +131,14 @@ public class NetworkHook extends SpotifyHook {
                     String token = headerValue.replace("Bearer", "").trim();
                     if (Utils.token == null || !Utils.token.equals(token)) {
                         Utils.token = token;
+                        log("Access-Token: " + token);
 
                         BridgeClient.send("", "event", "event.updateToken", new JSONObject().put("accessToken", token));
                     }
                 } else if (headerName != null && headerName.equals("client-token") && headerValue != null && !headerValue.isEmpty()) {
                     if (Utils.clientToken == null || !Utils.clientToken.equals(headerValue)) {
                         Utils.clientToken = headerValue;
+                        log("Client-Token: " + headerValue);
                     }
                 }
             } catch (Exception e) {

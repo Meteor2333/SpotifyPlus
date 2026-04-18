@@ -44,7 +44,7 @@ function normalizeEventPayload(eventName: string, payload: any) {
         case 'onValueChange':
         case 'onSlidingStart':
         case 'onSlidingComplete':
-            return payload?.value ?? payload?.checked ?? 0;
+            return payload && Object.prototype.hasOwnProperty.call(payload, 'value') ? payload.value : payload?.checked ?? 0;
         default:
             return payload;
     }
@@ -61,6 +61,28 @@ export function dispatchReactEvent(eventId: number, payload?: any) {
     } catch (error) {
         console.error('Failed running react event handler', error);
     }
+}
+
+
+function isPlainObject(value: unknown): value is Record<string, any> {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function flattenStyleValue(style: any): Record<string, any> {
+    if (!style) return {};
+    if (Array.isArray(style)) {
+        const result: Record<string, any> = {};
+        for (const entry of style) Object.assign(result, flattenStyleValue(entry));
+        return result;
+    }
+    if (isPlainObject(style)) return { ...style };
+    return {};
+}
+
+function preprocessProps(props: Record<string, any> | null | undefined): Record<string, any> {
+    if (!props) return {};
+    const { style, children, ...rest } = props;
+    return { ...flattenStyleValue(style), ...rest, ...(children !== undefined ? { children } : {}) };
 }
 
 function encodeProps(
@@ -98,6 +120,7 @@ function encodeProps(
 type HostNode = {
     id: number;
     type: string;
+    surfaceId?: string;
     props: Record<string, any>;
     children: Array<HostNode | TextNode>;
 };
@@ -105,6 +128,7 @@ type HostNode = {
 type TextNode = {
     id: number;
     type: 'TEXT_INSTANCE';
+    surfaceId?: string;
     text: string;
 };
 
@@ -123,10 +147,13 @@ export type MutationOp =
     | { op: 'removeFromRoot'; childId: number }
     | { op: 'updateProps'; id: number; props: Record<string, any> }
     | { op: 'updateText'; id: number; text: string }
+    | { op: 'startNativeAnimation'; nodeId: number; animationId: number; type?: string; duration?: number; delay?: number; easing?: string; tracks: Array<{ property: string; from: number; to: number }> }
+    | { op: 'stopNativeAnimation'; animationId: number }
     | { op: 'destroyNode'; id: number };
 
 let nextId = 1;
 let pendingOps: MutationOp[] = [];
+const nodeSurfaceIds = new Map<number, string>();
 
 function createId() {
     return nextId++;
@@ -184,7 +211,7 @@ function dumpTree(container: RootContainer) {
     };
 }
 
-type CommitListener = (ops: MutationOp[], tree: any) => void;
+type CommitListener = (ops: MutationOp[], tree: any | null) => void;
 
 const commitListeners = new Map<string, CommitListener>();
 
@@ -196,9 +223,44 @@ export function clearCommitListener(surfaceId: string) {
     commitListeners.delete(surfaceId);
 }
 
+function assignSurfaceId(instance: HostNode | TextNode, surfaceId: string) {
+    instance.surfaceId = surfaceId;
+    nodeSurfaceIds.set(instance.id, surfaceId);
+    if (instance.type !== 'TEXT_INSTANCE') for (const child of (instance as HostNode).children) assignSurfaceId(child, surfaceId);
+}
+
+function clearSurfaceId(instance: HostNode | TextNode) {
+    nodeSurfaceIds.delete(instance.id);
+    delete instance.surfaceId;
+    if (instance.type !== 'TEXT_INSTANCE') for (const child of (instance as HostNode).children) clearSurfaceId(child);
+}
+
+export function dispatchSurfaceOps(surfaceId: string, ops: MutationOp[]) {
+    const listener = commitListeners.get(surfaceId);
+    if (listener) listener(ops, null);
+    else console.warn('No commit listener for surface ops', surfaceId, ops);
+}
+
+export function updateNodeProps(nodeId: number, props: Record<string, any>) {
+    const surfaceId = nodeSurfaceIds.get(nodeId);
+    if (!surfaceId) return;
+    dispatchSurfaceOps(surfaceId, [{ op: 'updateProps', id: nodeId, props: encodeProps(props, nodeId, false) }]);
+}
+
+export function startNativeAnimation(nodeId: number, config: { animationId: number; type?: string; duration?: number; delay?: number; easing?: string; tracks: Array<{ property: string; from: number; to: number }> }) {
+    const surfaceId = nodeSurfaceIds.get(nodeId);
+    if (!surfaceId) return;
+    dispatchSurfaceOps(surfaceId, [{ op: 'startNativeAnimation', nodeId, ...config }]);
+}
+
+export function stopNativeAnimation(animationId: number) {
+    for (const surfaceId of new Set(nodeSurfaceIds.values())) dispatchSurfaceOps(surfaceId, [{ op: 'stopNativeAnimation', animationId }]);
+}
+
 function destroyInstance(instance: HostNode | TextNode | null | undefined) {
     if (!instance) return;
     clearNodeEventHandlers(instance.id);
+    clearSurfaceId(instance);
     pendingOps.push({ op: 'destroyNode', id: instance.id });
 }
 
@@ -247,7 +309,8 @@ const hostConfig = {
     },
 
     createInstance(type: string, props: any): HostNode {
-        const { children, ...rest } = props ?? {};
+        const processedProps = preprocessProps(props ?? {});
+        const { children, ...rest } = processedProps;
         const id = createId();
 
         const node: HostNode = {
@@ -285,16 +348,19 @@ const hostConfig = {
 
     appendInitialChild(parent: HostNode, child: HostNode | TextNode) {
         parent.children.push(child);
+        if (parent.surfaceId) assignSurfaceId(child, parent.surfaceId);
         pendingOps.push({ op: 'appendChild', parentId: parent.id, childId: child.id });
     },
 
     appendChild(parent: HostNode, child: HostNode | TextNode) {
         parent.children.push(child);
+        if (parent.surfaceId) assignSurfaceId(child, parent.surfaceId);
         pendingOps.push({ op: 'appendChild', parentId: parent.id, childId: child.id });
     },
 
     appendChildToContainer(container: RootContainer, child: HostNode | TextNode) {
         container.children.push(child);
+        assignSurfaceId(child, (container as any).__surfaceId as string);
         pendingOps.push({ op: 'appendToRoot', childId: child.id });
     },
 
@@ -305,6 +371,7 @@ const hostConfig = {
         const beforeIndex = parent.children.indexOf(beforeChild);
         if (beforeIndex >= 0) parent.children.splice(beforeIndex, 0, child);
         else parent.children.push(child);
+        if (parent.surfaceId) assignSurfaceId(child, parent.surfaceId);
 
         pendingOps.push({
             op: 'insertBefore',
@@ -321,6 +388,7 @@ const hostConfig = {
         const beforeIndex = container.children.indexOf(beforeChild);
         if (beforeIndex >= 0) container.children.splice(beforeIndex, 0, child);
         else container.children.push(child);
+        assignSurfaceId(child, (container as any).__surfaceId as string);
 
         pendingOps.push({
             op: 'insertInRootBefore',
@@ -331,11 +399,13 @@ const hostConfig = {
 
     removeChild(parent: HostNode, child: HostNode | TextNode) {
         parent.children = parent.children.filter(c => c !== child);
+        clearSurfaceId(child);
         pendingOps.push({ op: 'removeChild', parentId: parent.id, childId: child.id });
     },
 
     removeChildFromContainer(container: RootContainer, child: HostNode | TextNode) {
         container.children = container.children.filter(c => c !== child);
+        clearSurfaceId(child);
         pendingOps.push({ op: 'removeFromRoot', childId: child.id });
         destroySubtree(child);
     },
@@ -345,22 +415,17 @@ const hostConfig = {
     },
 
     prepareUpdate(instance: HostNode, _type: string, oldProps: any, newProps: any) {
-        const { children: _oldChildren, ...oldRest } = oldProps ?? {};
-        const { children: _newChildren, ...newRest } = newProps ?? {};
-
-        const oldPreview = encodeProps(oldRest, instance.id, false);
-        const newPreview = encodeProps(newRest, instance.id, false);
-
-        return JSON.stringify(oldPreview) !== JSON.stringify(newPreview) ? newRest : null;
+        return buildPropDiff(instance.id, oldProps, newProps) ? true : null;
     },
 
-    commitUpdate(instance: HostNode, _type: string, _oldProps: any, newProps: any) {
-        const { children, ...rest } = newProps ?? {};
+    commitUpdate(instance: HostNode, _type: string, oldProps: any, newProps: any) {
+        const diff = buildPropDiff(instance.id, oldProps, newProps);
+        if (!diff) return;
 
-        clearNodeEventHandlers(instance.id);
+        if (diff.eventChanged) clearNodeEventHandlers(instance.id);
 
-        const encoded = encodeProps(rest, instance.id, true);
-        instance.props = encoded;
+        const encoded = encodeProps(diff.changed, instance.id, true);
+        instance.props = applyEncodedPatch(instance.props, encoded);
 
         pendingOps.push({
             op: 'updateProps',
@@ -383,6 +448,7 @@ const hostConfig = {
     },
 
     clearContainer(container: RootContainer) {
+        for (const child of container.children) clearSurfaceId(child);
         container.children = [];
     },
 
@@ -478,10 +544,51 @@ export interface RenderRoot {
     getTree(): any;
 }
 
+function buildPropDiff(nodeId: number, oldProps: any, newProps: any) {
+    const oldProcessed = preprocessProps(oldProps ?? {});
+    const newProcessed = preprocessProps(newProps ?? {});
+    const oldPreview = encodeProps(oldProcessed, nodeId, false);
+    const newPreview = encodeProps(newProcessed, nodeId, false);
+    const keys = new Set([...Object.keys(oldPreview), ...Object.keys(newPreview)]);
+    const changed: Record<string, any> = {};
+    let hasChanges = false;
+    let eventChanged = false;
+
+    for (const key of keys) {
+        if (key === 'children') continue;
+        const oldValue = oldPreview[key];
+        const newValue = newPreview[key];
+        if (JSON.stringify(oldValue) === JSON.stringify(newValue)) continue;
+        changed[key] = Object.prototype.hasOwnProperty.call(newProcessed, key) ? newProcessed[key] : undefined;
+        hasChanges = true;
+        if (isEventProp(key, oldProcessed[key]) || isEventProp(key, newProcessed[key])) eventChanged = true;
+    }
+
+    if (!hasChanges) return null;
+
+    if (eventChanged) {
+        for (const [key, value] of Object.entries(newProcessed)) {
+            if (isEventProp(key, value)) changed[key] = value;
+        }
+    }
+
+    return { changed, eventChanged };
+}
+
+function applyEncodedPatch(target: Record<string, any>, patch: Record<string, any>) {
+    const next = { ...target };
+    for (const [key, value] of Object.entries(patch)) {
+        if (value === null) delete next[key];
+        else next[key] = value;
+    }
+    return next;
+}
+
 function destroySubtree(instance: HostNode | TextNode | null | undefined) {
     if (!instance) return;
 
     clearNodeEventHandlers(instance.id);
+    clearSurfaceId(instance);
 
     if (instance.type !== 'TEXT_INSTANCE') {
         for (const child of (instance as HostNode).children) destroySubtree(child);

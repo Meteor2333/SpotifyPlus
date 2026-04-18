@@ -133,5 +133,9 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.9.3")
     implementation("org.jsoup:jsoup:1.21.2")
 
+    implementation("com.facebook.yoga:yoga:3.2.1")
+    implementation("com.facebook.soloader:soloader:0.12.1")
+    implementation("com.facebook.fbjni:fbjni-java-only:0.7.0")
+
     compileOnly("de.robv.android.xposed:api:82")
 }
