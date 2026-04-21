@@ -114,6 +114,7 @@ class ScriptApiFactory {
             },
             Player: {
                 getCurrentTrack: () => this.runtime.getCurrentTrack(),
+                getProgress: () => this.runtime.getProgress(),
                 seek: (position) => this.runtime.seek(position),
                 play: () => this.runtime.togglePlay(true),
                 pause: () => this.runtime.togglePlay(false),

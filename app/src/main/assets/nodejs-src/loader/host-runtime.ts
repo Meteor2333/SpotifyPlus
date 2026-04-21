@@ -72,6 +72,7 @@ export class HostRuntime {
 
     async getCurrentTrack(): Promise<SpotifyTrack | null> {
         const payload = await this.request<SpotifyTrackData | null>('player.getCurrent', {});
+        console.log(payload);
         return payload ? SpotifyTrack.from(payload) : null;
     }
 
@@ -100,10 +101,10 @@ export class HostRuntime {
                 if (packet.name === 'event.ready') {
                     this.markSpotifyReady();
                     this.logger.info(`${(packet.payload as PlatformData).clientVersion}`);
-                    this.platformData = packet.payload as PlatformData;
+                    Object.assign(this.platformData, packet.payload as PlatformData);
                 }
                 if (packet.name === 'event.updateToken') {
-                    this.session = packet.payload as Session;
+                    Object.assign(this.session, packet.payload as Session);
                 }
                 if (packet.name === 'menu.press') {
                     const payload = packet.payload as { scriptId: string; id: string, uri: string };

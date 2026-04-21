@@ -156,7 +156,7 @@ public class LyricsHook extends SpotifyHook {
             try {
                 ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
                 ReactManager.registerSurface("lyrics-view", root);
-                SpotifyTrack track = Utils.getTrack(activity.getClassLoader());
+//                SpotifyTrack track = Utils.getTrack(activity.getClassLoader());
 
 //                View view = Utils.inflate(activity, R.layout.lyrics_page, root);
 //                TextView titleText = view.findViewById(R.id.text_title);

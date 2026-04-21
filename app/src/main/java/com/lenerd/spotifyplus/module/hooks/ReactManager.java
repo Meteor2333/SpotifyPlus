@@ -55,19 +55,27 @@ public class ReactManager extends SpotifyHook {
     }
 
     public static void registerSurface(String surfaceId, ViewGroup root) {
-//        new Handler(Looper.getMainLooper()).post(() -> {
-//            try {
-//                surfaces.put(surfaceId, new ScriptViewHost(surfaceId, root));
-//
-//                JSONObject json = new JSONObject();
-//                json.put("id", surfaceId);
-//                json.put("surfaceType", surfaceId);
-//
-//                BridgeClient.send("", "event", "react.surfaceEvent", json);
-//            } catch (Exception e) {
-//                logError(e);
-//            }
-//        });
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                SurfaceEntry existing = surfaces.get(surfaceId);
+                if (existing != null) {
+                    if (existing.root == root) return;
+                    existing.host.dispose();
+                    surfaces.remove(surfaceId);
+                }
+
+                ScriptViewHost host = new ScriptViewHost(surfaceId, root);
+                surfaces.put(surfaceId, new SurfaceEntry(root, host));
+
+                JSONObject json = new JSONObject();
+                json.put("id", surfaceId);
+                json.put("surfaceType", surfaceId);
+
+                BridgeClient.send("", "event", "react.surfaceEvent", json);
+            } catch (Exception e) {
+                logError(e);
+            }
+        });
     }
 
     public static void registerSurfaceSilent(String surfaceId, ViewGroup root) {

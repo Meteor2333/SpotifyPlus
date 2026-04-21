@@ -1,0 +1,21 @@
+{
+    "name": "beautiful-lyrics",
+    "version": "1.0.0",
+    "dependencies": {
+        "d3-ease": "^3.0.1",
+        "esbuild": "^0.28.0",
+        "franc": "^6.2.0",
+        "kuroshiro": "^1.2.0",
+        "node-fetch": "^3.3.2",
+        "pinyin": "^4.0.0",
+        "spotifyplus": "file:E:\\Projects\\SpotifyPlus\\app\\src\\main\\assets\\nodejs\\sdk",
+        "typescript-cubic-spline": "^1.0.1"
+    },
+    "devDependencies": {
+        "@types/d3-ease": "^3.0.2",
+        "@types/react": "^19.2.14"
+    },
+    "scripts": {
+        "build": "esbuild src/index.tsx --bundle --platform=node --format=cjs --jsx=automatic --external:spotifyplus --external:spotifyplus/react --external:react --outfile=E:\\Projects\\SpotifyPlus\\app\\src\\main\\assets\\nodejs\\scriptss\\beautiful-lyrics\\index.js"
+    }
+}

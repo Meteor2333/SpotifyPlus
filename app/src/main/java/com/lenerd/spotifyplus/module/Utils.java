@@ -341,9 +341,9 @@ public final class Utils {
                     Map<String, String> metadata = (Map<String, String>) metadataMethod.invoke(track);
                     if (metadata == null) return null;
 
-                    Log.d("SpotifyPlus", "==== METADATA ====");
-                    metadata.forEach((key, value) -> Log.d("SpotifyPlus", key + " | " + value));
-                    Log.d("SpotifyPlus", "==================");
+//                    Log.d("SpotifyPlus", "==== METADATA ====");
+//                    metadata.forEach((key, value) -> Log.d("SpotifyPlus", key + " | " + value));
+//                    Log.d("SpotifyPlus", "==================");
 
                     String title = metadata.get("title");
                     String artist = metadata.get("artist_name");
@@ -351,6 +351,7 @@ public final class Utils {
                     String color = metadata.get("extracted_color");
                     String imageId = metadata.get("image_large_url");
                     String trackNumber = metadata.get("album_track_number");
+                    long duration = Long.parseLong(metadata.get("duration"));
                     long position = 0;
                     long timestamp = 0;
                     boolean saved = false;
@@ -363,7 +364,7 @@ public final class Utils {
                     Method positionMethod = playerState.getClass().getMethod("positionAsOfTimestamp");
                     Object posOpt = positionMethod.invoke(playerState);
                     if (posOpt == null) {
-                        return new SpotifyTrack(title, artist, new String[]{artist}, albumObj, uri, -1, color, -1, imageId, -1, saved, false, Integer.parseInt(trackNumber));
+                        return new SpotifyTrack(title, artist, new String[]{artist}, albumObj, uri, -1, color, -1, imageId, duration, saved, false, Integer.parseInt(trackNumber));
                     }
 
                     Matcher m = DIGITS.matcher(posOpt.toString());
@@ -373,7 +374,7 @@ public final class Utils {
                         position = basePos + (System.currentTimeMillis() - timestamp);
                     }
 
-                    return new SpotifyTrack(title, artist, new String[]{artist}, albumObj, uri, position, color, timestamp, imageId, 0, saved, false, Integer.parseInt(trackNumber));
+                    return new SpotifyTrack(title, artist, new String[]{artist}, albumObj, uri, position, color, timestamp, imageId, duration, saved, false, Integer.parseInt(trackNumber));
                 }
             }
         } catch (Exception e) {

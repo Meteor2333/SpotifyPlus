@@ -43,7 +43,7 @@ public class ScriptManager implements NodePacketSink {
         }
 
         File hostFile = new File(projectDir, "host.js");
-        File scripts = new File(projectDir, "scripts");
+        File scripts = new File(projectDir, "scriptss");
 
         new Thread(() -> {
             int result = startNodeWithArguments(new String[]{"node", hostFile.getAbsolutePath(), scripts.getAbsolutePath()});

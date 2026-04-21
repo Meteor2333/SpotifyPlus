@@ -3,6 +3,7 @@ import AnimatedCore, {
     createAnimatedComponent,
     type AnimatedNodeLike,
 } from "./animated";
+import type { NativeComponentRef } from "./renderer";
 
 export type LayoutSize =
     | number
@@ -537,6 +538,25 @@ export interface ToggleButtonProps extends CompoundButtonProps {
 }
 export interface SpaceProps extends CommonViewProps { }
 
+export type ScriptViewLength = SizeValue | `${number}%`;
+export type ScriptViewGradient = { type?: "linear" | "linearGradient" | "radial" | "radialGradient" | "sweep" | "sweepGradient"; colors: ColorValue[]; positions?: number[]; startX?: ScriptViewLength; startY?: ScriptViewLength; endX?: ScriptViewLength; endY?: ScriptViewLength; centerX?: ScriptViewLength; centerY?: ScriptViewLength; radius?: ScriptViewLength; };
+export type ScriptViewFill = ColorValue | ScriptViewGradient;
+export type ScriptViewShadow = { color?: ColorValue; radius?: number; dx?: number; dy?: number; };
+export interface ScriptViewBaseNode { id?: string | number; type: string; x?: ScriptViewLength; y?: ScriptViewLength; width?: ScriptViewLength; height?: ScriptViewLength; opacity?: number; alpha?: number; visible?: boolean; rotation?: number | string; scale?: number; scaleX?: number; scaleY?: number; translateX?: ScriptViewLength; translateY?: ScriptViewLength; pivotX?: ScriptViewLength; pivotY?: ScriptViewLength; clip?: boolean; clipRadius?: ScriptViewLength; blendMode?: string; shadow?: ScriptViewShadow; }
+export interface ScriptViewGroupNode extends ScriptViewBaseNode { type: "group" | "layer"; children?: ScriptViewNode[]; }
+export interface ScriptViewRectNode extends ScriptViewBaseNode { type: "rect" | "roundRect"; fill?: ScriptViewFill; color?: ColorValue; stroke?: ColorValue; strokeColor?: ColorValue; strokeWidth?: ScriptViewLength; radius?: ScriptViewLength; borderRadius?: ScriptViewLength; }
+export interface ScriptViewCircleNode extends ScriptViewBaseNode { type: "circle" | "oval"; fill?: ScriptViewFill; color?: ColorValue; stroke?: ColorValue; strokeColor?: ColorValue; strokeWidth?: ScriptViewLength; radius?: ScriptViewLength; cx?: ScriptViewLength; cy?: ScriptViewLength; }
+export interface ScriptViewLineNode extends ScriptViewBaseNode { type: "line"; x1?: ScriptViewLength; y1?: ScriptViewLength; x2?: ScriptViewLength; y2?: ScriptViewLength; color?: ColorValue; stroke?: ColorValue; strokeColor?: ColorValue; strokeWidth?: ScriptViewLength; }
+export interface ScriptViewPathNode extends ScriptViewBaseNode { type: "path"; commands?: Array<{ cmd: "M" | "L" | "Q" | "C" | "Z" | "moveTo" | "lineTo" | "quadTo" | "cubicTo" | "close"; x?: ScriptViewLength; y?: ScriptViewLength; x1?: ScriptViewLength; y1?: ScriptViewLength; x2?: ScriptViewLength; y2?: ScriptViewLength; }>; fill?: ScriptViewFill; color?: ColorValue; stroke?: ColorValue; strokeColor?: ColorValue; strokeWidth?: ScriptViewLength; }
+export interface ScriptViewImageNode extends ScriptViewBaseNode { type: "image"; src?: string; uri?: string; resizeMode?: ResizeModeValue; scaleType?: ScaleTypeValue; blurRadius?: number; tintColor?: ColorValue; borderRadius?: ScriptViewLength; }
+export interface ScriptViewTextNode extends ScriptViewBaseNode { type: "text"; text: string | number; color?: ColorValue; fill?: ScriptViewFill; fontSize?: number; textSizeSp?: number; fontWeight?: FontWeightValue; fontStyle?: FontStyleValue; textAlign?: "left" | "center" | "right"; lineHeight?: number; maxLines?: number; includeFontPadding?: boolean; }
+export type ScriptViewNode = ScriptViewGroupNode | ScriptViewRectNode | ScriptViewCircleNode | ScriptViewLineNode | ScriptViewPathNode | ScriptViewImageNode | ScriptViewTextNode | (ScriptViewBaseNode & Record<string, unknown>);
+export interface ScriptViewFrameEvent { targetId: number; time: number; delta: number; width: number; height: number; }
+export interface ScriptViewSizeEvent { targetId: number; width: number; height: number; oldWidth: number; oldHeight: number; }
+export interface ScriptViewTouchEvent extends PressEvent { pageX: number; pageY: number; action: string; pointerId: number; }
+export interface ScriptViewImageEvent { targetId: number; src: string; width?: number; height?: number; error?: string; }
+export interface ScriptViewProps extends CommonViewProps { displayList?: ScriptViewNode[]; nodes?: ScriptViewNode[]; autoInvalidate?: boolean; softwareLayer?: boolean; renderEffectBlurRadius?: number; onFrame?: (event: ScriptViewFrameEvent) => void; onSizeChange?: (event: ScriptViewSizeEvent) => void; onTouchStart?: (event: ScriptViewTouchEvent) => void; onTouchMove?: (event: ScriptViewTouchEvent) => void; onTouchEnd?: (event: ScriptViewTouchEvent) => void; onTouchCancel?: (event: ScriptViewTouchEvent) => void; onImageLoad?: (event: ScriptViewImageEvent) => void; onImageError?: (event: ScriptViewImageEvent) => void; onAttached?: (event: { targetId: number }) => void; onDetached?: (event: { targetId: number }) => void; }
+
 export interface PressableStateCallbackType {
     pressed: boolean;
     focused: boolean;
@@ -1003,16 +1023,12 @@ function cleanUndefined(object: HostProps) {
         if (object[key] === undefined) delete object[key];
 }
 
-function normalizeProps<
-    T extends { style?: StyleProp<RNStyle>; children?: React.ReactNode },
->(
-    props: T | null | undefined,
-    mapper?: (input: HostProps) => HostProps,
-): HostProps {
+function normalizeProps<T extends { style?: StyleProp<RNStyle>; children?: React.ReactNode },>(props: T | null | undefined, mapper?: (input: HostProps) => HostProps,): HostProps {
     if (!props) return {};
-    const { style, children, ...rest } = props as T & {
+    const { style, children, ref, ...rest } = props as T & {
         style?: StyleProp<RNStyle>;
         children?: React.ReactNode;
+        ref?: React.Ref<unknown>;
     };
     const merged: HostProps = normalizeSizeInput({
         ...flattenStyle(style),
@@ -1072,8 +1088,89 @@ function normalizeProps<
     return normalized;
 }
 
-function createHostComponent<P extends { style?: StyleProp<RNStyle>; children?: React.ReactNode }>(type: string, mapper?: (input: HostProps) => HostProps) {
-    const Component = React.forwardRef<any, P>((props, ref) => React.createElement(type, { ...normalizeProps(props, mapper), ref }));
+export type RefableProps<P, R = NativeComponentRef> = P & {
+    ref?: React.Ref<R>;
+};
+
+export interface SpotifyPlusComponent<P, R = NativeComponentRef> {
+    (props: RefableProps<P, R>): React.ReactElement | null;
+    displayName?: string;
+}
+
+function createMappedRef(nativeRef: NativeComponentRef | null, mapper?: (input: HostProps) => HostProps): NativeComponentRef | null {
+    if (!nativeRef) return null;
+
+    return {
+        get nodeId() {
+            return nativeRef.nodeId;
+        },
+
+        get type() {
+            return nativeRef.type;
+        },
+
+        get mounted() {
+            return nativeRef.mounted;
+        },
+
+        getNativeNodeId() {
+            return nativeRef.getNativeNodeId();
+        },
+
+        setNativeProps(props: Record<string, any>) {
+            nativeRef.setNativeProps(normalizeProps(props as any, mapper));
+        },
+
+        focus() {
+            nativeRef.focus();
+        },
+
+        blur() {
+            nativeRef.blur();
+        },
+
+        measure(callback) {
+            nativeRef.measure(callback);
+        },
+
+        measureInWindow(callback) {
+            nativeRef.measureInWindow(callback);
+        },
+
+        scrollTo(options?: { x?: number; y?: number; animated?: boolean } | number, y?: number, animated?: boolean) {
+            nativeRef.scrollTo(options as any, y, animated);
+        },
+
+        scrollToEnd(options?: { animated?: boolean }) {
+            nativeRef.scrollToEnd(options);
+        },
+
+        flashScrollIndicators() {
+            nativeRef.flashScrollIndicators();
+        },
+
+        dispatchCommand(command: string, args?: Record<string, any>, callback?: (payload: any) => void) {
+            nativeRef.dispatchCommand(command, args, callback);
+        },
+
+        command(command: string, args?: Record<string, any>, callback?: (payload: any) => void) {
+            nativeRef.command(command, args, callback);
+        },
+    };
+}
+
+function createHostComponent<P extends { style?: StyleProp<RNStyle>; children?: React.ReactNode }>(
+    type: string,
+    mapper?: (input: HostProps) => HostProps,
+): SpotifyPlusComponent<P> {
+    const Component = React.forwardRef<NativeComponentRef, P>((props, ref) => {
+        const nativeRef = React.useRef<NativeComponentRef | null>(null);
+
+        React.useImperativeHandle(ref, () => createMappedRef(nativeRef.current, mapper) as NativeComponentRef, [mapper]);
+
+        return React.createElement(type, { ...normalizeProps(props, mapper), ref: nativeRef });
+    }) as unknown as SpotifyPlusComponent<P>;
+
     Component.displayName = type;
     return Component;
 }
@@ -1143,7 +1240,7 @@ const NativeHorizontalScrollView = createHostComponent<
     >
 >("HorizontalScrollView", mapViewLike);
 
-export const View = createHostComponent<ViewProps>("View", mapViewLike);
+export const View = createHostComponent<ViewProps>('View', mapViewLike);
 export const LinearLayout = createHostComponent<ViewProps>(
     "LinearLayout",
     mapViewLike,
@@ -1160,7 +1257,7 @@ export const PlainView = createHostComponent<PlainViewProps>(
     "PlainView",
     mapViewLike,
 );
-export const Text = createHostComponent<TextProps>("Text", mapTextLike);
+export const Text = createHostComponent<TextProps>('Text', mapTextLike);
 export const TextView = createHostComponent<TextProps>("TextView", mapTextLike);
 export const TextInput = createHostComponent<TextInputProps>(
     "EditText",
@@ -1209,9 +1306,12 @@ export const ToggleButton = createHostComponent<ToggleButtonProps>(
     mapCompoundButtonLike,
 );
 export const Space = createHostComponent<SpaceProps>("Space", mapViewLike);
+export const ScriptView = createHostComponent<ScriptViewProps>("ScriptView", mapViewLike);
+export const RenderView = ScriptView;
+export const CanvasView = ScriptView;
 export const SafeAreaView = View;
 
-export const ScrollView = (props: ScrollViewProps) => {
+export const ScrollView = React.forwardRef<NativeComponentRef, ScrollViewProps>((props, ref) => {
     const {
         horizontal,
         contentContainerStyle,
@@ -1220,41 +1320,40 @@ export const ScrollView = (props: ScrollViewProps) => {
         children,
         ...rest
     } = props;
+
     const hostProps: any = { ...rest };
-    if (
-        showsVerticalScrollIndicator !== undefined &&
-        hostProps.verticalScrollBarEnabled === undefined
-    )
+
+    if (showsVerticalScrollIndicator !== undefined && hostProps.verticalScrollBarEnabled === undefined)
         hostProps.verticalScrollBarEnabled = showsVerticalScrollIndicator;
-    if (
-        showsHorizontalScrollIndicator !== undefined &&
-        hostProps.horizontalScrollBarEnabled === undefined
-    )
+
+    if (showsHorizontalScrollIndicator !== undefined && hostProps.horizontalScrollBarEnabled === undefined)
         hostProps.horizontalScrollBarEnabled = showsHorizontalScrollIndicator;
-    const HostComponent = horizontal
-        ? NativeHorizontalScrollView
-        : NativeScrollView;
-    const content = contentContainerStyle
-        ? React.createElement(View, { style: contentContainerStyle }, children)
-        : children;
-    return React.createElement(HostComponent, hostProps, content);
-};
+
+    const HostComponent = horizontal ? NativeHorizontalScrollView : NativeScrollView;
+    const content = contentContainerStyle ? React.createElement(View, { style: contentContainerStyle }, children) : children;
+
+    return React.createElement(HostComponent, { ...hostProps, ref }, content);
+}) as unknown as SpotifyPlusComponent<ScrollViewProps>;
+
 ScrollView.displayName = "ScrollView";
 
-export const HorizontalScrollView = (props: HorizontalScrollViewProps) =>
-    React.createElement(ScrollView, { ...props, horizontal: true });
+export const HorizontalScrollView = React.forwardRef<NativeComponentRef, HorizontalScrollViewProps>((props, ref) =>
+    React.createElement(ScrollView, { ...props, horizontal: true, ref }),
+) as SpotifyPlusComponent<HorizontalScrollViewProps>;
+
 HorizontalScrollView.displayName = "HorizontalScrollView";
 
-export const Pressable = (props: PressableProps) => {
-    const { style, children, onPressIn, onPressOut, onFocus, onBlur, ...rest } =
-        props;
+export const Pressable = React.forwardRef<NativeComponentRef, PressableProps>((props, ref) => {
+    const { style, children, onPressIn, onPressOut, onFocus, onBlur, ...rest } = props;
     const [pressed, setPressed] = React.useState(false);
     const [focused, setFocused] = React.useState(false);
     const state: PressableStateCallbackType = { pressed, focused };
+
     return React.createElement(
         View,
         {
             ...rest,
+            ref,
             style: resolvePressableStyle(style, state),
             onPressIn: (event: PressEvent) => {
                 setPressed(true);
@@ -1276,19 +1375,23 @@ export const Pressable = (props: PressableProps) => {
         },
         resolvePressableChildren(children, state),
     );
-};
+}) as SpotifyPlusComponent<PressableProps>;
+
 Pressable.displayName = "Pressable";
 
-export const TouchableOpacity = (props: TouchableOpacityProps) => {
+export const TouchableOpacity = React.forwardRef<NativeComponentRef, TouchableOpacityProps>((props, ref) => {
     const { activeOpacity = 0.2, style, ...rest } = props;
+
     return React.createElement(Pressable, {
         ...rest,
+        ref,
         style: (state: PressableStateCallbackType) => [
             resolvePressableStyle(style, state),
             state.pressed ? { opacity: activeOpacity } : null,
         ],
     });
-};
+}) as SpotifyPlusComponent<TouchableOpacityProps>;
+
 TouchableOpacity.displayName = "TouchableOpacity";
 
 export function FlatList<ItemT>(props: FlatListProps<ItemT>) {
@@ -1323,18 +1426,18 @@ export function FlatList<ItemT>(props: FlatListProps<ItemT>) {
     );
 }
 
-export const HorizontalStackLayout = (props: ViewProps) =>
-    React.createElement(View, {
-        ...props,
-        style: [{ flexDirection: "row" }, props.style],
-    });
+export const HorizontalStackLayout = React.forwardRef<NativeComponentRef, ViewProps>((props, ref) =>
+    React.createElement(View, { ...props, ref, style: [{ flexDirection: "row" }, props.style] }),
+) as SpotifyPlusComponent<ViewProps>;
+
 HorizontalStackLayout.displayName = "HorizontalStackLayout";
-export const VerticalStackLayout = (props: ViewProps) =>
-    React.createElement(View, {
-        ...props,
-        style: [{ flexDirection: "column" }, props.style],
-    });
+
+export const VerticalStackLayout = React.forwardRef<NativeComponentRef, ViewProps>((props, ref) =>
+    React.createElement(View, { ...props, ref, style: [{ flexDirection: "column" }, props.style] }),
+) as SpotifyPlusComponent<ViewProps>;
+
 VerticalStackLayout.displayName = "VerticalStackLayout";
+
 export const Row = HorizontalStackLayout;
 export const Column = VerticalStackLayout;
 
@@ -1366,6 +1469,9 @@ export const Animated = {
     View: createAnimatedComponent(View),
     Text: createAnimatedComponent(Text),
     Image: createAnimatedComponent(Image),
+    ScriptView: createAnimatedComponent(ScriptView),
+    RenderView: createAnimatedComponent(RenderView),
+    CanvasView: createAnimatedComponent(CanvasView),
     ScrollView: createAnimatedComponent(ScrollView as any),
     FlatList: createAnimatedComponent(FlatList as any),
 };
@@ -1397,6 +1503,9 @@ export default {
     RadioGroup,
     ToggleButton,
     Space,
+    ScriptView,
+    RenderView,
+    CanvasView,
     SafeAreaView,
     Pressable,
     TouchableOpacity,

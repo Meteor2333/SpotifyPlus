@@ -87,23 +87,6 @@ public final class BridgeRouter {
         clientSocket = null;
     }
 
-//    public static void send(String type, String payloadJson) {
-//        try {
-//            JSONObject packet = new JSONObject();
-//            packet.put("type", type);
-//
-//            try {
-//                packet.put("payload", new JSONObject(payloadJson));
-//            } catch (JSONException ignored) {
-//                packet.put("payload", payloadJson);
-//            }
-//
-//            outboundQueue.offer(packet.toString());
-//        } catch (Exception e) {
-//            Log.e(TAG, "Failed to queue message to Spotify", e);
-//        }
-//    }
-
     /// Sends a message to Spotify
     public static void send(String id, String type, String name, JSONObject payload) {
         try {

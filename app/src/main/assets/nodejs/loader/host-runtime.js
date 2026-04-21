@@ -55,6 +55,7 @@ class HostRuntime {
     }
     async getCurrentTrack() {
         const payload = await this.request('player.getCurrent', {});
+        console.log(payload);
         return payload ? models_1.SpotifyTrack.from(payload) : null;
     }
     seek(position) {
@@ -78,10 +79,10 @@ class HostRuntime {
                 if (packet.name === 'event.ready') {
                     this.markSpotifyReady();
                     this.logger.info(`${packet.payload.clientVersion}`);
-                    this.platformData = packet.payload;
+                    Object.assign(this.platformData, packet.payload);
                 }
                 if (packet.name === 'event.updateToken') {
-                    this.session = packet.payload;
+                    Object.assign(this.session, packet.payload);
                 }
                 if (packet.name === 'menu.press') {
                     const payload = packet.payload;

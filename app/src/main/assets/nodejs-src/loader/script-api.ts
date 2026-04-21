@@ -67,6 +67,7 @@ export interface SpotifyPlusApi {
 
     Player: {
         getCurrentTrack(): Promise<SpotifyTrack | null>;
+        getProgress(): Promise<number | null>;
         seek(position: number): void;
         play(): void;
         pause(): void;
@@ -212,6 +213,7 @@ export class ScriptApiFactory {
             },
             Player: {
                 getCurrentTrack: () => this.runtime.getCurrentTrack(),
+                getProgress: () => this.runtime.getProgress(),
                 seek: (position) => this.runtime.seek(position),
                 play: () => this.runtime.togglePlay(true),
                 pause: () => this.runtime.togglePlay(false),

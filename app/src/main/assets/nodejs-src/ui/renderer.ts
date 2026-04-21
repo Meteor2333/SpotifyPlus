@@ -10,6 +10,44 @@ type RegisteredEventHandler = {
     handler: Function;
 };
 
+export type MeasureCallback = (
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    pageX: number,
+    pageY: number,
+) => void;
+
+export type MeasureInWindowCallback = (
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+) => void;
+
+export interface NativeComponentRef {
+    readonly nodeId: number;
+    readonly type: string;
+    readonly mounted: boolean;
+
+    getNativeNodeId(): number;
+    setNativeProps(props: Record<string, any>): void;
+
+    focus(): void;
+    blur(): void;
+
+    measure(callback: MeasureCallback): void;
+    measureInWindow(callback: MeasureInWindowCallback): void;
+
+    scrollTo(options?: { x?: number; y?: number; animated?: boolean } | number, y?: number, animated?: boolean): void;
+    scrollToEnd(options?: { animated?: boolean }): void;
+    flashScrollIndicators(): void;
+
+    dispatchCommand(command: string, args?: Record<string, any>, callback?: (payload: any) => void): void;
+    command(command: string, args?: Record<string, any>, callback?: (payload: any) => void): void;
+}
+
 const eventHandlers = new Map<number, RegisteredEventHandler>();
 const nodeEventIds = new Map<number, Set<number>>();
 let nextEventId = 1;
@@ -26,6 +64,28 @@ function registerEventHandler(nodeId: number, eventName: string, handler: Functi
     }
 
     ids.add(id);
+    return id;
+}
+
+function unregisterEventHandler(nodeId: number, id: number) {
+    eventHandlers.delete(id);
+
+    const ids = nodeEventIds.get(nodeId);
+    if (!ids) return;
+
+    ids.delete(id);
+    if (ids.size === 0) nodeEventIds.delete(nodeId);
+}
+
+function registerOneShotEventHandler(nodeId: number, eventName: string, handler: Function): number {
+    let id = 0;
+    id = registerEventHandler(nodeId, eventName, (payload: any) => {
+        try {
+            handler(payload);
+        } finally {
+            unregisterEventHandler(nodeId, id);
+        }
+    });
     return id;
 }
 
@@ -81,8 +141,22 @@ function flattenStyleValue(style: any): Record<string, any> {
 
 function preprocessProps(props: Record<string, any> | null | undefined): Record<string, any> {
     if (!props) return {};
-    const { style, children, ...rest } = props;
+    const { style, children, ref, ...rest } = props;
     return { ...flattenStyleValue(style), ...rest, ...(children !== undefined ? { children } : {}) };
+}
+
+function toBridgeValue(value: any, seen = new WeakSet<object>()): any {
+    if (value === undefined) return null;
+    if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+    if (typeof value === 'function') return '[function]';
+    if (typeof value !== 'object') return `[${typeof value}]`;
+    if (React.isValidElement(value)) return '[react_element]';
+    if (seen.has(value)) return '[circular]';
+    seen.add(value);
+    if (Array.isArray(value)) return value.map(item => toBridgeValue(item, seen));
+    const output: Record<string, any> = {};
+    for (const [key, child] of Object.entries(value)) output[key] = toBridgeValue(child, seen);
+    return output;
 }
 
 function encodeProps(
@@ -94,27 +168,114 @@ function encodeProps(
     if (!props) return result;
 
     for (const [key, value] of Object.entries(props)) {
-        if (key === 'children') continue;
-
-        if (value === undefined) {
-            result[key] = null;
-        } else if (isEventProp(key, value)) {
-            result[key] = registerEvents ? { __type: 'event_handler', id: registerEventHandler(nodeId, key, value), eventName: key } : '[event_handler]';
-        } else if (
-            value === null ||
-            typeof value === 'string' ||
-            typeof value === 'number' ||
-            typeof value === 'boolean'
-        ) {
-            result[key] = value;
-        } else if (Array.isArray(value)) {
-            result[key] = '[Array]';
-        } else {
-            result[key] = `[${typeof value}]`;
-        }
+        if (key === 'children' || key === 'ref') continue;
+        if (isEventProp(key, value)) result[key] = registerEvents ? { __type: 'event_handler', id: registerEventHandler(nodeId, key, value), eventName: key } : '[event_handler]';
+        else result[key] = toBridgeValue(value);
     }
 
     return result;
+}
+
+function createPublicInstance(instance: HostNode): NativeComponentRef {
+    const getSurfaceId = () => instance.surfaceId ?? nodeSurfaceIds.get(instance.id);
+
+    const runCommand = (command: string, args?: Record<string, any>, callback?: (payload: any) => void) => {
+        const surfaceId = getSurfaceId();
+        if (!surfaceId) return;
+
+        const eventId = callback ? registerOneShotEventHandler(instance.id, command, callback) : undefined;
+
+        dispatchSurfaceOps(surfaceId, [{
+            op: 'viewCommand',
+            nodeId: instance.id,
+            command,
+            args: toBridgeValue(args ?? {}),
+            ...(eventId !== undefined ? { eventId } : {}),
+        }]);
+    };
+
+    return {
+        get nodeId() {
+            return instance.id;
+        },
+
+        get type() {
+            return instance.type;
+        },
+
+        get mounted() {
+            return !!getSurfaceId();
+        },
+
+        getNativeNodeId() {
+            return instance.id;
+        },
+
+        setNativeProps(props: Record<string, any>) {
+            updateNodeProps(instance.id, preprocessProps(props));
+        },
+
+        focus() {
+            runCommand('focus');
+        },
+
+        blur() {
+            runCommand('blur');
+        },
+
+        measure(callback: MeasureCallback) {
+            runCommand('measure', {}, payload => {
+                callback(
+                    payload?.x ?? 0,
+                    payload?.y ?? 0,
+                    payload?.width ?? 0,
+                    payload?.height ?? 0,
+                    payload?.pageX ?? 0,
+                    payload?.pageY ?? 0,
+                );
+            });
+        },
+
+        measureInWindow(callback: MeasureInWindowCallback) {
+            runCommand('measureInWindow', {}, payload => {
+                callback(
+                    payload?.pageX ?? payload?.x ?? 0,
+                    payload?.pageY ?? payload?.y ?? 0,
+                    payload?.width ?? 0,
+                    payload?.height ?? 0,
+                );
+            });
+        },
+
+        scrollTo(options?: { x?: number; y?: number; animated?: boolean } | number, y = 0, animated = true) {
+            if (typeof options === 'number') {
+                runCommand('scrollTo', { x: options, y, animated });
+                return;
+            }
+
+            runCommand('scrollTo', {
+                x: options?.x ?? 0,
+                y: options?.y ?? 0,
+                animated: options?.animated !== false,
+            });
+        },
+
+        scrollToEnd(options?: { animated?: boolean }) {
+            runCommand('scrollToEnd', { animated: options?.animated !== false });
+        },
+
+        flashScrollIndicators() {
+            runCommand('flashScrollIndicators');
+        },
+
+        dispatchCommand(command: string, args?: Record<string, any>, callback?: (payload: any) => void) {
+            runCommand(command, args, callback);
+        },
+
+        command(command: string, args?: Record<string, any>, callback?: (payload: any) => void) {
+            runCommand(command, args, callback);
+        },
+    };
 }
 
 type HostNode = {
@@ -123,6 +284,7 @@ type HostNode = {
     surfaceId?: string;
     props: Record<string, any>;
     children: Array<HostNode | TextNode>;
+    publicInstance?: NativeComponentRef;
 };
 
 type TextNode = {
@@ -149,7 +311,9 @@ export type MutationOp =
     | { op: 'updateText'; id: number; text: string }
     | { op: 'startNativeAnimation'; nodeId: number; animationId: number; type?: string; duration?: number; delay?: number; easing?: string; tracks: Array<{ property: string; from: number; to: number }> }
     | { op: 'stopNativeAnimation'; animationId: number }
-    | { op: 'destroyNode'; id: number };
+    | { op: 'scriptViewCommand'; nodeId: number; command: string; args?: Record<string, any> }
+    | { op: 'destroyNode'; id: number }
+    | { op: 'viewCommand'; nodeId: number; command: string; args?: Record<string, any>; eventId?: number };
 
 let nextId = 1;
 let pendingOps: MutationOp[] = [];
@@ -168,21 +332,9 @@ function sanitizeProps(props: Record<string, any> | null | undefined) {
     if (!props) return result;
 
     for (const [key, value] of Object.entries(props)) {
-        if (key === 'children') continue;
-
-        if (value === undefined) {
-            result[key] = null;
-        } else if (isEventProp(key, value)) {
-            console.log('Creating event handler for prop', key);
-            // const id = registerEventHandler(value);
-            // result[key] = { __type: 'event_handler', id, eventName: key };
-        } else if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-            result[key] = value;
-        } else if (Array.isArray(value)) {
-            result[key] = '[Array]';
-        } else {
-            result[key] = `[${typeof value}]`;
-        }
+        if (key === 'children' || key === 'ref') continue;
+        if (isEventProp(key, value)) console.log('Creating event handler for prop', key);
+        else result[key] = toBridgeValue(value);
     }
 
     return result;
@@ -241,6 +393,26 @@ export function dispatchSurfaceOps(surfaceId: string, ops: MutationOp[]) {
     else console.warn('No commit listener for surface ops', surfaceId, ops);
 }
 
+export function dispatchViewCommand(
+    nodeId: number,
+    command: string,
+    args?: Record<string, any>,
+    callback?: (payload: any) => void,
+) {
+    const surfaceId = nodeSurfaceIds.get(nodeId);
+    if (!surfaceId) return;
+
+    const eventId = callback ? registerOneShotEventHandler(nodeId, command, callback) : undefined;
+
+    dispatchSurfaceOps(surfaceId, [{
+        op: 'viewCommand',
+        nodeId,
+        command,
+        args: toBridgeValue(args ?? {}),
+        ...(eventId !== undefined ? { eventId } : {}),
+    }]);
+}
+
 export function updateNodeProps(nodeId: number, props: Record<string, any>) {
     const surfaceId = nodeSurfaceIds.get(nodeId);
     if (!surfaceId) return;
@@ -257,11 +429,28 @@ export function stopNativeAnimation(animationId: number) {
     for (const surfaceId of new Set(nodeSurfaceIds.values())) dispatchSurfaceOps(surfaceId, [{ op: 'stopNativeAnimation', animationId }]);
 }
 
+export function dispatchScriptViewCommand(nodeId: number, command: string, args?: Record<string, any>) {
+    const surfaceId = nodeSurfaceIds.get(nodeId);
+    if (!surfaceId) return;
+    dispatchSurfaceOps(surfaceId, [{ op: 'scriptViewCommand', nodeId, command, args: toBridgeValue(args ?? {}) }]);
+}
+
 function destroyInstance(instance: HostNode | TextNode | null | undefined) {
     if (!instance) return;
     clearNodeEventHandlers(instance.id);
     clearSurfaceId(instance);
     pendingOps.push({ op: 'destroyNode', id: instance.id });
+}
+
+function releaseSubtree(instance: HostNode | TextNode | null | undefined) {
+    if (!instance) return;
+
+    clearNodeEventHandlers(instance.id);
+    clearSurfaceId(instance);
+
+    if (instance.type !== 'TEXT_INSTANCE') {
+        for (const child of (instance as HostNode).children) releaseSubtree(child);
+    }
 }
 
 const hostConfig = {
@@ -277,8 +466,9 @@ const hostConfig = {
         return parentHostContext;
     },
 
-    getPublicInstance(instance: any) {
-        return instance;
+    getPublicInstance(instance: HostNode) {
+        if (!instance.publicInstance) instance.publicInstance = createPublicInstance(instance);
+        return instance.publicInstance;
     },
 
     prepareForCommit() {
@@ -293,12 +483,28 @@ const hostConfig = {
         const tree = dumpTree(container);
         const listener = commitListeners.get(surfaceId);
 
-        if (listener) listener(ops, tree);
-        else {
-            console.log('=== UI OPS ===');
-            console.log(JSON.stringify(ops, null, 2));
-            console.log('=== UI TREE ===');
-            console.log(JSON.stringify(tree, null, 2));
+        console.log("resetAfterCommit", {
+            surfaceId,
+            opCount: ops.length,
+            ops: ops.map(op => ({ op: op.op, ...(op as any).id !== undefined ? { id: (op as any).id } : {}, ...(op as any).childId !== undefined ? { childId: (op as any).childId } : {} })),
+            tree,
+        });
+
+        try {
+            if (listener) listener(ops, tree);
+            else {
+                console.warn('No commit listener for surface ops', surfaceId, ops);
+                console.log('=== UI TREE ===', JSON.stringify(tree, null, 2));
+            }
+        } catch (error: any) {
+            console.error("resetAfterCommit listener threw", {
+                surfaceId,
+                message: error?.message,
+                stack: error?.stack,
+                ops,
+                tree,
+            });
+            throw error;
         }
     },
 
@@ -359,6 +565,13 @@ const hostConfig = {
     },
 
     appendChildToContainer(container: RootContainer, child: HostNode | TextNode) {
+        console.warn("appendChildToContainer", {
+            surfaceId: (container as any).__surfaceId,
+            childId: child.id,
+            childType: child.type,
+            rootChildrenBefore: container.children.map(c => ({ id: c.id, type: c.type })),
+        });
+
         container.children.push(child);
         assignSurfaceId(child, (container as any).__surfaceId as string);
         pendingOps.push({ op: 'appendToRoot', childId: child.id });
@@ -399,15 +612,27 @@ const hostConfig = {
 
     removeChild(parent: HostNode, child: HostNode | TextNode) {
         parent.children = parent.children.filter(c => c !== child);
-        clearSurfaceId(child);
+        releaseSubtree(child);
+
         pendingOps.push({ op: 'removeChild', parentId: parent.id, childId: child.id });
+        pendingOps.push({ op: 'destroyNode', id: child.id });
     },
 
     removeChildFromContainer(container: RootContainer, child: HostNode | TextNode) {
+        console.warn("removeChildFromContainer", {
+            surfaceId: (container as any).__surfaceId,
+            childId: child.id,
+            childType: child.type,
+            rootChildrenBefore: container.children.map(c => ({ id: c.id, type: c.type })),
+        });
+
+        console.trace("removeChildFromContainer stack");
+
         container.children = container.children.filter(c => c !== child);
-        clearSurfaceId(child);
+        releaseSubtree(child);
+
         pendingOps.push({ op: 'removeFromRoot', childId: child.id });
-        destroySubtree(child);
+        pendingOps.push({ op: 'destroyNode', id: child.id });
     },
 
     finalizeInitialChildren() {
@@ -448,8 +673,12 @@ const hostConfig = {
     },
 
     clearContainer(container: RootContainer) {
-        for (const child of container.children) clearSurfaceId(child);
-        container.children = [];
+        console.warn("clearContainer called; ignoring native removal", {
+            surfaceId: (container as any).__surfaceId,
+            children: container.children.map(c => ({ id: c.id, type: c.type })),
+        });
+
+        console.trace("clearContainer stack");
     },
 
     scheduleTimeout: setTimeout,
@@ -468,7 +697,8 @@ const hostConfig = {
     },
 
     detachDeletedInstance(instance: HostNode | TextNode) {
-        destroyInstance(instance);
+        // React calls this as cleanup after deletion. Do not send native ops here.
+        releaseSubtree(instance);
     },
 
     supportsMicrotasks: true,
@@ -597,18 +827,55 @@ function destroySubtree(instance: HostNode | TextNode | null | undefined) {
     pendingOps.push({ op: 'destroyNode', id: instance.id });
 }
 
-export function createRoot(surfaceId: string): RenderRoot {
-    const container: RootContainer = { children: [] };
-    (container as any).__surfaceId = surfaceId;
+function logReactError(kind: string) {
+    return (error: any, errorInfo?: any) => {
+        console.error(`[React ${kind}]`, {
+            message: error?.message,
+            stack: error?.stack,
+            name: error?.name,
+            error: String(error),
+            errorInfo,
+        });
+    };
+}
 
-    const root = reconciler.createContainer(container, 0, null, false, null, '', noop, noop, noop, noop);
+export function createRoot(surfaceId: string): RenderRoot {
+    const container: RootContainer = { children: [], };
+    (container as any).surfaceId = surfaceId;
+
+    const root = reconciler.createContainer(container, 0, null, false, null, '', logReactError('uncaught'), logReactError('caught'), logReactError('recoverable'), noop);
 
     return {
         render(element: React.ReactNode) {
-            reconciler.updateContainerSync(element, root, null, null);
-            reconciler.flushSyncWork();
+            console.log("React root render", {
+                surfaceId,
+                element: describeElement(element),
+                existingChildren: container.children.map(c => ({ id: c.id, type: c.type })),
+            });
+
+            try {
+                reconciler.updateContainerSync(element, root, null, null);
+                reconciler.flushSyncWork();
+            } catch (error: any) {
+                console.error("React root render threw", {
+                    surfaceId,
+                    message: error?.message,
+                    stack: error?.stack,
+                    error: String(error),
+                    tree: dumpTree(container),
+                });
+                throw error;
+            }
         },
+
         unmount() {
+            console.warn("React root unmount", {
+                surfaceId,
+                existingChildren: container.children.map(c => ({ id: c.id, type: c.type })),
+            });
+
+            console.trace("React root unmount stack");
+
             reconciler.updateContainerSync(null, root, null, null);
             reconciler.flushSyncWork();
         },
@@ -616,4 +883,18 @@ export function createRoot(surfaceId: string): RenderRoot {
             return container;
         },
     };
+}
+
+function describeElement(element: React.ReactNode): any {
+    if (element == null || typeof element === "boolean") return element;
+    if (Array.isArray(element)) return { kind: "array", length: element.length };
+    if (React.isValidElement(element)) {
+        const type: any = element.type;
+        return {
+            kind: "element",
+            type: typeof type === "string" ? type : type?.name ?? String(type),
+            key: element.key,
+        };
+    }
+    return { kind: typeof element, value: String(element) };
 }

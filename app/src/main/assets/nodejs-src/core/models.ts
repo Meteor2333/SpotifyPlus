@@ -52,12 +52,14 @@ export class SpotifyTrack {
     readonly durationMs: number;
     readonly explicit: boolean;
     readonly uri: string;
+    readonly id: string;
     readonly artist: string;
     readonly artists: string[];
     readonly album: SpotifyAlbumData;
 
     constructor(data: SpotifyTrackData) {
         this.uri = data.uri;
+        this.id = this.uri.split(':')[2];
         this.title = data.title;
         this.trackNumber = data.trackNumber;
         this.artist = data.artist;

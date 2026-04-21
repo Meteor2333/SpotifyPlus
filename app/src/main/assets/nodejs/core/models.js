@@ -24,6 +24,7 @@ exports.SpotifyAlbum = SpotifyAlbum;
 class SpotifyTrack {
     constructor(data) {
         this.uri = data.uri;
+        this.id = this.uri.split(':')[2];
         this.title = data.title;
         this.trackNumber = data.trackNumber;
         this.artist = data.artist;

@@ -94,8 +94,8 @@ public class ScriptViewHost {
 
     private final String surfaceId;
     private final ViewGroup hostRoot;
-    private final Context context;
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    public final Context context;
+    public final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final YogaConfig yogaConfig;
     private final RenderNode surfaceNode;
     private final YogaRootLayout surfaceView;
@@ -116,7 +116,8 @@ public class ScriptViewHost {
         if (!initialized) {
             try {
                 File outDir = new File(context.getCodeCacheDir(), "spotifyplus-libs");
-                if(!outDir.exists() && !outDir.mkdirs()) throw new IllegalStateException("Failed to create cache directory");
+                if (!outDir.exists() && !outDir.mkdirs())
+                    throw new IllegalStateException("Failed to create cache directory");
 
                 extractAndLoad(Utils.MODULE_APK_PATH, outDir, "libc++_shared.so");
 //                extractAndLoad(Utils.MODULE_APK_PATH, outDir, "libfbjni.so");
@@ -125,7 +126,7 @@ public class ScriptViewHost {
 
                 SoLoader.init(root.getContext(), false);
                 initialized = true;
-            } catch(Exception e) {
+            } catch (Exception e) {
                 Log.e("SpotifyPlus", "Failed to get library", e);
             }
 
@@ -313,6 +314,12 @@ public class ScriptViewHost {
             case "stopNativeAnimation":
                 stopNativeAnimation(op);
                 break;
+            case "scriptViewCommand":
+                scriptViewCommand(op);
+                break;
+            case "viewCommand":
+                viewCommand(op);
+                break;
             default:
                 Log.w(TAG, "Unknown op " + kind);
                 break;
@@ -359,13 +366,29 @@ public class ScriptViewHost {
     }
 
     private void removeChild(JSONObject op) throws Exception {
-        RenderNode parent = getNode(op.getInt("parentId"));
-        RenderNode child = getNode(op.getInt("childId"));
+        int parentId = op.getInt("parentId");
+        int childId = op.getInt("childId");
+
+        RenderNode parent = findNode(parentId);
+        RenderNode child = findNode(childId);
+
+        if (parent == null || child == null) {
+            Log.w(TAG, "Ignoring removeChild parent=" + parentId + " child=" + childId + " parentExists=" + (parent != null) + " childExists=" + (child != null));
+            return;
+        }
+
         detachChild(parent, child);
     }
 
     private void removeFromRoot(JSONObject op) throws Exception {
-        RenderNode child = getNode(op.getInt("childId"));
+        int childId = op.getInt("childId");
+        RenderNode child = findNode(childId);
+
+        if (child == null) {
+            Log.w(TAG, "Ignoring removeFromRoot for missing node " + childId);
+            return;
+        }
+
         detachChild(surfaceNode, child);
     }
 
@@ -403,11 +426,23 @@ public class ScriptViewHost {
         }
     }
 
+    private RenderNode findNode(int id) {
+        return nodes.get(id);
+    }
+
     private void destroyNode(JSONObject op) throws Exception {
-        RenderNode node = getNode(op.getInt("id"));
+        int id = op.getInt("id");
+        RenderNode node = findNode(id);
+
+        if (node == null) {
+            Log.w(TAG, "Ignoring destroyNode for missing node " + id);
+            return;
+        }
+
         if (node.parent != null) detachChild(node.parent, node);
         destroyNodeRecursive(node);
     }
+
 
     private void insertBefore(JSONObject op) throws Exception {
         RenderNode parent = getNode(op.getInt("parentId"));
@@ -427,7 +462,7 @@ public class ScriptViewHost {
     private boolean opRequiresLayout(JSONObject op) {
         String kind = op.optString("op", "");
         if ("updateProps".equals(kind)) return propsAffectLayout(op.optJSONObject("props"));
-        if ("startNativeAnimation".equals(kind) || "stopNativeAnimation".equals(kind)) return false;
+        if ("startNativeAnimation".equals(kind) || "stopNativeAnimation".equals(kind) || "viewCommand".equals(kind)) return false;
         return true;
     }
 
@@ -436,6 +471,115 @@ public class ScriptViewHost {
         String[] keys = {"display", "width", "height", "minWidth", "minHeight", "maxWidth", "maxHeight", "flex", "flexGrow", "flexShrink", "flexBasis", "flexDirection", "justifyContent", "alignItems", "alignSelf", "alignContent", "flexWrap", "overflow", "position", "top", "bottom", "left", "right", "start", "end", "margin", "marginHorizontal", "marginVertical", "marginLeft", "marginTop", "marginRight", "marginBottom", "marginStart", "marginEnd", "padding", "paddingHorizontal", "paddingVertical", "paddingLeft", "paddingTop", "paddingRight", "paddingBottom", "paddingStart", "paddingEnd", "borderWidth", "borderLeftWidth", "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderStartWidth", "borderEndWidth", "gap", "rowGap", "columnGap", "aspectRatio", "text", "textSizeSp", "maxLines", "minLines", "lines", "singleLine", "lineSpacingExtra", "lineSpacingMultiplier", "maxLength"};
         for (String key : keys) if (props.has(key)) return true;
         return false;
+    }
+
+    private void scriptViewCommand(JSONObject op) throws Exception {
+        RenderNode node = getNode(op.getInt("nodeId"));
+        if (!(node.view instanceof ScriptRenderView view)) return;
+        view.receiveCommand(op.optString("command", ""), op.optJSONObject("args"));
+    }
+
+    private void viewCommand(JSONObject op) throws Exception {
+        RenderNode node = getNode(op.getInt("nodeId"));
+        if (node.view == null) return;
+
+        View view = node.view;
+        String command = op.optString("command", "");
+        JSONObject args = op.optJSONObject("args");
+        int eventId = op.optInt("eventId", -1);
+
+        switch (command) {
+            case "focus":
+                view.setFocusableInTouchMode(true);
+                view.requestFocus();
+                if (view instanceof EditText) {
+                    android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+                    if (imm != null) imm.showSoftInput(view, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+                }
+                break;
+
+            case "blur":
+                view.clearFocus();
+                android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+                break;
+
+            case "measure":
+                sendMeasureResult(node, eventId, false);
+                break;
+
+            case "measureInWindow":
+                sendMeasureResult(node, eventId, true);
+                break;
+
+            case "scrollTo":
+                scrollTo(view, args);
+                break;
+
+            case "scrollToEnd":
+                scrollToEnd(view, args);
+                break;
+
+            default:
+                if (view instanceof ScriptRenderView scriptRenderView) {
+                    scriptRenderView.receiveCommand(command, args);
+                } else {
+                    Log.w(TAG, "Unknown view command " + command + " for node=" + node.id + " type=" + node.type);
+                }
+                break;
+        }
+    }
+
+    private void sendMeasureResult(RenderNode node, int eventId, boolean inWindow) {
+        if (eventId < 0 || node.view == null) return;
+
+        node.view.post(() -> {
+            try {
+                View view = node.view;
+                int[] screen = new int[2];
+                view.getLocationOnScreen(screen);
+
+                JSONObject payload = basePayload(node.id);
+                payload.put("x", inWindow ? screen[0] : view.getLeft());
+                payload.put("y", inWindow ? screen[1] : view.getTop());
+                payload.put("width", view.getWidth());
+                payload.put("height", view.getHeight());
+                payload.put("pageX", screen[0]);
+                payload.put("pageY", screen[1]);
+
+                sendEventToNode(node.id, inWindow ? "measureInWindow" : "measure", eventId, payload);
+            } catch (Exception e) {
+                Log.e(TAG, "Failed sending measure result", e);
+            }
+        });
+    }
+
+    private void scrollTo(View view, JSONObject args) {
+        int x = args != null ? parseYogaPoint(args.opt("x"), 0) : 0;
+        int y = args != null ? parseYogaPoint(args.opt("y"), 0) : 0;
+        boolean animated = args == null || parseBoolean(args.opt("animated"), true);
+
+        if (view instanceof ScrollView scrollView) {
+            if (animated) scrollView.smoothScrollTo(x, y);
+            else scrollView.scrollTo(x, y);
+        } else if (view instanceof HorizontalScrollView horizontalScrollView) {
+            if (animated) horizontalScrollView.smoothScrollTo(x, y);
+            else horizontalScrollView.scrollTo(x, y);
+        }
+    }
+
+    private void scrollToEnd(View view, JSONObject args) {
+        boolean animated = args == null || parseBoolean(args.opt("animated"), true);
+
+        if (view instanceof ScrollView scrollView) {
+            int y = scrollView.getChildCount() > 0 ? Math.max(0, scrollView.getChildAt(0).getMeasuredHeight() - scrollView.getHeight()) : 0;
+            if (animated) scrollView.smoothScrollTo(scrollView.getScrollX(), y);
+            else scrollView.scrollTo(scrollView.getScrollX(), y);
+        } else if (view instanceof HorizontalScrollView horizontalScrollView) {
+            int x = horizontalScrollView.getChildCount() > 0 ? Math.max(0, horizontalScrollView.getChildAt(0).getMeasuredWidth() - horizontalScrollView.getWidth()) : 0;
+            if (animated) horizontalScrollView.smoothScrollTo(x, horizontalScrollView.getScrollY());
+            else horizontalScrollView.scrollTo(x, horizontalScrollView.getScrollY());
+        }
     }
 
     private void startNativeAnimation(JSONObject op) throws Exception {
@@ -496,7 +640,8 @@ public class ScriptViewHost {
 
     private void stopNativeAnimationsForNode(int nodeId) {
         List<Integer> ids = new ArrayList<>();
-        for (Map.Entry<Integer, Integer> entry : nativeAnimationNodes.entrySet()) if (entry.getValue() == nodeId) ids.add(entry.getKey());
+        for (Map.Entry<Integer, Integer> entry : nativeAnimationNodes.entrySet())
+            if (entry.getValue() == nodeId) ids.add(entry.getKey());
         for (Integer id : ids) stopNativeAnimation(id);
     }
 
@@ -546,8 +691,10 @@ public class ScriptViewHost {
     private TimeInterpolator parseAnimationInterpolator(String type, String easing) {
         if ("spring".equalsIgnoreCase(type)) return new OvershootInterpolator(1.15f);
         if ("linear".equalsIgnoreCase(easing)) return new LinearInterpolator();
-        if ("easein".equalsIgnoreCase(easing) || "ease_in".equalsIgnoreCase(easing)) return new AccelerateInterpolator();
-        if ("easeout".equalsIgnoreCase(easing) || "ease_out".equalsIgnoreCase(easing)) return new DecelerateInterpolator();
+        if ("easein".equalsIgnoreCase(easing) || "ease_in".equalsIgnoreCase(easing))
+            return new AccelerateInterpolator();
+        if ("easeout".equalsIgnoreCase(easing) || "ease_out".equalsIgnoreCase(easing))
+            return new DecelerateInterpolator();
         if ("bounce".equalsIgnoreCase(easing)) return new BounceInterpolator();
         return new AccelerateDecelerateInterpolator();
     }
@@ -560,16 +707,24 @@ public class ScriptViewHost {
 
     private void attachChild(RenderNode parent, RenderNode child, int requestedIndex) throws Exception {
         if (child.parent != null) detachChild(child.parent, child);
+
         int index = requestedIndex < 0 || requestedIndex > parent.children.size() ? parent.children.size() : requestedIndex;
         parent.children.add(index, child);
         child.parent = parent;
+
         if (child.isRawText) {
             rebuildTextChildren(parent);
             dirtyIfNeeded(parent);
             return;
         }
-        if (parent.yogaNode != null && parent.yogaNode.isMeasureDefined()) rebuildYogaNode(parent);
-        if (parent.yogaNode != null && child.yogaNode != null) parent.yogaNode.addChildAt(child.yogaNode, countYogaChildrenBefore(parent, index));
+
+        if (parent.yogaNode != null && parent.yogaNode.isMeasureDefined()) {
+            Log.d(TAG, "Rebuilding measured leaf parent=" + parent.id + " type=" + parent.type + " because child=" + child.id + " type=" + child.type);
+            rebuildYogaNode(parent);
+        } else if (parent.yogaNode != null && child.yogaNode != null) {
+            parent.yogaNode.addChildAt(child.yogaNode, countYogaChildrenBefore(parent, index));
+        }
+
         addChildViewToAndroidParent(parent, child, countViewChildrenBefore(parent, index));
         if (child.view instanceof ImageView) maybeLoadImageForView(child);
 
@@ -736,6 +891,10 @@ public class ScriptViewHost {
                 return new ToggleButton(context);
             case "Space":
                 return new Space(context);
+            case "ScriptView":
+            case "RenderView":
+            case "CanvasView":
+                return new ScriptRenderView(context, this, node);
             default:
                 Log.w(TAG, "Unknown Yoga node type " + node.type);
                 return new YogaLayoutView(context, this, node);
@@ -1026,6 +1185,7 @@ public class ScriptViewHost {
         if (view instanceof ToggleButton) applyToggleButtonProps((ToggleButton) view, props);
         if (view instanceof ScrollView) applyScrollViewProps((ScrollView) view, props);
         if (view instanceof HorizontalScrollView) applyHorizontalScrollViewProps((HorizontalScrollView) view, props);
+        if (view instanceof ScriptRenderView) applyScriptRenderViewProps(node, (ScriptRenderView) view, props);
     }
 
     private void applyEventProps(RenderNode node, View view, JSONObject props) {
@@ -1033,7 +1193,17 @@ public class ScriptViewHost {
         if (view instanceof EditText) applyEditTextEventProps(node, (EditText) view, props);
         if (view instanceof CompoundButton) applyCompoundButtonEventProps(node, (CompoundButton) view, props);
         if (view instanceof SeekBar) applySeekBarEventProps(node, (SeekBar) view, props);
-        if (view instanceof ScrollView || view instanceof HorizontalScrollView) applyScrollEventProps(node, view, props);
+        if (view instanceof ScrollView || view instanceof HorizontalScrollView)
+            applyScrollEventProps(node, view, props);
+        if (view instanceof ScriptRenderView) applyScriptRenderViewEventProps(node, (ScriptRenderView) view, props);
+    }
+
+    private void applyScriptRenderViewProps(RenderNode node, ScriptRenderView view, JSONObject props) {
+        view.applyProps(props);
+    }
+
+    private void applyScriptRenderViewEventProps(RenderNode node, ScriptRenderView view, JSONObject props) {
+        view.setEventIds(getEventId(props, "onFrame"), getEventId(props, "onSizeChange"), getEventId(props, "onTouchStart"), getEventId(props, "onTouchMove"), getEventId(props, "onTouchEnd"), getEventId(props, "onTouchCancel"), getEventId(props, "onImageLoad"), getEventId(props, "onImageError"), getEventId(props, "onAttached"), getEventId(props, "onDetached"));
     }
 
     private void applyCommonEventProps(RenderNode node, View view, JSONObject props) {
@@ -1049,12 +1219,14 @@ public class ScriptViewHost {
                     payload.put("x", v.getX());
                     payload.put("y", v.getY());
                     sendEventToNode(node.id, clickEventName, clickEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
             });
             view.setClickable(true);
         } else {
             view.setOnClickListener(null);
-            if (getEventId(props, "onPressIn") == null && getEventId(props, "onPressOut") == null) view.setClickable(false);
+            if (getEventId(props, "onPressIn") == null && getEventId(props, "onPressOut") == null)
+                view.setClickable(false);
         }
 
         Integer onLongPressEventId = getEventId(props, "onLongPress");
@@ -1069,7 +1241,8 @@ public class ScriptViewHost {
                     payload.put("x", v.getX());
                     payload.put("y", v.getY());
                     sendEventToNode(node.id, longClickEventName, longClickEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
                 return true;
             });
             view.setLongClickable(true);
@@ -1111,7 +1284,8 @@ public class ScriptViewHost {
                             }
                             pressed = false;
                         }
-                    } catch (Exception ignored) { }
+                    } catch (Exception ignored) {
+                    }
                     return false;
                 }
             });
@@ -1127,9 +1301,11 @@ public class ScriptViewHost {
                 try {
                     JSONObject payload = basePayload(node.id);
                     payload.put("hasFocus", hasFocus);
-                    if (hasFocus && onFocusEventId != null) sendEventToNode(node.id, "onFocus", onFocusEventId, payload);
+                    if (hasFocus && onFocusEventId != null)
+                        sendEventToNode(node.id, "onFocus", onFocusEventId, payload);
                     if (!hasFocus && onBlurEventId != null) sendEventToNode(node.id, "onBlur", onBlurEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
             });
         } else {
             view.setOnFocusChangeListener(null);
@@ -1143,10 +1319,12 @@ public class ScriptViewHost {
         if (onChangeTextEventId != null) {
             TextWatcher watcher = new TextWatcher() {
                 @Override
-                public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                }
 
                 @Override
-                public void afterTextChanged(Editable s) { }
+                public void afterTextChanged(Editable s) {
+                }
 
                 @Override
                 public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -1157,7 +1335,8 @@ public class ScriptViewHost {
                         JSONObject payload = basePayload(node.id);
                         payload.put("text", text);
                         sendEventToNode(node.id, "onChangeText", onChangeTextEventId, payload);
-                    } catch (Exception ignored) { }
+                    } catch (Exception ignored) {
+                    }
                 }
             };
             view.addTextChangedListener(watcher);
@@ -1172,7 +1351,8 @@ public class ScriptViewHost {
                     payload.put("text", v.getText() != null ? v.getText().toString() : "");
                     payload.put("actionId", actionId);
                     sendEventToNode(node.id, "onSubmitEditing", onSubmitEditingEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
                 return false;
             });
         } else {
@@ -1218,7 +1398,8 @@ public class ScriptViewHost {
                     payload.put("value", progress);
                     payload.put("fromUser", fromUser);
                     sendEventToNode(node.id, "onValueChange", onValueChangeEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
             }
 
             @Override
@@ -1230,7 +1411,8 @@ public class ScriptViewHost {
                     JSONObject payload = basePayload(node.id);
                     payload.put("value", seekBar.getProgress());
                     sendEventToNode(node.id, "onSlidingStart", onSlidingStartEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
             }
 
             @Override
@@ -1242,7 +1424,8 @@ public class ScriptViewHost {
                     JSONObject payload = basePayload(node.id);
                     payload.put("value", seekBar.getProgress());
                     sendEventToNode(node.id, "onSlidingComplete", onSlidingCompleteEventId, payload);
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
             }
         });
     }
@@ -1301,7 +1484,8 @@ public class ScriptViewHost {
             radio.setOnClickListener(v -> {
                 try {
                     for (RenderNode other : radios) {
-                        if (other.view instanceof RadioButton otherRadio) withSuppressedEventsQuietly(other.id, () -> otherRadio.setChecked(other == radioNode));
+                        if (other.view instanceof RadioButton otherRadio)
+                            withSuppressedEventsQuietly(other.id, () -> otherRadio.setChecked(other == radioNode));
                     }
 
                     if (onValueChangeEventId != null) {
@@ -1310,7 +1494,8 @@ public class ScriptViewHost {
                         payload.put("value", radioNode.id);
                         sendEventToNode(groupNode.id, "onValueChange", onValueChangeEventId, payload);
                     }
-                } catch (Exception ignored) { }
+                } catch (Exception ignored) {
+                }
             });
         }
     }
@@ -1318,7 +1503,8 @@ public class ScriptViewHost {
     private void withSuppressedEventsQuietly(int nodeId, ThrowingRunnable runnable) {
         try {
             withSuppressedEvents(nodeId, runnable);
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) {
+        }
     }
 
     private void applyCommonProps(View view, JSONObject props) {
@@ -1410,6 +1596,15 @@ public class ScriptViewHost {
     }
 
     private void applyViewGroupProps(ViewGroup view, JSONObject props) {
+        boolean hasOverflow = props.has("overflow");
+        if (hasOverflow) {
+            String overflow = props.optString("overflow", "visible").toLowerCase();
+            boolean hidden = "hidden".equals(overflow);
+
+            view.setClipChildren(hidden);
+            view.setClipToPadding(hidden);
+        }
+
         if (props.has("clipChildren"))
             view.setClipChildren(parseBoolean(props.opt("clipChildren"), view.getClipChildren()));
         if (props.has("clipToPadding"))
@@ -1437,7 +1632,8 @@ public class ScriptViewHost {
                     try {
                         selectionStart = editText.getSelectionStart();
                         selectionEnd = editText.getSelectionEnd();
-                    } catch (Exception ignored) { }
+                    } catch (Exception ignored) {
+                    }
 
                     editText.setText(newText);
 
@@ -1446,7 +1642,8 @@ public class ScriptViewHost {
                         int safeStart = Math.max(0, Math.min(selectionStart, textLength));
                         int safeEnd = Math.max(0, Math.min(selectionEnd, textLength));
                         editText.setSelection(safeStart, safeEnd);
-                    } catch (Exception ignored) { }
+                    } catch (Exception ignored) {
+                    }
                 }
 
                 if (Objects.equals(newText, lastNativeText)) {
@@ -1466,20 +1663,26 @@ public class ScriptViewHost {
             Integer color = parseColor(props.opt("hintColor"));
             if (color != null) view.setHintTextColor(color);
         }
-        if (props.has("textSizeSp")) view.setTextSize(TypedValue.COMPLEX_UNIT_SP, (float) parseDouble(props.opt("textSizeSp"), 14));
+        if (props.has("textSizeSp"))
+            view.setTextSize(TypedValue.COMPLEX_UNIT_SP, (float) parseDouble(props.opt("textSizeSp"), 14));
         if (props.has("gravity")) view.setGravity(parseGravity(props.optString("gravity", "")));
         if (props.has("maxLines")) view.setMaxLines(props.optInt("maxLines", Integer.MAX_VALUE));
         if (props.has("minLines")) view.setMinLines(props.optInt("minLines", 1));
         if (props.has("lines")) view.setLines(props.optInt("lines", 1));
         if (props.has("singleLine")) view.setSingleLine(parseBoolean(props.opt("singleLine"), false));
         if (props.has("allCaps")) view.setAllCaps(parseBoolean(props.opt("allCaps"), false));
-        if (props.has("includeFontPadding")) view.setIncludeFontPadding(parseBoolean(props.opt("includeFontPadding"), true));
-        if (props.has("letterSpacing")) view.setLetterSpacing((float) parseDouble(props.opt("letterSpacing"), view.getLetterSpacing()));
-        if (props.has("lineSpacingExtra") || props.has("lineSpacingMultiplier")) view.setLineSpacing((float) parseDouble(props.opt("lineSpacingExtra"), 0), (float) parseDouble(props.opt("lineSpacingMultiplier"), 1));
-        if (props.has("textStyle")) view.setTypeface(view.getTypeface(), parseTextStyle(props.optString("textStyle", "")));
+        if (props.has("includeFontPadding"))
+            view.setIncludeFontPadding(parseBoolean(props.opt("includeFontPadding"), true));
+        if (props.has("letterSpacing"))
+            view.setLetterSpacing((float) parseDouble(props.opt("letterSpacing"), view.getLetterSpacing()));
+        if (props.has("lineSpacingExtra") || props.has("lineSpacingMultiplier"))
+            view.setLineSpacing((float) parseDouble(props.opt("lineSpacingExtra"), 0), (float) parseDouble(props.opt("lineSpacingMultiplier"), 1));
+        if (props.has("textStyle"))
+            view.setTypeface(view.getTypeface(), parseTextStyle(props.optString("textStyle", "")));
         if (props.has("ellipsize")) view.setEllipsize(parseEllipsize(props.optString("ellipsize", "")));
         if (props.has("textIsSelectable")) view.setTextIsSelectable(parseBoolean(props.opt("textIsSelectable"), false));
-        if (props.has("maxLength")) view.setFilters(new InputFilter[]{new InputFilter.LengthFilter(props.optInt("maxLength", Integer.MAX_VALUE))});
+        if (props.has("maxLength"))
+            view.setFilters(new InputFilter[]{new InputFilter.LengthFilter(props.optInt("maxLength", Integer.MAX_VALUE))});
         dirtyIfNeeded(node);
     }
 
@@ -1753,9 +1956,10 @@ public class ScriptViewHost {
             if (watcher != null) editText.removeTextChangedListener(watcher);
             editText.setOnEditorActionListener(null);
         }
+        if (node.view instanceof ScriptRenderView scriptRenderView) scriptRenderView.dispose();
     }
 
-    private void sendEventToNode(int targetId, String eventName, int eventId, JSONObject payload) {
+    public void sendEventToNode(int targetId, String eventName, int eventId, JSONObject payload) {
         try {
             JSONObject json = new JSONObject();
             json.put("surfaceId", surfaceId);
@@ -1794,7 +1998,7 @@ public class ScriptViewHost {
         return suppressedEventNodes.contains(nodeId);
     }
 
-    private JSONObject basePayload(int targetId) throws Exception {
+    public JSONObject basePayload(int targetId) throws Exception {
         JSONObject payload = new JSONObject();
         payload.put("targetId", targetId);
         return payload;
@@ -1823,7 +2027,7 @@ public class ScriptViewHost {
         return "true".equalsIgnoreCase(String.valueOf(value));
     }
 
-    private double parseDouble(Object value, double fallback) {
+    public double parseDouble(Object value, double fallback) {
         try {
             if (value == null || value == JSONObject.NULL) return fallback;
             if (value instanceof Number number) return number.doubleValue();
@@ -1833,7 +2037,7 @@ public class ScriptViewHost {
         }
     }
 
-    private Integer parseColor(Object value) {
+    public Integer parseColor(Object value) {
         try {
             if (value == null || value == JSONObject.NULL) return null;
             if (value instanceof Number number) return number.intValue();
@@ -2196,11 +2400,11 @@ public class ScriptViewHost {
         return new YogaLength(YogaLengthUnit.POINT, dp(Float.parseFloat(text)));
     }
 
-    private int dp(float value) {
+    public int dp(float value) {
         return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, context.getResources().getDisplayMetrics()));
     }
 
-    private int sp(float value) {
+    public int sp(float value) {
         return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, value, context.getResources().getDisplayMetrics()));
     }
 
@@ -2220,7 +2424,7 @@ public class ScriptViewHost {
         }
     }
 
-    private static class RenderNode {
+    public static class RenderNode {
         final ScriptViewHost host;
         final int id;
         final String type;
@@ -2262,23 +2466,21 @@ public class ScriptViewHost {
             super(context);
             this.host = host;
             this.node = node;
-            setClipChildren(false);
-            setClipChildren(false);
+            setClipChildren(true);
+            setClipToPadding(true);
         }
 
         @Override
         protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
             host.measureChildrenForNode(node);
-
             int measuredWidth = node.yogaNode != null ? Math.max(0, Math.round(node.yogaNode.getLayoutWidth())) : View.MeasureSpec.getSize(widthMeasureSpec);
             int measuredHeight = node.yogaNode != null ? Math.max(0, Math.round(node.yogaNode.getLayoutHeight())) : View.MeasureSpec.getSize(heightMeasureSpec);
-
             setMeasuredDimension(measuredWidth, measuredHeight);
         }
 
         @Override
         protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-            host.layoutChildrenForNode(node);
+            host.layoutChildrenForNodeRecursive(node);
         }
     }
 
@@ -2290,8 +2492,8 @@ public class ScriptViewHost {
             super(context);
             this.host = host;
             this.ownerNode = ownerNode;
-            setClipChildren(false);
-            setClipToPadding(false);
+            setClipChildren(true);
+            setClipToPadding(true);
         }
 
         @Override
@@ -2302,7 +2504,7 @@ public class ScriptViewHost {
 
         @Override
         protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-            host.layoutChildrenForNode(ownerNode);
+            host.layoutChildrenForNodeRecursive(ownerNode);
         }
     }
 
@@ -2316,8 +2518,8 @@ public class ScriptViewHost {
             this.host = host;
             this.node = node;
             this.contentView = new YogaScrollContentView(context, host, node);
-            setClipChildren(false);
-            setClipToPadding(false);
+            setClipChildren(true);
+            setClipToPadding(true);
             addView(contentView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         }
 
@@ -2351,8 +2553,8 @@ public class ScriptViewHost {
             this.host = host;
             this.node = node;
             this.contentView = new YogaScrollContentView(context, host, node);
-            setClipChildren(false);
-            setClipToPadding(false);
+            setClipChildren(true);
+            setClipToPadding(true);
             addView(contentView, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT));
         }
 
@@ -2378,7 +2580,647 @@ public class ScriptViewHost {
         @Override
         protected void onScrollChanged(int l, int t, int oldl, int oldt) {
             super.onScrollChanged(l, t, oldl, oldt);
-            Log.d("SpotifyPlus", "HSV scrollX=" + l + " max=" + Math.max(0, contentView.getMeasuredWidth() - getWidth()) + " contentWidth=" + contentView.getMeasuredWidth() + " viewportWidth=" + getWidth());
+        }
+    }
+
+    private static class ScriptRenderView extends View {
+        private final ScriptViewHost host;
+        private final RenderNode ownerNode;
+        private JSONObject props = new JSONObject();
+        private JSONArray displayList = new JSONArray();
+        private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG | android.graphics.Paint.FILTER_BITMAP_FLAG | android.graphics.Paint.DITHER_FLAG);
+        private final android.text.TextPaint textPaint = new android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG | android.graphics.Paint.SUBPIXEL_TEXT_FLAG | android.graphics.Paint.DITHER_FLAG);
+        private int onFrameEventId = -1, onSizeChangeEventId = -1, onTouchStartEventId = -1, onTouchMoveEventId = -1, onTouchEndEventId = -1, onTouchCancelEventId = -1, onImageLoadEventId = -1, onImageErrorEventId = -1, onAttachedEventId = -1, onDetachedEventId = -1;
+        private boolean frameLoopRunning = false;
+        private boolean disposed = false;
+        private long lastFrameTimeMs = -1;
+        private static final Map<String, Bitmap> IMAGE_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+        private static final Map<String, Bitmap> BLUR_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+        private static final Set<String> IMAGE_LOADING = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+        private android.view.Choreographer.FrameCallback frameCallback = null;
+
+        ScriptRenderView(Context context, ScriptViewHost host, RenderNode ownerNode) {
+            super(context);
+            this.host = host;
+            this.ownerNode = ownerNode;
+            setWillNotDraw(false);
+            setFocusable(false);
+            setClickable(false);
+
+            frameCallback = frameTimeNanos -> {
+                if (disposed || !isAttachedToWindow() || (onFrameEventId < 0 && !props.optBoolean("autoInvalidate", false))) {
+                    frameLoopRunning = false;
+                    return;
+                }
+                long now = frameTimeNanos / 1000000L;
+                long delta = lastFrameTimeMs < 0 ? 0 : Math.max(0, now - lastFrameTimeMs);
+                lastFrameTimeMs = now;
+                if (onFrameEventId >= 0) sendSimpleEvent("onFrame", onFrameEventId, payload -> {
+                    payload.put("time", now);
+                    payload.put("delta", delta);
+                    payload.put("width", getWidth());
+                    payload.put("height", getHeight());
+                });
+                if (props.optBoolean("autoInvalidate", false)) invalidate();
+                android.view.Choreographer.getInstance().postFrameCallback(frameCallback);
+            };
+        }
+
+        void applyProps(JSONObject nextProps) {
+            try {
+                props = nextProps != null ? new JSONObject(nextProps.toString()) : new JSONObject();
+            } catch (Exception ignored) {
+                props = nextProps != null ? nextProps : new JSONObject();
+            }
+            JSONArray list = props.optJSONArray("displayList");
+            if (list == null) list = props.optJSONArray("nodes");
+            try {
+                displayList = list != null ? new JSONArray(list.toString()) : new JSONArray();
+            } catch (Exception ignored) {
+                displayList = list != null ? list : new JSONArray();
+            }
+            boolean software = props.optBoolean("softwareLayer", false) || displayListHasShadow(displayList);
+            setLayerType(software ? View.LAYER_TYPE_SOFTWARE : View.LAYER_TYPE_HARDWARE, null);
+            if (Build.VERSION.SDK_INT >= 31 && props.has("renderEffectBlurRadius")) {
+                float radius = (float) host.parseDouble(props.opt("renderEffectBlurRadius"), 0);
+                setRenderEffect(radius > 0 ? android.graphics.RenderEffect.createBlurEffect(radius, radius, android.graphics.Shader.TileMode.CLAMP) : null);
+            }
+            invalidate();
+            maybeStartFrameLoop();
+            preloadImages(displayList);
+        }
+
+        void setEventIds(Integer onFrame, Integer onSizeChange, Integer onTouchStart, Integer onTouchMove, Integer onTouchEnd, Integer onTouchCancel, Integer onImageLoad, Integer onImageError, Integer onAttached, Integer onDetached) {
+            this.onFrameEventId = onFrame != null ? onFrame : -1;
+            this.onSizeChangeEventId = onSizeChange != null ? onSizeChange : -1;
+            this.onTouchStartEventId = onTouchStart != null ? onTouchStart : -1;
+            this.onTouchMoveEventId = onTouchMove != null ? onTouchMove : -1;
+            this.onTouchEndEventId = onTouchEnd != null ? onTouchEnd : -1;
+            this.onTouchCancelEventId = onTouchCancel != null ? onTouchCancel : -1;
+            this.onImageLoadEventId = onImageLoad != null ? onImageLoad : -1;
+            this.onImageErrorEventId = onImageError != null ? onImageError : -1;
+            this.onAttachedEventId = onAttached != null ? onAttached : -1;
+            this.onDetachedEventId = onDetached != null ? onDetached : -1;
+            setClickable(hasTouchEvents());
+            maybeStartFrameLoop();
+        }
+
+        void receiveCommand(String command, JSONObject args) {
+            if (command == null) return;
+            if ("invalidate".equals(command)) invalidate();
+            else if ("setDisplayList".equals(command)) {
+                JSONArray list = args != null ? args.optJSONArray("displayList") : null;
+                if (list == null && args != null) list = args.optJSONArray("nodes");
+                if (list != null) {
+                    try {
+                        displayList = new JSONArray(list.toString());
+                    } catch (Exception ignored) {
+                        displayList = list;
+                    }
+                    preloadImages(displayList);
+                    invalidate();
+                }
+            } else if ("preloadImage".equals(command)) {
+                String src = args != null ? args.optString("src", null) : null;
+                if (src != null && !src.isEmpty()) ensureImage(src);
+            } else if ("updateNode".equals(command)) {
+                if (args == null) return;
+                Object rawId = args.opt("id");
+                JSONObject patch = args.optJSONObject("props");
+                if (rawId != null && patch != null && patchDisplayNode(displayList, String.valueOf(rawId), patch)) {
+                    preloadImages(displayList);
+                    invalidate();
+                }
+            }
+        }
+
+        void dispose() {
+            disposed = true;
+            if (frameLoopRunning) android.view.Choreographer.getInstance().removeFrameCallback(frameCallback);
+            frameLoopRunning = false;
+        }
+
+        @Override
+        protected void onAttachedToWindow() {
+            super.onAttachedToWindow();
+            disposed = false;
+            if (onAttachedEventId >= 0) sendSimpleEvent("onAttached", onAttachedEventId, null);
+            maybeStartFrameLoop();
+        }
+
+        @Override
+        protected void onDetachedFromWindow() {
+            if (onDetachedEventId >= 0) sendSimpleEvent("onDetached", onDetachedEventId, null);
+            if (frameLoopRunning) android.view.Choreographer.getInstance().removeFrameCallback(frameCallback);
+            frameLoopRunning = false;
+            super.onDetachedFromWindow();
+        }
+
+        @Override
+        protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+            super.onSizeChanged(w, h, oldw, oldh);
+            if (onSizeChangeEventId >= 0) sendSimpleEvent("onSizeChange", onSizeChangeEventId, payload -> {
+                payload.put("width", w);
+                payload.put("height", h);
+                payload.put("oldWidth", oldw);
+                payload.put("oldHeight", oldh);
+            });
+        }
+
+        @Override
+        protected void onDraw(android.graphics.Canvas canvas) {
+            super.onDraw(canvas);
+            for (int i = 0; i < displayList.length(); i++) {
+                JSONObject node = displayList.optJSONObject(i);
+                if (node != null) drawNode(canvas, node, getWidth(), getHeight(), 1f);
+            }
+        }
+
+        @Override
+        public boolean onTouchEvent(android.view.MotionEvent event) {
+            boolean handled = dispatchTouch(event);
+            return handled || super.onTouchEvent(event);
+        }
+
+        private void maybeStartFrameLoop() {
+            if (disposed || frameLoopRunning || !isAttachedToWindow()) return;
+            if (onFrameEventId < 0 && !props.optBoolean("autoInvalidate", false)) return;
+            frameLoopRunning = true;
+            lastFrameTimeMs = -1;
+            android.view.Choreographer.getInstance().postFrameCallback(frameCallback);
+        }
+
+        private boolean hasTouchEvents() {
+            return onTouchStartEventId >= 0 || onTouchMoveEventId >= 0 || onTouchEndEventId >= 0 || onTouchCancelEventId >= 0;
+        }
+
+        private boolean dispatchTouch(android.view.MotionEvent event) {
+            int action = event.getActionMasked();
+            int eventId = -1;
+            String eventName = null;
+            if (action == android.view.MotionEvent.ACTION_DOWN) {
+                eventId = onTouchStartEventId;
+                eventName = "onTouchStart";
+            } else if (action == android.view.MotionEvent.ACTION_MOVE) {
+                eventId = onTouchMoveEventId;
+                eventName = "onTouchMove";
+            } else if (action == android.view.MotionEvent.ACTION_UP) {
+                eventId = onTouchEndEventId;
+                eventName = "onTouchEnd";
+            } else if (action == android.view.MotionEvent.ACTION_CANCEL) {
+                eventId = onTouchCancelEventId;
+                eventName = "onTouchCancel";
+            }
+            if (eventId < 0 || eventName == null) return false;
+            int pointerIndex = Math.max(0, event.getActionIndex());
+            String finalEventName = eventName;
+            int finalEventId = eventId;
+            sendSimpleEvent(finalEventName, finalEventId, payload -> {
+                payload.put("x", event.getX(pointerIndex));
+                payload.put("y", event.getY(pointerIndex));
+                payload.put("pageX", event.getRawX());
+                payload.put("pageY", event.getRawY());
+                payload.put("action", finalEventName);
+                payload.put("pointerId", event.getPointerId(pointerIndex));
+            });
+            return true;
+        }
+
+        private void drawNode(android.graphics.Canvas canvas, JSONObject node, float parentWidth, float parentHeight, float parentAlpha) {
+            if (node == null || !node.optBoolean("visible", true)) return;
+            String type = node.optString("type", "group");
+            float nodeAlpha = parentAlpha * (float) host.parseDouble(node.has("alpha") ? node.opt("alpha") : node.opt("opacity"), 1);
+            if (nodeAlpha <= 0f) return;
+            float x = resolveLength(node.opt("x"), parentWidth, 0, false);
+            float y = resolveLength(node.opt("y"), parentHeight, 0, false);
+            float translateX = resolveLength(firstPresent(node, "translateX", "translationX"), parentWidth, 0, false);
+            float translateY = resolveLength(firstPresent(node, "translateY", "translationY"), parentHeight, 0, false);
+            float width = resolveLength(node.opt("width"), parentWidth, parentWidth, false);
+            float height = resolveLength(node.opt("height"), parentHeight, parentHeight, false);
+            if ("circle".equals(type)) {
+                float radius = resolveLength(node.opt("radius"), Math.min(parentWidth, parentHeight), Math.min(width, height) / 2f, false);
+                width = height = radius * 2f;
+            }
+            float pivotX = resolveLength(node.opt("pivotX"), width, width / 2f, false);
+            float pivotY = resolveLength(node.opt("pivotY"), height, height / 2f, false);
+            float rotation = normalizeAngle(node.opt("rotation"));
+            float scale = (float) host.parseDouble(node.opt("scale"), 1);
+            float scaleX = (float) host.parseDouble(node.opt("scaleX"), scale);
+            float scaleY = (float) host.parseDouble(node.opt("scaleY"), scale);
+            int save = canvas.save();
+            canvas.translate(x + translateX, y + translateY);
+            if (rotation != 0f) canvas.rotate(rotation, pivotX, pivotY);
+            if (scaleX != 1f || scaleY != 1f) canvas.scale(scaleX, scaleY, pivotX, pivotY);
+            if (node.optBoolean("clip", false)) clipNode(canvas, node, width, height);
+            if ("group".equals(type) || "layer".equals(type))
+                drawChildren(canvas, node.optJSONArray("children"), width, height, nodeAlpha);
+            else if ("rect".equals(type) || "roundRect".equals(type))
+                drawRectNode(canvas, node, width, height, nodeAlpha, "roundRect".equals(type));
+            else if ("circle".equals(type)) drawCircleNode(canvas, node, width, height, nodeAlpha);
+            else if ("oval".equals(type)) drawOvalNode(canvas, node, width, height, nodeAlpha);
+            else if ("line".equals(type)) drawLineNode(canvas, node, width, height, nodeAlpha);
+            else if ("path".equals(type)) drawPathNode(canvas, node, width, height, nodeAlpha);
+            else if ("image".equals(type)) drawImageNode(canvas, node, width, height, nodeAlpha);
+            else if ("text".equals(type)) drawTextNode(canvas, node, width, height, nodeAlpha);
+            canvas.restoreToCount(save);
+        }
+
+        private void drawChildren(android.graphics.Canvas canvas, JSONArray children, float width, float height, float alpha) {
+            if (children == null) return;
+            for (int i = 0; i < children.length(); i++) {
+                JSONObject child = children.optJSONObject(i);
+                if (child != null) drawNode(canvas, child, width, height, alpha);
+            }
+        }
+
+        private void drawRectNode(android.graphics.Canvas canvas, JSONObject node, float width, float height, float alpha, boolean forceRound) {
+            float radius = resolveLength(firstPresent(node, "radius", "borderRadius"), Math.min(width, height), forceRound ? 0 : 0, false);
+            android.graphics.RectF rect = new android.graphics.RectF(0, 0, width, height);
+            prepareFillPaint(node, width, height, alpha);
+            if (paint.getColor() != Color.TRANSPARENT || paint.getShader() != null) {
+                if (radius > 0) canvas.drawRoundRect(rect, radius, radius, paint);
+                else canvas.drawRect(rect, paint);
+            }
+            prepareStrokePaint(node, width, height, alpha);
+            if (paint.getStrokeWidth() > 0) {
+                if (radius > 0) canvas.drawRoundRect(rect, radius, radius, paint);
+                else canvas.drawRect(rect, paint);
+            }
+        }
+
+        private void drawCircleNode(android.graphics.Canvas canvas, JSONObject node, float width, float height, float alpha) {
+            float radius = resolveLength(node.opt("radius"), Math.min(width, height), Math.min(width, height) / 2f, false);
+            float cx = resolveLength(node.opt("cx"), width, width / 2f, false);
+            float cy = resolveLength(node.opt("cy"), height, height / 2f, false);
+            prepareFillPaint(node, width, height, alpha);
+            if (paint.getColor() != Color.TRANSPARENT || paint.getShader() != null)
+                canvas.drawCircle(cx, cy, radius, paint);
+            prepareStrokePaint(node, width, height, alpha);
+            if (paint.getStrokeWidth() > 0) canvas.drawCircle(cx, cy, radius, paint);
+        }
+
+        private void drawOvalNode(android.graphics.Canvas canvas, JSONObject node, float width, float height, float alpha) {
+            android.graphics.RectF rect = new android.graphics.RectF(0, 0, width, height);
+            prepareFillPaint(node, width, height, alpha);
+            if (paint.getColor() != Color.TRANSPARENT || paint.getShader() != null) canvas.drawOval(rect, paint);
+            prepareStrokePaint(node, width, height, alpha);
+            if (paint.getStrokeWidth() > 0) canvas.drawOval(rect, paint);
+        }
+
+        private void drawLineNode(android.graphics.Canvas canvas, JSONObject node, float width, float height, float alpha) {
+            resetPaint(alpha);
+            paint.setStyle(android.graphics.Paint.Style.STROKE);
+            paint.setStrokeWidth(resolveLength(firstPresent(node, "strokeWidth", "lineWidth"), Math.min(width, height), host.dp(1), false));
+            paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+            Integer color = parseNodeColor(firstPresent(node, "stroke", "strokeColor", "color"), Color.WHITE);
+            paint.setColor(color != null ? withAlpha(color, alpha) : withAlpha(Color.WHITE, alpha));
+            float x1 = resolveLength(node.opt("x1"), width, 0, false);
+            float y1 = resolveLength(node.opt("y1"), height, 0, false);
+            float x2 = resolveLength(node.opt("x2"), width, width, false);
+            float y2 = resolveLength(node.opt("y2"), height, height, false);
+            canvas.drawLine(x1, y1, x2, y2, paint);
+        }
+
+        private void drawPathNode(android.graphics.Canvas canvas, JSONObject node, float width, float height, float alpha) {
+            android.graphics.Path path = buildPath(node.optJSONArray("commands"), width, height);
+            prepareFillPaint(node, width, height, alpha);
+            if (paint.getColor() != Color.TRANSPARENT || paint.getShader() != null) canvas.drawPath(path, paint);
+            prepareStrokePaint(node, width, height, alpha);
+            if (paint.getStrokeWidth() > 0) canvas.drawPath(path, paint);
+        }
+
+        private void drawImageNode(android.graphics.Canvas canvas, JSONObject node, float width, float height, float alpha) {
+            String src = node.optString("src", node.optString("uri", null));
+            if (src == null || src.isEmpty()) return;
+            Bitmap bitmap = getBitmapForDraw(src, (float) host.parseDouble(node.opt("blurRadius"), 0));
+            if (bitmap == null) {
+                ensureImage(src);
+                return;
+            }
+            resetPaint(alpha);
+            if (node.has("tintColor")) {
+                Integer tint = parseNodeColor(node.opt("tintColor"), null);
+                if (tint != null)
+                    paint.setColorFilter(new android.graphics.PorterDuffColorFilter(withAlpha(tint, alpha), android.graphics.PorterDuff.Mode.SRC_IN));
+            }
+            float radius = resolveLength(firstPresent(node, "borderRadius", "radius"), Math.min(width, height), 0, false);
+            int save = canvas.save();
+            if (radius > 0) {
+                android.graphics.Path clip = new android.graphics.Path();
+                clip.addRoundRect(new android.graphics.RectF(0, 0, width, height), radius, radius, android.graphics.Path.Direction.CW);
+                canvas.clipPath(clip);
+            }
+            android.graphics.RectF dst = imageDestination(bitmap, width, height, node.optString("resizeMode", node.optString("scaleType", "cover")));
+            canvas.drawBitmap(bitmap, null, dst, paint);
+            canvas.restoreToCount(save);
+        }
+
+        private void drawTextNode(android.graphics.Canvas canvas, JSONObject node, float width, float height, float alpha) {
+            String text = String.valueOf(node.opt("text"));
+            if (text == null || "null".equals(text)) text = "";
+            textPaint.reset();
+            textPaint.setAntiAlias(true);
+            textPaint.setSubpixelText(true);
+            textPaint.setDither(true);
+            textPaint.setColor(withAlpha(parseNodeColor(firstPresent(node, "fill", "color", "textColor"), Color.WHITE), alpha));
+            textPaint.setTextSize(host.sp((float) host.parseDouble(firstPresent(node, "fontSize", "textSizeSp"), 14)));
+            String weight = String.valueOf(node.opt("fontWeight"));
+            String style = String.valueOf(node.opt("fontStyle"));
+            int tfStyle = ("bold".equalsIgnoreCase(weight) || "600".equals(weight) || "700".equals(weight) || "800".equals(weight) || "900".equals(weight)) ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL;
+            if ("italic".equalsIgnoreCase(style)) tfStyle |= android.graphics.Typeface.ITALIC;
+            textPaint.setTypeface(android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, tfStyle));
+            android.graphics.Shader shader = shaderFrom(firstPresent(node, "fill", "gradient"), width, height);
+            if (shader != null) textPaint.setShader(shader);
+            android.text.Layout.Alignment alignment = android.text.Layout.Alignment.ALIGN_NORMAL;
+            String align = node.optString("textAlign", "left").toLowerCase();
+            if ("center".equals(align)) alignment = android.text.Layout.Alignment.ALIGN_CENTER;
+            else if ("right".equals(align) || "end".equals(align))
+                alignment = android.text.Layout.Alignment.ALIGN_OPPOSITE;
+            int textWidth = Math.max(1, Math.round(width));
+            int maxLines = node.has("maxLines") ? Math.max(1, node.optInt("maxLines", Integer.MAX_VALUE)) : Integer.MAX_VALUE;
+            float lineSpacingExtra = 0;
+            if (node.has("lineHeight"))
+                lineSpacingExtra = Math.max(0, (float) host.parseDouble(node.opt("lineHeight"), 0) - (textPaint.getTextSize() / getResources().getDisplayMetrics().scaledDensity));
+            android.text.StaticLayout layout = android.text.StaticLayout.Builder.obtain(text, 0, text.length(), textPaint, textWidth).setAlignment(alignment).setLineSpacing(host.sp(lineSpacingExtra), 1f).setIncludePad(node.optBoolean("includeFontPadding", true)).setMaxLines(maxLines).build();
+            layout.draw(canvas);
+        }
+
+        private android.graphics.Path buildPath(JSONArray commands, float width, float height) {
+            android.graphics.Path path = new android.graphics.Path();
+            if (commands == null) return path;
+            for (int i = 0; i < commands.length(); i++) {
+                JSONObject c = commands.optJSONObject(i);
+                if (c == null) continue;
+                String cmd = c.optString("cmd", "");
+                if ("M".equalsIgnoreCase(cmd) || "moveTo".equalsIgnoreCase(cmd))
+                    path.moveTo(resolveLength(c.opt("x"), width, 0, false), resolveLength(c.opt("y"), height, 0, false));
+                else if ("L".equalsIgnoreCase(cmd) || "lineTo".equalsIgnoreCase(cmd))
+                    path.lineTo(resolveLength(c.opt("x"), width, 0, false), resolveLength(c.opt("y"), height, 0, false));
+                else if ("Q".equalsIgnoreCase(cmd) || "quadTo".equalsIgnoreCase(cmd))
+                    path.quadTo(resolveLength(c.opt("x1"), width, 0, false), resolveLength(c.opt("y1"), height, 0, false), resolveLength(c.opt("x"), width, 0, false), resolveLength(c.opt("y"), height, 0, false));
+                else if ("C".equalsIgnoreCase(cmd) || "cubicTo".equalsIgnoreCase(cmd))
+                    path.cubicTo(resolveLength(c.opt("x1"), width, 0, false), resolveLength(c.opt("y1"), height, 0, false), resolveLength(c.opt("x2"), width, 0, false), resolveLength(c.opt("y2"), height, 0, false), resolveLength(c.opt("x"), width, 0, false), resolveLength(c.opt("y"), height, 0, false));
+                else if ("Z".equalsIgnoreCase(cmd) || "close".equalsIgnoreCase(cmd)) path.close();
+            }
+            return path;
+        }
+
+        private void prepareFillPaint(JSONObject node, float width, float height, float alpha) {
+            resetPaint(alpha);
+            paint.setStyle(android.graphics.Paint.Style.FILL);
+            applyShadow(node, alpha);
+            Object fill = firstPresent(node, "fill", "color", "backgroundColor");
+            android.graphics.Shader shader = shaderFrom(fill, width, height);
+            if (shader != null) paint.setShader(shader);
+            else paint.setColor(withAlpha(parseNodeColor(fill, Color.TRANSPARENT), alpha));
+        }
+
+        private void prepareStrokePaint(JSONObject node, float width, float height, float alpha) {
+            resetPaint(alpha);
+            paint.setStyle(android.graphics.Paint.Style.STROKE);
+            float strokeWidth = resolveLength(node.opt("strokeWidth"), Math.min(width, height), 0, false);
+            paint.setStrokeWidth(strokeWidth);
+            if (strokeWidth <= 0) return;
+            Object stroke = firstPresent(node, "stroke", "strokeColor", "borderColor");
+            android.graphics.Shader shader = shaderFrom(stroke, width, height);
+            if (shader != null) paint.setShader(shader);
+            else paint.setColor(withAlpha(parseNodeColor(stroke, Color.TRANSPARENT), alpha));
+        }
+
+        private void resetPaint(float alpha) {
+            paint.reset();
+            paint.setAntiAlias(true);
+            paint.setFilterBitmap(true);
+            paint.setDither(true);
+            paint.setAlpha(Math.max(0, Math.min(255, Math.round(alpha * 255f))));
+        }
+
+        private void applyShadow(JSONObject node, float alpha) {
+            JSONObject shadow = node.optJSONObject("shadow");
+            if (shadow == null) return;
+            Integer color = parseNodeColor(shadow.opt("color"), Color.BLACK);
+            float radius = resolveLength(shadow.opt("radius"), 0, 0, false);
+            float dx = resolveLength(shadow.opt("dx"), 0, 0, false);
+            float dy = resolveLength(shadow.opt("dy"), 0, 0, false);
+            if (radius > 0) paint.setShadowLayer(radius, dx, dy, withAlpha(color != null ? color : Color.BLACK, alpha));
+        }
+
+        private void clipNode(android.graphics.Canvas canvas, JSONObject node, float width, float height) {
+            float radius = resolveLength(firstPresent(node, "clipRadius", "borderRadius", "radius"), Math.min(width, height), 0, false);
+            if (radius > 0) {
+                android.graphics.Path path = new android.graphics.Path();
+                path.addRoundRect(new android.graphics.RectF(0, 0, width, height), radius, radius, android.graphics.Path.Direction.CW);
+                canvas.clipPath(path);
+            } else canvas.clipRect(0, 0, width, height);
+        }
+
+        private android.graphics.Shader shaderFrom(Object raw, float width, float height) {
+            if (!(raw instanceof JSONObject spec)) return null;
+            JSONArray colorsJson = spec.optJSONArray("colors");
+            if (colorsJson == null || colorsJson.length() == 0) return null;
+            int[] colors = new int[colorsJson.length()];
+            for (int i = 0; i < colors.length; i++) colors[i] = parseNodeColor(colorsJson.opt(i), Color.TRANSPARENT);
+            float[] positions = null;
+            JSONArray positionsJson = spec.optJSONArray("positions");
+            if (positionsJson != null && positionsJson.length() == colors.length) {
+                positions = new float[colors.length];
+                for (int i = 0; i < positions.length; i++)
+                    positions[i] = (float) positionsJson.optDouble(i, i / Math.max(1f, positions.length - 1f));
+            }
+            String type = spec.optString("type", "linear").toLowerCase();
+            if (type.contains("radial")) {
+                float cx = resolveLength(spec.opt("centerX"), width, width / 2f, false);
+                float cy = resolveLength(spec.opt("centerY"), height, height / 2f, false);
+                float radius = resolveLength(spec.opt("radius"), Math.min(width, height), Math.max(width, height) / 2f, false);
+                return new android.graphics.RadialGradient(cx, cy, Math.max(1, radius), colors, positions, android.graphics.Shader.TileMode.CLAMP);
+            }
+            if (type.contains("sweep")) {
+                float cx = resolveLength(spec.opt("centerX"), width, width / 2f, false);
+                float cy = resolveLength(spec.opt("centerY"), height, height / 2f, false);
+                return new android.graphics.SweepGradient(cx, cy, colors, positions);
+            }
+            float startX = resolveLength(spec.opt("startX"), width, 0, false);
+            float startY = resolveLength(spec.opt("startY"), height, 0, false);
+            float endX = resolveLength(spec.opt("endX"), width, width, false);
+            float endY = resolveLength(spec.opt("endY"), height, 0, false);
+            return new android.graphics.LinearGradient(startX, startY, endX, endY, colors, positions, android.graphics.Shader.TileMode.CLAMP);
+        }
+
+        private android.graphics.RectF imageDestination(Bitmap bitmap, float width, float height, String mode) {
+            String normalized = mode == null ? "cover" : mode.toLowerCase();
+            if (normalized.contains("fit_xy") || normalized.contains("fitxy") || "stretch".equals(normalized))
+                return new android.graphics.RectF(0, 0, width, height);
+            float bw = bitmap.getWidth();
+            float bh = bitmap.getHeight();
+            if (bw <= 0 || bh <= 0 || width <= 0 || height <= 0) return new android.graphics.RectF(0, 0, width, height);
+            float scale = (normalized.contains("contain") || normalized.contains("fitcenter") || normalized.contains("fit_center")) ? Math.min(width / bw, height / bh) : (normalized.contains("center") && !normalized.contains("crop") ? 1f : Math.max(width / bw, height / bh));
+            float drawW = bw * scale;
+            float drawH = bh * scale;
+            float left = (width - drawW) / 2f;
+            float top = (height - drawH) / 2f;
+            return new android.graphics.RectF(left, top, left + drawW, top + drawH);
+        }
+
+        private Bitmap getBitmapForDraw(String src, float blurRadius) {
+            Bitmap bitmap = IMAGE_CACHE.get(src);
+            if (bitmap == null) return null;
+            if (blurRadius <= 0) return bitmap;
+            int radius = Math.max(1, Math.round(blurRadius));
+            String key = src + "#blur#" + radius;
+            Bitmap cached = BLUR_CACHE.get(key);
+            if (cached != null) return cached;
+            int sample = Math.max(2, Math.min(24, radius / 2));
+            int w = Math.max(1, bitmap.getWidth() / sample);
+            int h = Math.max(1, bitmap.getHeight() / sample);
+            Bitmap blurred = Bitmap.createScaledBitmap(bitmap, w, h, true);
+            BLUR_CACHE.put(key, blurred);
+            return blurred;
+        }
+
+        private void ensureImage(String src) {
+            if (src == null || src.isEmpty() || IMAGE_CACHE.containsKey(src)) return;
+            if (!IMAGE_LOADING.add(src)) return;
+            new Thread(() -> {
+                try {
+                    Bitmap bitmap;
+                    if (src.startsWith("http://") || src.startsWith("https://")) {
+                        try (InputStream stream = new URL(src).openConnection().getInputStream()) {
+                            bitmap = BitmapFactory.decodeStream(stream);
+                        }
+                    } else if (src.startsWith("content://") || src.startsWith("android.resource://")) {
+                        try (InputStream stream = host.context.getContentResolver().openInputStream(Uri.parse(src))) {
+                            bitmap = BitmapFactory.decodeStream(stream);
+                        }
+                    } else if (src.startsWith("file://")) bitmap = BitmapFactory.decodeFile(Uri.parse(src).getPath());
+                    else bitmap = BitmapFactory.decodeFile(src);
+                    if (bitmap == null) throw new IllegalStateException("Bitmap decode returned null");
+                    IMAGE_CACHE.put(src, bitmap);
+                    host.mainHandler.post(() -> {
+                        IMAGE_LOADING.remove(src);
+                        invalidate();
+                        if (onImageLoadEventId >= 0) sendSimpleEvent("onImageLoad", onImageLoadEventId, payload -> {
+                            payload.put("src", src);
+                            payload.put("width", bitmap.getWidth());
+                            payload.put("height", bitmap.getHeight());
+                        });
+                    });
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed loading ScriptView image: " + src, e);
+                    host.mainHandler.post(() -> {
+                        IMAGE_LOADING.remove(src);
+                        if (onImageErrorEventId >= 0) sendSimpleEvent("onImageError", onImageErrorEventId, payload -> {
+                            payload.put("src", src);
+                            payload.put("error", String.valueOf(e.getMessage()));
+                        });
+                    });
+                }
+            }).start();
+        }
+
+        private void preloadImages(JSONArray nodes) {
+            if (nodes == null) return;
+            for (int i = 0; i < nodes.length(); i++) {
+                JSONObject node = nodes.optJSONObject(i);
+                if (node == null) continue;
+                if ("image".equals(node.optString("type"))) {
+                    String src = node.optString("src", node.optString("uri", null));
+                    if (src != null && !src.isEmpty()) ensureImage(src);
+                }
+                preloadImages(node.optJSONArray("children"));
+            }
+        }
+
+        private boolean patchDisplayNode(JSONArray nodes, String id, JSONObject patch) {
+            if (nodes == null) return false;
+            for (int i = 0; i < nodes.length(); i++) {
+                JSONObject node = nodes.optJSONObject(i);
+                if (node == null) continue;
+                if (id.equals(String.valueOf(node.opt("id")))) {
+                    Iterator<String> keys = patch.keys();
+                    while (keys.hasNext()) {
+                        try {
+                            String key = keys.next();
+                            node.put(key, patch.opt(key));
+                        } catch(Exception ignored) { }
+                    }
+                    return true;
+                }
+                if (patchDisplayNode(node.optJSONArray("children"), id, patch)) return true;
+            }
+            return false;
+        }
+
+        private boolean displayListHasShadow(JSONArray nodes) {
+            if (nodes == null) return false;
+            for (int i = 0; i < nodes.length(); i++) {
+                JSONObject node = nodes.optJSONObject(i);
+                if (node == null) continue;
+                if (node.has("shadow")) return true;
+                if (displayListHasShadow(node.optJSONArray("children"))) return true;
+            }
+            return false;
+        }
+
+        private Object firstPresent(JSONObject node, String... keys) {
+            for (String key : keys) if (node.has(key)) return node.opt(key);
+            return null;
+        }
+
+        private float resolveLength(Object raw, float base, float fallback, boolean textSp) {
+            try {
+                if (raw == null || raw == JSONObject.NULL) return fallback;
+                if (raw instanceof Number number)
+                    return textSp ? host.sp(number.floatValue()) : host.dp(number.floatValue());
+                String text = String.valueOf(raw).trim().toLowerCase();
+                if (text.isEmpty() || "auto".equals(text) || "undefined".equals(text)) return fallback;
+                if (text.endsWith("%")) return base * Float.parseFloat(text.substring(0, text.length() - 1)) / 100f;
+                if (text.endsWith("px")) return Float.parseFloat(text.substring(0, text.length() - 2));
+                if (text.endsWith("sp")) return host.sp(Float.parseFloat(text.substring(0, text.length() - 2)));
+                if (text.endsWith("dp")) return host.dp(Float.parseFloat(text.substring(0, text.length() - 2)));
+                return textSp ? host.sp(Float.parseFloat(text)) : host.dp(Float.parseFloat(text));
+            } catch (Exception ignored) {
+                return fallback;
+            }
+        }
+
+        private float normalizeAngle(Object raw) {
+            if (raw == null || raw == JSONObject.NULL) return 0f;
+            if (raw instanceof Number number) return number.floatValue();
+            try {
+                String text = String.valueOf(raw).trim().toLowerCase();
+                if (text.endsWith("deg")) return Float.parseFloat(text.substring(0, text.length() - 3));
+                if (text.endsWith("rad"))
+                    return (float) (Float.parseFloat(text.substring(0, text.length() - 3)) * 180.0 / Math.PI);
+                return Float.parseFloat(text);
+            } catch (Exception ignored) {
+                return 0f;
+            }
+        }
+
+        private Integer parseNodeColor(Object raw, Integer fallback) {
+            if (raw instanceof JSONObject) return fallback;
+            Integer color = host.parseColor(raw);
+            return color != null ? color : fallback;
+        }
+
+        private int withAlpha(int color, float alpha) {
+            int baseAlpha = Color.alpha(color);
+            int nextAlpha = Math.max(0, Math.min(255, Math.round(baseAlpha * alpha)));
+            return (color & 0x00FFFFFF) | (nextAlpha << 24);
+        }
+
+        private void sendSimpleEvent(String eventName, int eventId, EventPayloadWriter writer) {
+            try {
+                JSONObject payload = host.basePayload(ownerNode.id);
+                if (writer != null) writer.write(payload);
+                host.sendEventToNode(ownerNode.id, eventName, eventId, payload);
+            } catch (Exception e) {
+                Log.e(TAG, "Failed sending ScriptView event " + eventName, e);
+            }
+        }
+
+        private interface EventPayloadWriter {
+            void write(JSONObject payload) throws Exception;
         }
     }
 
@@ -2404,12 +3246,38 @@ public class ScriptViewHost {
             return;
         }
 
+        forceAndroidLayoutTree(surfaceNode);
+        surfaceView.forceLayout();
+
         int widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY);
         int heightSpec = View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY);
 
         surfaceView.measure(widthSpec, heightSpec);
         surfaceView.layout(0, 0, width, height);
+
+        layoutChildrenForNodeRecursive(surfaceNode);
+        invalidateTree(surfaceNode);
+
         surfaceView.invalidate();
+        hostRoot.invalidate();
+    }
+
+    private void forceAndroidLayoutTree(RenderNode node) {
+        if (node == null) return;
+        if (node.view != null) node.view.forceLayout();
+        for (RenderNode child : node.children) if (!child.isRawText) forceAndroidLayoutTree(child);
+    }
+
+    private void layoutChildrenForNodeRecursive(RenderNode node) {
+        if (node == null) return;
+        layoutChildrenForNode(node);
+        for (RenderNode child : node.children) if (!child.isRawText) layoutChildrenForNodeRecursive(child);
+    }
+
+    private void invalidateTree(RenderNode node) {
+        if (node == null) return;
+        if (node.view != null) node.view.invalidate();
+        for (RenderNode child : node.children) if (!child.isRawText) invalidateTree(child);
     }
 
     public void dispose() {

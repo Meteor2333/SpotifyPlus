@@ -4,10 +4,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScriptLoader = void 0;
+//@ts-ignore
 const fs_1 = __importDefault(require("fs"));
+//@ts-ignore
 const path_1 = __importDefault(require("path"));
+//@ts-ignore
 const vm_1 = __importDefault(require("vm"));
+//@ts-ignore
 const module_1 = require("module");
+//@ts-ignore
+const url_1 = require("url");
+//@ts-ignore
+const util_1 = require("util");
 const script_api_1 = require("./script-api");
 const script_manifest_1 = require("./script-manifest");
 const renderer_1 = require("../ui/renderer");
@@ -46,20 +54,93 @@ class ScriptLoader {
         if (!fs_1.default.existsSync(entryPath))
             throw new Error(`Script entry not found: ${entryPath}`);
         const source = fs_1.default.readFileSync(entryPath, 'utf8');
-        const globals = this.apiFactory.create(manifest.id);
-        const localRequire = (0, module_1.createRequire)(entryPath);
+        const api = this.apiFactory.create(manifest.id);
+        const globals = {};
+        globals.__spotifyplus_api__ = api;
+        const nodeRequire = (0, module_1.createRequire)(entryPath);
+        //@ts-ignore
+        const componentsPath = path_1.default.resolve(__dirname, '../ui/components.js');
+        const componentsModule = nodeRequire(componentsPath);
+        let fetchImpl = undefined;
+        let HeadersImpl = undefined;
+        let RequestImpl = undefined;
+        let ResponseImpl = undefined;
+        try {
+            const fetched = nodeRequire('node-fetch');
+            fetchImpl = fetched.default ?? fetched;
+            HeadersImpl = fetched.Headers;
+            RequestImpl = fetched.Request;
+            ResponseImpl = fetched.Response;
+        }
+        catch (error) {
+            this.logger.warn(`node-fetch is not available for script ${manifest.id}`, error);
+        }
+        const localRequire = (specifier) => {
+            if (specifier === 'spotifyplus') {
+                return {
+                    SpotifyPlus: api.SpotifyPlus,
+                    default: api.SpotifyPlus
+                };
+            }
+            if (specifier === 'spotifyplus/react') {
+                return componentsModule;
+            }
+            return nodeRequire(specifier);
+        };
         const module = { exports: {} };
         globals.require = localRequire;
         globals.module = module;
         globals.exports = module.exports;
         globals.__filename = entryPath;
         globals.__dirname = path_1.default.dirname(entryPath);
+        //@ts-ignore
         globals.process = process;
+        //@ts-ignore
         globals.Buffer = Buffer;
         globals.console = console;
+        globals.setTimeout = setTimeout;
+        globals.clearTimeout = clearTimeout;
+        globals.setInterval = setInterval;
+        globals.clearInterval = clearInterval;
+        //@ts-ignore
+        globals.setImmediate = typeof setImmediate === 'function' ? setImmediate : (fn, ...args) => setTimeout(fn, 0, ...args);
+        //@ts-ignore
+        globals.clearImmediate = typeof clearImmediate === 'function' ? clearImmediate : clearTimeout;
+        globals.queueMicrotask = typeof queueMicrotask === 'function' ? queueMicrotask : (callback) => Promise.resolve().then(callback);
+        globals.URL = url_1.URL;
+        globals.URLSearchParams = url_1.URLSearchParams;
+        globals.TextEncoder = util_1.TextEncoder;
+        globals.TextDecoder = util_1.TextDecoder;
+        if (fetchImpl)
+            globals.fetch = fetchImpl;
+        if (HeadersImpl)
+            globals.Headers = HeadersImpl;
+        if (RequestImpl)
+            globals.Request = RequestImpl;
+        if (ResponseImpl)
+            globals.Response = ResponseImpl;
+        globals.Promise = Promise;
+        globals.Symbol = Symbol;
+        globals.Map = Map;
+        globals.Set = Set;
+        globals.WeakMap = WeakMap;
+        globals.WeakSet = WeakSet;
+        globals.Array = Array;
+        globals.Object = Object;
+        globals.String = String;
+        globals.Number = Number;
+        globals.Boolean = Boolean;
+        globals.Date = Date;
+        globals.RegExp = RegExp;
+        globals.Error = Error;
+        globals.TypeError = TypeError;
+        globals.JSON = JSON;
+        globals.Math = Math;
+        globals.Reflect = Reflect;
+        globals.Proxy = Proxy;
         globals.global = globals;
         globals.globalThis = globals;
-        globals.queueMicrotask = typeof queueMicrotask === 'function' ? queueMicrotask : (callback) => Promise.resolve().then(callback);
+        globals.self = globals;
         const context = vm_1.default.createContext(globals, {
             name: `SpotifyPlusScript:${manifest.id}`,
             codeGeneration: {

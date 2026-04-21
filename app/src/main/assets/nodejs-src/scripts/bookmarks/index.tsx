@@ -4,6 +4,7 @@ import Marketplace from './marketplace';
 import YogaTestPage from './test';
 import Test from './app';
 import AnimatedTestScreen from './AnimatedTestScreen';
+import ExampleScriptView from './CustomScriptViewTest';
 
 console.log('Loading bookmarks!');
 const main = async () => {
@@ -13,7 +14,7 @@ const main = async () => {
     //@ts-expect-error
     new SpotifyPlus.SideDrawer('Marketplace', () => {
         // return <Marketplace SpotifyPlus={SpotifyPlus} />
-        return <AnimatedTestScreen />
+        return <ExampleScriptView artwork='https://image-cdn-fa.spotifycdn.com/image/ab67616d0000b2734dcb6c5df15cf74596ab25a4' />
 
         // //@ts-expect-error
         // return <App bookmarks={bookmarks} SpotifyPlus={SpotifyPlus} onDeleteTrack={(uri: string) => {

@@ -223,6 +223,8 @@ public class PlayerHook extends SpotifyHook {
                     SpotifyTrack track = Utils.getTrack(classLoader);
                     if (track == null) return;
 
+                    log("Current track: " + track.title);
+
                     JSONObject payload = new JSONObject();
                     payload.put("title", track.title);
                     payload.put("trackNumber", track.trackNumber);
@@ -234,7 +236,7 @@ public class PlayerHook extends SpotifyHook {
                     payload.put("durationMs", track.duration);
 //                    payload.put("artworkUrl", "https://i.scdn.co/image/" + track.imageId);
 
-                    BridgeClient.send(id, "response", "", payload);
+                    BridgeClient.send(id, "response", "player.getCurrent", payload);
                 }
                 case "seek" -> {
                     String position = json.getString("position");
@@ -268,11 +270,11 @@ public class PlayerHook extends SpotifyHook {
                 }
                 case "getProgress" -> {
                     long position = Utils.getCurrentPlaybackPosition();
-                    BridgeClient.send(id, "response", "", new JSONObject().put("position", position));
+                    BridgeClient.send(id, "response", "player.getProgress", new JSONObject().put("position", position));
                 }
                 case "getDuration" -> {
                     SpotifyTrack track = Utils.getTrack(classLoader);
-                    BridgeClient.send(id, "response", "", new JSONObject().put("duration", track.duration));
+                    BridgeClient.send(id, "response", "player.getDuration", new JSONObject().put("duration", track.duration));
                 }
                 case "togglePlay" -> {
                     if (json.has("play")) {
