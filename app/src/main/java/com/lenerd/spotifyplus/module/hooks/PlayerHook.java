@@ -5,7 +5,7 @@ import com.lenerd.spotifyplus.manager.bridge.BridgeClient;
 import com.lenerd.spotifyplus.module.SpotifyCallback;
 import com.lenerd.spotifyplus.module.SpotifyHook;
 import com.lenerd.spotifyplus.module.Utils;
-import com.lenerd.spotifyplus.module.entities.SpotifyTrack;
+import com.lenerd.spotifyplus.sdk.spotify.entities.SpotifyTrack;
 import com.lenerd.spotifyplus.module.scripting.ScriptManager;
 import com.lenerd.spotifyplus.module.scripting.SpotifyNativeBridge;
 import io.github.libxposed.api.XposedInterface;

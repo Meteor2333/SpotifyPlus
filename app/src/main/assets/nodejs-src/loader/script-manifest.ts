@@ -7,6 +7,12 @@ export interface ScriptManifest {
     author?: string;
     permissions: string[];
     api: number;
+    native: NativeObject;
+}
+
+interface NativeObject {
+    dex: string;
+    pluginClass: string;
 }
 
 export function parseManifest(raw: unknown): ScriptManifest {
@@ -21,8 +27,19 @@ export function parseManifest(raw: unknown): ScriptManifest {
     const author = optionalString(manifest.author, 'manifest.author');
     const api = typeof manifest.api === 'number' ? manifest.api : 1;
     const permissions = Array.isArray(manifest.permissions) ? manifest.permissions.map((item, index) => ensureString(item, `manifest.permissions[${index}]`)) : [];
+    const native = parseNativeObject(manifest.native, 'manifest.native');
 
-    return { id, name, version, main, description, author, permissions, api };
+    return { id, name, version, main, description, author, permissions, api, native };
+}
+
+function parseNativeObject(raw: unknown, fieldName: string): NativeObject {
+    if (!raw || typeof raw !== 'object') throw new Error(`${fieldName} must be an object`);
+    const native = raw as Record<string, unknown>;
+
+    const dex = ensureString(native.dex, `${fieldName}.dex`);
+    const pluginClass = ensureString(native.pluginClass, `${fieldName}.pluginClass`);
+
+    return { dex, pluginClass };
 }
 
 function ensureString(value: unknown, fieldName: string): string {

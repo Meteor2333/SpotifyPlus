@@ -26,4 +26,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "SpotifyPlus"
 include(":app")
- 
+include(":spotifyplus-sdk")

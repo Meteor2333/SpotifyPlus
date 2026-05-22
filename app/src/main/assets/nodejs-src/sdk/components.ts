@@ -5,6 +5,8 @@ import * as Internal from "../ui/components";
 
 export type * from "../ui/components";
 
+export const createNativeComponent: typeof Internal.createNativeComponent = Internal.createNativeComponent;
+export const NativeView: typeof Internal.NativeView = Internal.NativeView;
 export const View: typeof Internal.View = Internal.View;
 export const LinearLayout: typeof Internal.LinearLayout = Internal.LinearLayout;
 export const FrameLayout: typeof Internal.FrameLayout = Internal.FrameLayout;
@@ -47,6 +49,8 @@ export const StyleSheet: typeof Internal.StyleSheet = Internal.StyleSheet;
 export const Animated: typeof Internal.Animated = Internal.Animated;
 
 export default {
+    createNativeComponent,
+    NativeView,
     View,
     LinearLayout,
     FrameLayout,

@@ -23,7 +23,7 @@ import com.lenerd.spotifyplus.module.SpotifyCallback;
 import com.lenerd.spotifyplus.module.SpotifyHook;
 import com.lenerd.spotifyplus.module.SpotifyPlusSettings;
 import com.lenerd.spotifyplus.module.Utils;
-import com.lenerd.spotifyplus.module.entities.SpotifyTrack;
+import com.lenerd.spotifyplus.sdk.spotify.entities.SpotifyTrack;
 import io.github.libxposed.api.XposedInterface;
 import io.github.libxposed.api.annotations.AfterInvocation;
 import io.github.libxposed.api.annotations.XposedHooker;

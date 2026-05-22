@@ -1,4 +1,4 @@
-package com.lenerd.spotifyplus.module.entities;
+package com.lenerd.spotifyplus.sdk.spotify.entities;
 
 public class SpotifyTrack {
     public final String title;

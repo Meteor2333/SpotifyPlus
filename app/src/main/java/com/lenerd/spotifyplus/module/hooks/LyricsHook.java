@@ -26,7 +26,7 @@ import com.google.gson.JsonParser;
 import com.lenerd.spotifyplus.R;
 import com.lenerd.spotifyplus.manager.bridge.BridgeClient;
 import com.lenerd.spotifyplus.module.*;
-import com.lenerd.spotifyplus.module.entities.SpotifyTrack;
+import com.lenerd.spotifyplus.sdk.spotify.entities.SpotifyTrack;
 import com.lenerd.spotifyplus.module.lyrics.AnimatedBackgroundView;
 import com.lenerd.spotifyplus.module.lyrics.LyricUtilities;
 import com.lenerd.spotifyplus.module.lyrics.Spring;

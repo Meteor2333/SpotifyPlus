@@ -61,6 +61,8 @@ export class ScriptLoader {
         //@ts-ignore
         const componentsPath = path.resolve(__dirname, '../ui/components.js');
         const componentsModule = nodeRequire(componentsPath);
+        const animatedPath = path.resolve(__dirname, '../ui/reanimated.js');
+        const animatedModule = nodeRequire(animatedPath);
 
         let fetchImpl: any = undefined;
         let HeadersImpl: any = undefined;
@@ -86,6 +88,10 @@ export class ScriptLoader {
             }
             if (specifier === 'spotifyplus/react') {
                 return componentsModule;
+            }
+
+            if (specifier === 'spotifyplus/animated') {
+                return animatedModule;
             }
 
             return nodeRequire(specifier);
@@ -166,6 +172,13 @@ export class ScriptLoader {
             manifest,
             directoryPath: scriptDirectory
         });
+
+        if (manifest.native) {
+            const dexPath = path.resolve(scriptDirectory, manifest.native.dex);
+            if (!fs.existsSync(dexPath)) throw new Error(`Native dex file not found: ${dexPath}`);
+
+            this.runtime.loadDex(manifest.id, dexPath, manifest.native.pluginClass);
+        }
 
         script.runInContext(context);
 

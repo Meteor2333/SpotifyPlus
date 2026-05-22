@@ -1,19 +1,22 @@
 package com.lenerd.spotifyplus.module.scripting;
 
+import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.ViewGroup;
 
-import com.lenerd.spotifyplus.module.SpotifyApi;
 import com.lenerd.spotifyplus.module.SpotifyHook;
 import com.lenerd.spotifyplus.module.Utils;
-import com.lenerd.spotifyplus.module.entities.SpotifyTrack;
+import com.lenerd.spotifyplus.sdk.spotify.entities.SpotifyTrack;
 import com.lenerd.spotifyplus.module.scripting.entities.PlatformData;
 
+import com.lenerd.spotifyplus.module.scripting.nativestuff.NativeComponentRegistry;
+import com.lenerd.spotifyplus.module.scripting.nativestuff.SpotifyPlusContextImplementation;
+import com.lenerd.spotifyplus.sdk.SpotifyPlusPlugin;
 import org.json.JSONArray;
-import org.json.JSONObject;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -25,7 +28,12 @@ public class SpotifyNativeBridge {
     private static final Handler mainHandler = new Handler(Looper.getMainLooper());
     private static final Map<String, ScriptViewHost> surfaceHosts = new ConcurrentHashMap<>();
     private static final Set<String> registeredSurfaces = ConcurrentHashMap.newKeySet();
+    public static final NativeComponentRegistry scriptRegistry = new NativeComponentRegistry();
+
     private final ClassLoader classLoader;
+    private final File scriptDirectory;
+    private final File optimizedDirectory;
+    private final Context context;
 
     public static class StorageReadResult {
         public boolean found;
@@ -45,8 +53,11 @@ public class SpotifyNativeBridge {
         }
     }
 
-    public SpotifyNativeBridge(ClassLoader classLoader) {
+    public SpotifyNativeBridge(ClassLoader classLoader, File scriptDirectory, File optimizedDirectory, Context context) {
         this.classLoader = classLoader;
+        this.scriptDirectory = scriptDirectory;
+        this.optimizedDirectory = optimizedDirectory;
+        this.context = context;
     }
 
     private static Object invokeHandler(String type, String id, Object... args) {
@@ -61,6 +72,48 @@ public class SpotifyNativeBridge {
         } catch (Throwable e) {
             Log.e(TAG, "Failed to invoke handler " + type + ":" + id, e);
             return null;
+        }
+    }
+
+    public void loadDex(String scriptId, String dexPath, String pluginClass) {
+        try {
+            Log.d("DexLoader", "Loading " + pluginClass);
+            if (dexPath.endsWith(".apk")) dexPath = dexPath.substring(0, dexPath.length() - 4);
+            File dexFile = new File(dexPath + ".apk");
+            dexFile.setReadable(true, false);
+            dexFile.setWritable(false, false);
+            dexFile.setExecutable(false, false);
+            Log.d("DexLoader", dexFile.getAbsolutePath());
+
+            if (dexFile.exists()) {
+                Log.d("DexLoader", "Dex File exists!");
+                ScriptDexLoader loader = new ScriptDexLoader(context);
+                ClassLoader scriptLoader = loader.loadDex(dexFile, optimizedDirectory, SpotifyPlusPlugin.class.getClassLoader());
+
+                try {
+                    dalvik.system.DexFile dex = new dalvik.system.DexFile(dexFile);
+                    java.util.Enumeration<String> entries = dex.entries();
+
+                    while (entries.hasMoreElements()) {
+                        String name = entries.nextElement();
+                        if (name.contains("lyrics")) Log.d("DexLoader", "Class in dex: " + name);
+                    }
+
+                    dex.close();
+                } catch (Throwable t) {
+                    Log.e("DexLoader", "Failed listing dex classes", t);
+                }
+
+//                SpotifyPlusPlugin plugin = loader.loadPluginFromDexFile(dexFile, optimizedDirectory, SpotifyPlusPlugin.class.getClassLoader(), pluginClass);
+                SpotifyPlusPlugin plugin = loader.loadPlugin(scriptLoader, pluginClass);
+                SpotifyPlusContextImplementation context = new SpotifyPlusContextImplementation(this);
+                scriptRegistry.setContext(context);
+                plugin.register(scriptRegistry, context);
+            } else {
+                Log.d("DexLoader", "Did not find " + dexFile.getAbsolutePath());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to load dex file " + dexPath, e);
         }
     }
 

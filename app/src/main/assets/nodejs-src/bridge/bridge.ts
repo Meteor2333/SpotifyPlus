@@ -16,6 +16,7 @@ interface NativeBridge {
     pollFromJava(): string | undefined;
 
     setEventHandler(callback: (type: string, payload: string) => void): void;
+    loadDex(scriptId: string, dexPath: string, pluginClass: string): void;
 
     getPlatformData(): PlatformData;
     getAccessToken(): string;
@@ -89,6 +90,10 @@ export class Bridge extends EventEmitter {
         // if (!this.pollingHandle) return;
         // clearInterval(this.pollingHandle);
         // this.pollingHandle = null;
+    }
+
+    loadDex(scriptId: string, dexPath: string, pluginClass: string): void {
+        this.addon.loadDex(scriptId, dexPath, pluginClass);
     }
 
     getPlatformData(): PlatformData {

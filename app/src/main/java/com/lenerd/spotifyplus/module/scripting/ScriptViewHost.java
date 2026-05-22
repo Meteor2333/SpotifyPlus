@@ -55,6 +55,9 @@ import com.facebook.yoga.YogaPositionType;
 import com.facebook.yoga.YogaWrap;
 
 import com.lenerd.spotifyplus.module.Utils;
+import com.lenerd.spotifyplus.module.scripting.nativestuff.NativeComponentEntry;
+import com.lenerd.spotifyplus.module.scripting.nativestuff.SpotifyPlusContextImplementation;
+import com.lenerd.spotifyplus.sdk.SpotifyPlusComponent;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -104,8 +107,22 @@ public class ScriptViewHost {
     private final Map<ImageView, Integer> imageRequestIds = new WeakHashMap<>();
     private final Map<Integer, Animator> runningNativeAnimations = new HashMap<>();
     private final Map<Integer, Integer> nativeAnimationNodes = new HashMap<>();
+    private final Map<Integer, AnimatedBindingSet> animatedBindingSets = new HashMap<>();
+    private final Map<Integer, AnimatedSharedValue> animatedSharedValues = new HashMap<>();
+    private final Map<Integer, SharedValueAnimation> runningSharedValueAnimations = new HashMap<>();
+    private boolean animatedPropsFrameLoopRunning = false;
+    private long animatedLastPlaybackSyncRealtimeMs = 0;
+    private long animatedPlaybackBaseRealtimeMs = 0;
+    private double animatedPlaybackBasePositionMs = 0.0;
+    private final android.view.Choreographer.FrameCallback animatedPropsFrameCallback = new android.view.Choreographer.FrameCallback() {
+        @Override
+        public void doFrame(long frameTimeNanos) {
+            runAnimatedPropsFrame(frameTimeNanos);
+        }
+    };
     private int nextImageRequestId = 1;
     private static boolean initialized = false;
+    private final Map<Integer, Integer> nativeChildrenStartIndexes = new HashMap<>();
 
     public ScriptViewHost(String surfaceId, ViewGroup root) {
         Context context = root.getContext();
@@ -296,6 +313,15 @@ public class ScriptViewHost {
             case "updateText":
                 updateText(op);
                 break;
+            case "setAnimatedProps":
+                setAnimatedProps(op);
+                break;
+            case "removeAnimatedProps":
+                removeAnimatedProps(op);
+                break;
+            case "updateSharedValue":
+                updateSharedValue(op);
+                break;
             case "destroyNode":
                 destroyNode(op);
                 break;
@@ -402,6 +428,10 @@ public class ScriptViewHost {
 
             if (node.type.equals("RadioGroup")) syncRadioGroup(node);
         }
+
+        if (node.nativeComponent != null && node.view != null) {
+            node.nativeComponent.updateViewProps(node.view, null, node.props);
+        }
     }
 
     private void updateText(JSONObject op) throws Exception {
@@ -459,7 +489,7 @@ public class ScriptViewHost {
     private boolean opRequiresLayout(JSONObject op) {
         String kind = op.optString("op", "");
         if ("updateProps".equals(kind)) return propsAffectLayout(op.optJSONObject("props"));
-        if ("startNativeAnimation".equals(kind) || "stopNativeAnimation".equals(kind) || "viewCommand".equals(kind)) return false;
+        if ("startNativeAnimation".equals(kind) || "stopNativeAnimation".equals(kind) || "setAnimatedProps".equals(kind) || "removeAnimatedProps".equals(kind) || "updateSharedValue".equals(kind) || "viewCommand".equals(kind)) return false;
         return true;
     }
 
@@ -642,6 +672,474 @@ public class ScriptViewHost {
         for (Integer id : ids) stopNativeAnimation(id);
     }
 
+    private void setAnimatedProps(JSONObject op) throws Exception {
+        int nodeId = op.getInt("nodeId");
+        RenderNode node = getNode(nodeId);
+        if (node.view == null) return;
+
+        JSONObject props = op.optJSONObject("props");
+        if (props == null || props.length() == 0) {
+            removeAnimatedProps(nodeId);
+            return;
+        }
+
+        JSONObject copiedProps = copyJson(props);
+        registerAnimatedSharedValues(copiedProps);
+        animatedBindingSets.put(nodeId, new AnimatedBindingSet(nodeId, copiedProps, animatedBindingNeedsFrame(copiedProps)));
+
+        boolean needsLayout = applyAnimatedBindingSet(animatedBindingSets.get(nodeId), android.os.SystemClock.elapsedRealtime());
+        if (needsLayout) forceLayoutNow();
+        else if (node.view != null) node.view.invalidate();
+
+        maybeStartAnimatedPropsFrameLoop();
+    }
+
+    private void removeAnimatedProps(JSONObject op) {
+        removeAnimatedProps(op.optInt("nodeId", -1));
+    }
+
+    private void removeAnimatedProps(int nodeId) {
+        if (nodeId < 0) return;
+        animatedBindingSets.remove(nodeId);
+    }
+
+    private void updateSharedValue(JSONObject op) throws Exception {
+        int valueId = op.getInt("valueId");
+        Object value = op.has("value") ? op.opt("value") : 0;
+        JSONObject animation = op.optJSONObject("animation");
+
+        if (animation != null) {
+            Object toRaw = animation.has("toValue") ? animation.opt("toValue") : value;
+            double from = animatedSharedValues.containsKey(valueId) ? animatedSharedValues.get(valueId).numberValue : parseDouble(value, 0);
+            double to = parseDouble(evaluateAnimatedNode(toRaw, android.os.SystemClock.elapsedRealtime()), parseDouble(toRaw, from));
+            long now = android.os.SystemClock.elapsedRealtime();
+            long duration = Math.max(0, animation.optLong("duration", "spring".equals(animation.optString("__animation")) ? 450 : 300));
+            long delay = Math.max(0, animation.optLong("delay", 0));
+            String type = animation.optString("__animation", animation.optString("type", "timing"));
+            String easing = animation.optString("easing", "easeInOut");
+            runningSharedValueAnimations.put(valueId, new SharedValueAnimation(valueId, from, to, now + delay, duration, parseAnimationInterpolator(type, easing)));
+            animatedSharedValues.put(valueId, new AnimatedSharedValue(from));
+        } else {
+            runningSharedValueAnimations.remove(valueId);
+            animatedSharedValues.put(valueId, new AnimatedSharedValue(value));
+        }
+
+        boolean needsLayout = applyAnimatedPropsFrame(android.os.SystemClock.elapsedRealtime());
+        if (needsLayout) forceLayoutNow();
+        maybeStartAnimatedPropsFrameLoop();
+    }
+
+    private void registerAnimatedSharedValues(Object raw) {
+        if (raw == null || raw == JSONObject.NULL) return;
+        if (raw instanceof JSONArray array) {
+            for (int i = 0; i < array.length(); i++) registerAnimatedSharedValues(array.opt(i));
+            return;
+        }
+        if (!(raw instanceof JSONObject obj)) return;
+
+        if ("value".equals(obj.optString("__animated"))) {
+            int id = obj.optInt("id", -1);
+            if (id >= 0 && !animatedSharedValues.containsKey(id)) animatedSharedValues.put(id, new AnimatedSharedValue(obj.has("value") ? obj.opt("value") : 0));
+        }
+
+        Iterator<String> keys = obj.keys();
+        while (keys.hasNext()) registerAnimatedSharedValues(obj.opt(keys.next()));
+    }
+
+    private boolean animatedBindingNeedsFrame(Object raw) {
+        if (raw == null || raw == JSONObject.NULL) return false;
+        if (raw instanceof JSONArray array) {
+            for (int i = 0; i < array.length(); i++) if (animatedBindingNeedsFrame(array.opt(i))) return true;
+            return false;
+        }
+        if (!(raw instanceof JSONObject obj)) return false;
+
+        String type = obj.optString("__animated", "");
+        if ("playback".equals(type) || "clock".equals(type) || "systemTime".equals(type)) return true;
+
+        Iterator<String> keys = obj.keys();
+        while (keys.hasNext()) if (animatedBindingNeedsFrame(obj.opt(keys.next()))) return true;
+        return false;
+    }
+
+    private void maybeStartAnimatedPropsFrameLoop() {
+        if (animatedPropsFrameLoopRunning) return;
+        if (animatedBindingSets.isEmpty() && runningSharedValueAnimations.isEmpty()) return;
+        animatedPropsFrameLoopRunning = true;
+        android.view.Choreographer.getInstance().postFrameCallback(animatedPropsFrameCallback);
+    }
+
+    private boolean shouldContinueAnimatedPropsFrameLoop() {
+        if (!runningSharedValueAnimations.isEmpty()) return true;
+        for (AnimatedBindingSet set : animatedBindingSets.values()) if (set.needsFrameCallback) return true;
+        return false;
+    }
+
+    private void runAnimatedPropsFrame(long frameTimeNanos) {
+        long frameTimeMs = frameTimeNanos > 0 ? frameTimeNanos / 1000000L : android.os.SystemClock.elapsedRealtime();
+        boolean needsLayout = applyAnimatedPropsFrame(frameTimeMs);
+        if (needsLayout) forceLayoutNow();
+        else {
+            surfaceView.invalidate();
+            hostRoot.invalidate();
+        }
+
+        if (!animatedBindingSets.isEmpty() && shouldContinueAnimatedPropsFrameLoop()) {
+            android.view.Choreographer.getInstance().postFrameCallback(animatedPropsFrameCallback);
+        } else {
+            animatedPropsFrameLoopRunning = false;
+        }
+    }
+
+    private boolean applyAnimatedPropsFrame(long frameTimeMs) {
+        updateRunningSharedValueAnimations(frameTimeMs);
+        boolean needsLayout = false;
+        for (AnimatedBindingSet set : new ArrayList<>(animatedBindingSets.values())) needsLayout = applyAnimatedBindingSet(set, frameTimeMs) || needsLayout;
+        return needsLayout;
+    }
+
+    private void updateRunningSharedValueAnimations(long frameTimeMs) {
+        if (runningSharedValueAnimations.isEmpty()) return;
+        List<Integer> finished = new ArrayList<>();
+        for (SharedValueAnimation animation : runningSharedValueAnimations.values()) {
+            if (frameTimeMs < animation.startTimeMs) continue;
+            float rawProgress = animation.durationMs <= 0 ? 1f : Math.max(0f, Math.min(1f, (frameTimeMs - animation.startTimeMs) / (float) animation.durationMs));
+            float eased = animation.interpolator != null ? animation.interpolator.getInterpolation(rawProgress) : rawProgress;
+            double value = animation.from + ((animation.to - animation.from) * eased);
+            animatedSharedValues.put(animation.valueId, new AnimatedSharedValue(value));
+            if (rawProgress >= 1f) finished.add(animation.valueId);
+        }
+        for (Integer id : finished) runningSharedValueAnimations.remove(id);
+    }
+
+    private boolean applyAnimatedBindingSet(AnimatedBindingSet set, long frameTimeMs) {
+        RenderNode node = findNode(set.nodeId);
+        if (node == null || node.view == null) return false;
+
+        boolean needsLayout = false;
+        Iterator<String> keys = set.props.keys();
+        while (keys.hasNext()) {
+            String prop = keys.next();
+            Object value = evaluateAnimatedNode(set.props.opt(prop), frameTimeMs);
+            try {
+                JSONObject patch = new JSONObject();
+                patch.put(prop, value != null ? value : JSONObject.NULL);
+                if (propsAffectLayout(patch)) {
+                    node.props = mergeJson(node.props, patch);
+                    rebuildYogaNode(node);
+                    needsLayout = true;
+                } else {
+                    applyAnimatedPropValue(node, prop, value);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed applying animated prop " + prop + " to node " + node.id, e);
+            }
+        }
+        return needsLayout;
+    }
+
+    private Object evaluateAnimatedNode(Object raw, long frameTimeMs) {
+        if (raw == null || raw == JSONObject.NULL) return raw;
+        if (raw instanceof JSONArray array) {
+            JSONArray output = new JSONArray();
+            for (int i = 0; i < array.length(); i++) output.put(evaluateAnimatedNode(array.opt(i), frameTimeMs));
+            return output;
+        }
+        if (!(raw instanceof JSONObject obj)) return raw;
+
+        String type = obj.optString("__animated", "");
+        if (type == null || type.isEmpty()) return obj;
+
+        switch (type) {
+            case "value": {
+                int id = obj.optInt("id", -1);
+                AnimatedSharedValue value = animatedSharedValues.get(id);
+                return value != null ? value.rawValue : (obj.has("value") ? obj.opt("value") : 0);
+            }
+            case "const":
+                return obj.opt("value");
+            case "playback": {
+                double positionMs = getAnimatedPlaybackPositionMs() + obj.optDouble("offset", 0);
+                return "seconds".equals(obj.optString("unit", "ms")) ? positionMs / 1000.0 : positionMs;
+            }
+            case "clock":
+            case "systemTime":
+                return (double) frameTimeMs;
+            case "add":
+                return reduceAnimatedValues(obj.optJSONArray("values"), frameTimeMs, 0, (a, b) -> a + b);
+            case "subtract": {
+                JSONArray values = obj.optJSONArray("values");
+                if (values == null || values.length() == 0) return 0;
+                double first = evaluateAnimatedNumber(values.opt(0), frameTimeMs, 0);
+                for (int i = 1; i < values.length(); i++) first -= evaluateAnimatedNumber(values.opt(i), frameTimeMs, 0);
+                return first;
+            }
+            case "multiply":
+                return reduceAnimatedValues(obj.optJSONArray("values"), frameTimeMs, 1, (a, b) -> a * b);
+            case "divide": {
+                JSONArray values = obj.optJSONArray("values");
+                if (values == null || values.length() == 0) return 0;
+                double first = evaluateAnimatedNumber(values.opt(0), frameTimeMs, 0);
+                for (int i = 1; i < values.length(); i++) {
+                    double divisor = evaluateAnimatedNumber(values.opt(i), frameTimeMs, 1);
+                    first = divisor == 0 ? 0 : first / divisor;
+                }
+                return first;
+            }
+            case "clamp": {
+                double input = evaluateAnimatedNumber(obj.opt("input"), frameTimeMs, 0);
+                double min = obj.optDouble("min", 0);
+                double max = obj.optDouble("max", 1);
+                return Math.max(min, Math.min(max, input));
+            }
+            case "interpolate":
+                return interpolateAnimatedValue(obj, frameTimeMs, false);
+            case "interpolateColor":
+                return interpolateAnimatedValue(obj, frameTimeMs, true);
+            default:
+                return raw;
+        }
+    }
+
+    private double reduceAnimatedValues(JSONArray values, long frameTimeMs, double initial, AnimatedReducer reducer) {
+        if (values == null) return initial;
+        double result = initial;
+        for (int i = 0; i < values.length(); i++) result = reducer.reduce(result, evaluateAnimatedNumber(values.opt(i), frameTimeMs, 0));
+        return result;
+    }
+
+    private Object interpolateAnimatedValue(JSONObject obj, long frameTimeMs, boolean forceColor) {
+        double input = evaluateAnimatedNumber(obj.opt("input"), frameTimeMs, 0);
+        JSONArray inputRangeJson = obj.optJSONArray("inputRange");
+        JSONArray outputRangeJson = obj.optJSONArray("outputRange");
+        if (inputRangeJson == null || outputRangeJson == null || inputRangeJson.length() < 2 || outputRangeJson.length() < 2) return 0;
+
+        int last = Math.min(inputRangeJson.length(), outputRangeJson.length()) - 1;
+        int index = 0;
+        for (int i = 1; i <= last; i++) {
+            if (input <= inputRangeJson.optDouble(i)) {
+                index = i - 1;
+                break;
+            }
+            index = i - 1;
+        }
+
+        double inMin = inputRangeJson.optDouble(index);
+        double inMax = inputRangeJson.optDouble(index + 1);
+        double t = inMax == inMin ? 0 : (input - inMin) / (inMax - inMin);
+
+        String extrapolate = obj.optString("extrapolate", "extend");
+        String extrapolateLeft = obj.optString("extrapolateLeft", extrapolate);
+        String extrapolateRight = obj.optString("extrapolateRight", extrapolate);
+
+        if (input < inputRangeJson.optDouble(0)) {
+            if ("identity".equals(extrapolateLeft)) return input;
+            if ("clamp".equals(extrapolateLeft)) {
+                index = 0;
+                t = 0;
+            }
+        } else if (input > inputRangeJson.optDouble(last)) {
+            if ("identity".equals(extrapolateRight)) return input;
+            if ("clamp".equals(extrapolateRight)) {
+                index = last - 1;
+                t = 1;
+            }
+        }
+
+        Object outMinRaw = outputRangeJson.opt(index);
+        Object outMaxRaw = outputRangeJson.opt(index + 1);
+        if (forceColor || looksLikeAnimatedColor(outMinRaw) || looksLikeAnimatedColor(outMaxRaw)) {
+            Integer from = parseColor(outMinRaw);
+            Integer to = parseColor(outMaxRaw);
+            if (from == null || to == null) return outMinRaw;
+            return interpolateColorInt(from, to, (float) Math.max(0, Math.min(1, t)));
+        }
+
+        double outMin = parseDouble(outMinRaw, 0);
+        double outMax = parseDouble(outMaxRaw, outMin);
+        return outMin + ((outMax - outMin) * t);
+    }
+
+    private boolean looksLikeAnimatedColor(Object value) {
+        if (!(value instanceof String text)) return false;
+        String normalized = text.trim().toLowerCase();
+        return normalized.startsWith("#") || normalized.startsWith("rgb") || "black".equals(normalized) || "white".equals(normalized) || "red".equals(normalized) || "green".equals(normalized) || "blue".equals(normalized) || "yellow".equals(normalized) || "cyan".equals(normalized) || "magenta".equals(normalized) || "gray".equals(normalized) || "grey".equals(normalized) || "transparent".equals(normalized);
+    }
+
+    private int interpolateColorInt(int from, int to, float t) {
+        int a = Math.round(Color.alpha(from) + ((Color.alpha(to) - Color.alpha(from)) * t));
+        int r = Math.round(Color.red(from) + ((Color.red(to) - Color.red(from)) * t));
+        int g = Math.round(Color.green(from) + ((Color.green(to) - Color.green(from)) * t));
+        int b = Math.round(Color.blue(from) + ((Color.blue(to) - Color.blue(from)) * t));
+        return Color.argb(a, r, g, b);
+    }
+
+    private double evaluateAnimatedNumber(Object raw, long frameTimeMs, double fallback) {
+        return parseDouble(evaluateAnimatedNode(raw, frameTimeMs), fallback);
+    }
+
+    private void applyAnimatedPropValue(RenderNode node, String property, Object value) throws Exception {
+        if (node.view == null) return;
+        View view = node.view;
+
+        switch (property) {
+            case "alpha":
+            case "opacity":
+                view.setAlpha((float) parseDouble(value, view.getAlpha()));
+                break;
+            case "translationX":
+            case "translateX":
+                view.setTranslationX(dp((float) parseDouble(value, view.getTranslationX())));
+                break;
+            case "translationY":
+            case "translateY":
+                view.setTranslationY(dp((float) parseDouble(value, view.getTranslationY())));
+                break;
+            case "translationZ":
+            case "translateZ":
+                view.setTranslationZ(dp((float) parseDouble(value, view.getTranslationZ())));
+                break;
+            case "scale": {
+                float scale = (float) parseDouble(value, view.getScaleX());
+                view.setScaleX(scale);
+                view.setScaleY(scale);
+                break;
+            }
+            case "scaleX":
+                view.setScaleX((float) parseDouble(value, view.getScaleX()));
+                break;
+            case "scaleY":
+                view.setScaleY((float) parseDouble(value, view.getScaleY()));
+                break;
+            case "rotation":
+            case "rotate":
+                view.setRotation((float) parseDouble(value, view.getRotation()));
+                break;
+            case "rotationX":
+            case "rotateX":
+                view.setRotationX((float) parseDouble(value, view.getRotationX()));
+                break;
+            case "rotationY":
+            case "rotateY":
+                view.setRotationY((float) parseDouble(value, view.getRotationY()));
+                break;
+            case "elevation":
+                view.setElevation(dp((float) parseDouble(value, view.getElevation())));
+                break;
+            case "progress":
+                if (view instanceof ProgressBar progressBar) progressBar.setProgress((int) Math.round(parseDouble(value, progressBar.getProgress())));
+                break;
+            case "textColor":
+            case "color": {
+                Integer color = parseColor(value);
+                if (color != null && view instanceof TextView textView) textView.setTextColor(color);
+                break;
+            }
+            case "backgroundColor": {
+                JSONObject patch = new JSONObject();
+                patch.put("backgroundColor", value != null ? value : JSONObject.NULL);
+                node.props = mergeJson(node.props, patch);
+                applyBackgroundProps(view, node.props);
+                break;
+            }
+            case "clipRight": {
+                float progress = Math.max(0f, Math.min(1f, (float) parseDouble(value, 1)));
+                int right = Math.round(view.getWidth() * progress);
+                view.setClipBounds(new android.graphics.Rect(0, 0, right, view.getHeight()));
+                view.invalidate();
+                break;
+            }
+            case "clipLeft": {
+                float progress = Math.max(0f, Math.min(1f, (float) parseDouble(value, 0)));
+                int left = Math.round(view.getWidth() * progress);
+                view.setClipBounds(new android.graphics.Rect(left, 0, view.getWidth(), view.getHeight()));
+                view.invalidate();
+                break;
+            }
+            case "clipBottom": {
+                float progress = Math.max(0f, Math.min(1f, (float) parseDouble(value, 1)));
+                int bottom = Math.round(view.getHeight() * progress);
+                view.setClipBounds(new android.graphics.Rect(0, 0, view.getWidth(), bottom));
+                view.invalidate();
+                break;
+            }
+            case "clipTop": {
+                float progress = Math.max(0f, Math.min(1f, (float) parseDouble(value, 0)));
+                int top = Math.round(view.getHeight() * progress);
+                view.setClipBounds(new android.graphics.Rect(0, top, view.getWidth(), view.getHeight()));
+                view.invalidate();
+                break;
+            }
+            default: {
+                JSONObject patch = new JSONObject();
+                patch.put(property, value != null ? value : JSONObject.NULL);
+                node.props = mergeJson(node.props, patch);
+                withSuppressedEvents(node.id, () -> applyViewProps(node, view, node.props));
+                break;
+            }
+        }
+
+        view.invalidate();
+    }
+
+    private double getAnimatedPlaybackPositionMs() {
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (animatedPlaybackBaseRealtimeMs <= 0 || now - animatedLastPlaybackSyncRealtimeMs > 750) {
+            try {
+                double raw = Utils.getCurrentPlaybackPosition();
+                animatedPlaybackBasePositionMs = raw < 10000 ? raw * 1000.0 : raw;
+                animatedPlaybackBaseRealtimeMs = now;
+                animatedLastPlaybackSyncRealtimeMs = now;
+            } catch (Throwable ignored) { }
+        }
+        return animatedPlaybackBasePositionMs + Math.max(0, now - animatedPlaybackBaseRealtimeMs);
+    }
+
+    private interface AnimatedReducer {
+        double reduce(double a, double b);
+    }
+
+    private static class AnimatedBindingSet {
+        final int nodeId;
+        final JSONObject props;
+        final boolean needsFrameCallback;
+
+        AnimatedBindingSet(int nodeId, JSONObject props, boolean needsFrameCallback) {
+            this.nodeId = nodeId;
+            this.props = props;
+            this.needsFrameCallback = needsFrameCallback;
+        }
+    }
+
+    private class AnimatedSharedValue {
+        final Object rawValue;
+        final double numberValue;
+
+        AnimatedSharedValue(Object rawValue) {
+            this.rawValue = rawValue;
+            this.numberValue = parseDouble(rawValue, 0);
+        }
+    }
+
+    private static class SharedValueAnimation {
+        final int valueId;
+        final double from;
+        final double to;
+        final long startTimeMs;
+        final long durationMs;
+        final TimeInterpolator interpolator;
+
+        SharedValueAnimation(int valueId, double from, double to, long startTimeMs, long durationMs, TimeInterpolator interpolator) {
+            this.valueId = valueId;
+            this.from = from;
+            this.to = to;
+            this.startTimeMs = startTimeMs;
+            this.durationMs = durationMs;
+            this.interpolator = interpolator;
+        }
+    }
+
+
     private void applyNativeAnimatedValue(View view, String property, float value) {
         switch (property) {
             case "alpha":
@@ -656,14 +1154,6 @@ public class ScriptViewHost {
             case "translateY":
                 view.setTranslationY(value);
                 break;
-            case "translationZ":
-            case "translateZ":
-                view.setTranslationZ(value);
-                break;
-            case "scale":
-                view.setScaleX(value);
-                view.setScaleY(value);
-                break;
             case "scaleX":
                 view.setScaleX(value);
                 break;
@@ -673,15 +1163,34 @@ public class ScriptViewHost {
             case "rotation":
                 view.setRotation(value);
                 break;
-            case "rotationX":
-                view.setRotationX(value);
+            case "clipRight": {
+                float progress = Math.max(0f, Math.min(1f, value));
+                int right = Math.round(view.getWidth() * progress);
+                view.setClipBounds(new android.graphics.Rect(0, 0, right, view.getHeight()));
+                view.invalidate();
                 break;
-            case "rotationY":
-                view.setRotationY(value);
+            }
+            case "clipLeft": {
+                float progress = Math.max(0f, Math.min(1f, value));
+                int left = Math.round(view.getWidth() * progress);
+                view.setClipBounds(new android.graphics.Rect(left, 0, view.getWidth(), view.getHeight()));
+                view.invalidate();
                 break;
-            case "elevation":
-                view.setElevation(value);
+            }
+            case "clipBottom": {
+                float progress = Math.max(0f, Math.min(1f, value));
+                int bottom = Math.round(view.getHeight() * progress);
+                view.setClipBounds(new android.graphics.Rect(0, 0, view.getWidth(), bottom));
+                view.invalidate();
                 break;
+            }
+            case "clipTop": {
+                float progress = Math.max(0f, Math.min(1f, value));
+                int top = Math.round(view.getHeight() * progress);
+                view.setClipBounds(new android.graphics.Rect(0, top, view.getWidth(), view.getHeight()));
+                view.invalidate();
+                break;
+            }
         }
     }
 
@@ -775,9 +1284,24 @@ public class ScriptViewHost {
     private void addChildViewToAndroidParent(RenderNode parent, RenderNode child, int index) {
         if (child.view == null) return;
         ViewGroup androidParent = getAndroidChildrenHost(parent);
-        if (androidParent == null) return;
+        if (androidParent == null) {
+            if (parent.type.startsWith("native:")) Log.w(TAG, "Native component does not expose a children host parent=" + parent.id + " type=" + parent.type);
+            return;
+        }
+
         detachFromParent(child.view);
-        int safeIndex = Math.max(0, Math.min(index, androidParent.getChildCount()));
+
+        int baseIndex = 0;
+        if (parent.type.startsWith("native:")) {
+            Integer existingBase = nativeChildrenStartIndexes.get(parent.id);
+            if (existingBase == null) {
+                existingBase = androidParent.getChildCount();
+                nativeChildrenStartIndexes.put(parent.id, existingBase);
+            }
+            baseIndex = Math.max(0, Math.min(existingBase, androidParent.getChildCount()));
+        }
+
+        int safeIndex = Math.max(0, Math.min(baseIndex + index, androidParent.getChildCount()));
         androidParent.addView(child.view, safeIndex, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
@@ -786,7 +1310,26 @@ public class ScriptViewHost {
         if (node.view instanceof YogaLayoutView layoutView) return layoutView;
         if (node.view instanceof YogaScrollContainer scrollContainer) return scrollContainer.contentView;
         if (node.view instanceof YogaHorizontalScrollContainer scrollContainer) return scrollContainer.contentView;
+        if (node.type.startsWith("native:")) return getNativeChildrenHost(node);
         return null;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private ViewGroup getNativeChildrenHost(RenderNode node) {
+        if (node.nativeComponent == null || node.view == null) return null;
+
+        try {
+            return ((SpotifyPlusComponent) node.nativeComponent).getChildren(node.view);
+        } catch (Throwable t) {
+            Log.e(TAG, "Failed getting native children host node=" + node.id + " type=" + node.type, t);
+            return node.view instanceof ViewGroup viewGroup ? viewGroup : null;
+        }
+    }
+
+    private void measureChildrenForNodeRecursive(RenderNode node) {
+        if (node == null) return;
+        measureChildrenForNode(node);
+        for (RenderNode child : node.children) if (!child.isRawText) measureChildrenForNodeRecursive(child);
     }
 
     private YogaNode createYogaNode(RenderNode node) {
@@ -847,6 +1390,11 @@ public class ScriptViewHost {
     }
 
     private View createViewForType(RenderNode node) {
+        if (node.type.startsWith("native:")) {
+            String componentName = node.type.substring("native:".length());
+            return createNativeView(node, componentName);
+        }
+
         switch (node.type) {
             case "View":
             case "PlainView":
@@ -896,6 +1444,19 @@ public class ScriptViewHost {
                 Log.w(TAG, "Unknown Yoga node type " + node.type);
                 return new YogaLayoutView(context, this, node);
         }
+    }
+
+    private View createNativeView(RenderNode node, String componentName) {
+        NativeComponentEntry entry = SpotifyNativeBridge.scriptRegistry.getComponent(componentName);
+
+        if (entry == null) {
+            Log.w(TAG, "Unknown native component " + componentName);
+            return new YogaLayoutView(context, this, node);
+        }
+
+        View view = entry.component.createView(context, entry.context);
+        node.nativeComponent = entry.component;
+        return view;
     }
 
     private void requestLayoutPass() {
@@ -1915,6 +2476,7 @@ public class ScriptViewHost {
 
     private void destroyNodeRecursive(RenderNode node) {
         stopNativeAnimationsForNode(node.id);
+        removeAnimatedProps(node.id);
         List<RenderNode> children = new ArrayList<>(node.children);
         for (RenderNode child : children) {
             child.parent = null;
@@ -2432,6 +2994,7 @@ public class ScriptViewHost {
         View view;
         boolean isRawText;
         String text = "";
+        SpotifyPlusComponent<?> nativeComponent;
 
         RenderNode(ScriptViewHost host, int id, String type) {
             this.host = host;
@@ -3250,6 +3813,7 @@ public class ScriptViewHost {
         int heightSpec = View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY);
 
         surfaceView.measure(widthSpec, heightSpec);
+        measureChildrenForNodeRecursive(surfaceNode);
         surfaceView.layout(0, 0, width, height);
 
         layoutChildrenForNodeRecursive(surfaceNode);
@@ -3285,6 +3849,11 @@ public class ScriptViewHost {
         for (Animator animator : new ArrayList<>(runningNativeAnimations.values())) animator.cancel();
         runningNativeAnimations.clear();
         nativeAnimationNodes.clear();
+        animatedBindingSets.clear();
+        animatedSharedValues.clear();
+        runningSharedValueAnimations.clear();
+        if (animatedPropsFrameLoopRunning) android.view.Choreographer.getInstance().removeFrameCallback(animatedPropsFrameCallback);
+        animatedPropsFrameLoopRunning = false;
         nodes.clear();
         nodesByView.clear();
         textWatchers.clear();

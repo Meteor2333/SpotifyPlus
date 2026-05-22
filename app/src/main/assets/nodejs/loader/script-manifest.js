@@ -13,7 +13,16 @@ function parseManifest(raw) {
     const author = optionalString(manifest.author, 'manifest.author');
     const api = typeof manifest.api === 'number' ? manifest.api : 1;
     const permissions = Array.isArray(manifest.permissions) ? manifest.permissions.map((item, index) => ensureString(item, `manifest.permissions[${index}]`)) : [];
-    return { id, name, version, main, description, author, permissions, api };
+    const native = parseNativeObject(manifest.native, 'manifest.native');
+    return { id, name, version, main, description, author, permissions, api, native };
+}
+function parseNativeObject(raw, fieldName) {
+    if (!raw || typeof raw !== 'object')
+        throw new Error(`${fieldName} must be an object`);
+    const native = raw;
+    const dex = ensureString(native.dex, `${fieldName}.dex`);
+    const pluginClass = ensureString(native.pluginClass, `${fieldName}.pluginClass`);
+    return { dex, pluginClass };
 }
 function ensureString(value, fieldName) {
     if (typeof value !== 'string' || value.trim().length === 0)

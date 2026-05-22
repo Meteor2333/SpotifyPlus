@@ -59,8 +59,8 @@ class PlaybackClock {
         if (!this.isPlaying) return;
 
         const now = Date.now();
-        const elapsed = (now - this.lastSyncTimestamp) / 1000;
-        this.currentTime = this.lastProgressSeconds + elapsed;
+        const deltaTime = (now - this.lastSyncTimestamp) / 1000;
+        this.currentTime = this.lastProgressSeconds + deltaTime;
     }
 
     private syncFromSpotify = async () => {

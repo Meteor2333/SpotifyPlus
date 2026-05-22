@@ -53,17 +53,17 @@ const SyllableVocalLine = ({ metadata }: Props) => {
     }, [metadata, startTime]);
 
     return (
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, paddingLeft: 25, paddingTop: 42, paddingRight: 35 }}>
             <HorizontalStackLayout style={{ flex: 1, flexWrap: 'wrap' }}>
                 {leadSyllables.map(({ syllable, relativeStart, relativeEnd, duration, startScale, durationScale }, index) => (
-                    <SyllableView key={index} syllable={syllable} relativeTime={relativeTime} timeScale={timeScale} relativeStart={relativeStart} relativeEnd={relativeEnd} duration={duration} startScale={startScale} durationScale={durationScale} />
+                    <SyllableView key={index} syllable={syllable} relativeTime={relativeTime} timeScale={timeScale} relativeStart={relativeStart} relativeEnd={relativeEnd} duration={duration} startScale={startScale} durationScale={durationScale} startTime={startTime} />
                 ))}
             </HorizontalStackLayout>
 
             {backgroundSyllables && (
                 <HorizontalStackLayout style={{ flex: 1, flexWrap: 'wrap' }}>
                     {backgroundSyllables.map(({ syllable, relativeStart, relativeEnd, duration, startScale, durationScale }, index) => (
-                        <SyllableView key={index} syllable={syllable} relativeTime={relativeTime} timeScale={timeScale} relativeStart={relativeStart} relativeEnd={relativeEnd} duration={duration} startScale={startScale} durationScale={durationScale} isBackground style={{
+                        <SyllableView key={index} syllable={syllable} relativeTime={relativeTime} timeScale={timeScale} relativeStart={relativeStart} relativeEnd={relativeEnd} duration={duration} startScale={startScale} durationScale={durationScale} startTime={startTime} isBackground style={{
                             marginRight: syllable.IsPartOfWord ? 0 : 1
                         }} />
                     ))}

@@ -137,5 +137,7 @@ dependencies {
     implementation("com.facebook.soloader:soloader:0.12.1")
     implementation("com.facebook.fbjni:fbjni-java-only:0.7.0")
 
+    implementation(project(":spotifyplus-sdk"))
+
     compileOnly("de.robv.android.xposed:api:82")
 }

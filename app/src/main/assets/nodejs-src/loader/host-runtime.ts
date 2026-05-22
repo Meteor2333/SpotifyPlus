@@ -399,4 +399,8 @@ export class HostRuntime {
 
         this.spotifyReadyWaiters.clear();
     }
+
+    loadDex(scriptId: string, dexPath: string, pluginClass: string): void {
+        this.bridge.loadDex(scriptId, dexPath, pluginClass);
+    }
 }

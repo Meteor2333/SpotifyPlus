@@ -11,6 +11,7 @@ typedef char* (*PollFromJavaFn)();
 typedef void (*FreeStringFn)(char*);
 
 typedef bool (*SetEventHandlerFn)(napi_env, napi_value);
+typedef void (*LoadDexFn)(const char* scriptId, const char* dexPath, const char* pluginClass);
 typedef void (*GetPlatformDataFn)(PlatformData* data);
 typedef void (*GetSessionFn)(SessionData* data);
 typedef void (*LogFn)(const char*);
@@ -49,6 +50,7 @@ static LogFn g_log = nullptr;
 
 static GetCurrentTrackFn g_getCurrentTrack = nullptr;
 static GetTrackFn g_getTrack = nullptr;
+static LoadDexFn g_loadDex = nullptr;
 static GetPlaybackPositionFn g_getPlaybackPosition = nullptr;
 static SeekFn g_seek = nullptr;
 static PlayFn g_play = nullptr;
@@ -159,6 +161,7 @@ static bool resolve_symbols()
     }
 
     g_setEventHandler = (SetEventHandlerFn)dlsym(g_nativeLibHandle, "SpotifyPlus_SetEventHandler");
+    g_loadDex = (LoadDexFn)dlsym(g_nativeLibHandle, "SpotifyPlus_LoadDex");
     g_getPlatformData = (GetPlatformDataFn)dlsym(g_nativeLibHandle, "SpotifyPlus_GetPlatformData");
     g_getSession = (GetSessionFn)dlsym(g_nativeLibHandle, "SpotifyPlus_GetSession");
     g_log = (LogFn)dlsym(g_nativeLibHandle, "SpotifyPlus_Log");
@@ -217,7 +220,26 @@ static napi_value setEventHandler(napi_env env, napi_callback_info info)
     return undefined;
 }
 
-static napi_value getPlatformData(napi_env env, napi_callback_info)
+static napi_value loadDex(napi_env env, napi_callback_info info)
+{
+    size_t argc = 3;
+    napi_value args[3];
+    napi_value undefined;
+    napi_get_undefined(env, &undefined);
+    napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+
+    if (argc < 3 || !resolve_symbols()) return undefined;
+
+    std::string scriptId = GetStringArg(env, args[0]);
+    std::string dexPath = GetStringArg(env, args[1]);
+    std::string pluginClass = GetStringArg(env, args[2]);
+
+    g_loadDex(scriptId.c_str(), dexPath.c_str(), pluginClass.c_str());
+
+    return undefined;
+}
+
+static napi_value getPlatformData(napi_env env, napi_callback_info info)
 {
     napi_value result;
     if (!resolve_symbols())
@@ -240,7 +262,7 @@ static napi_value getPlatformData(napi_env env, napi_callback_info)
     return result;
 }
 
-static napi_value getAccessToken(napi_env env, napi_callback_info)
+static napi_value getAccessToken(napi_env env, napi_callback_info info)
 {
     napi_value result;
     if (!resolve_symbols())
@@ -268,7 +290,7 @@ static napi_value log(napi_env env, napi_callback_info info)
     return undefined;
 }
 
-static napi_value getCurrentTrack(napi_env env, napi_callback_info)
+static napi_value getCurrentTrack(napi_env env, napi_callback_info info)
 {
     napi_value result;
     if (!resolve_symbols())
@@ -683,6 +705,9 @@ static napi_value init(napi_env env, napi_value exports)
 
     napi_create_function(env, "pollFromJava", NAPI_AUTO_LENGTH, pollFromJava, nullptr, &fn);
     napi_set_named_property(env, exports, "pollFromJava", fn);
+
+    napi_create_function(env, "loadDex", NAPI_AUTO_LENGTH, loadDex, nullptr, &fn);
+    napi_set_named_property(env, exports, "loadDex", fn);
 
     napi_create_function(env, "getPlatformData", NAPI_AUTO_LENGTH, getPlatformData, nullptr, &fn);
     napi_set_named_property(env, exports, "getPlatformData", fn);

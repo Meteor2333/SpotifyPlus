@@ -66,6 +66,8 @@ class SpotifyPlusEngine
     bool Initialize(JavaVM* v);
     bool SetBridge(JNIEnv* env, jobject bridge, jobjectArray args);
 
+    void LoadDex(const std::string& scriptId, const std::string& dexPath, const std::string& pluginClass);
+
     PlatformData GetPlatformData();
     SessionData GetSession();
     void Log(const char* message);
@@ -139,6 +141,8 @@ class SpotifyPlusEngine
 
     jobject m_bridge = nullptr;
     jclass m_bridgeClass = nullptr;
+
+    jmethodID m_loadDexMethod = nullptr;
 
     jmethodID m_getPlatformDataMethod = nullptr;
     jmethodID m_getSessionMethod = nullptr;

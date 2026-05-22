@@ -42,6 +42,9 @@ class Bridge extends events_1.default {
         // clearInterval(this.pollingHandle);
         // this.pollingHandle = null;
     }
+    loadDex(scriptId, dexPath, pluginClass) {
+        this.addon.loadDex(scriptId, dexPath, pluginClass);
+    }
     getPlatformData() {
         return this.addon.getPlatformData();
     }

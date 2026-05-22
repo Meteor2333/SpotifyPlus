@@ -392,7 +392,7 @@ bool SpotifyPlusEngine::CacheMethodsLocked(JNIEnv* env)
         return false;
     }
 
-    jclass spotifyTrackClass = env->FindClass("com/lenerd/spotifyplus/module/entities/SpotifyTrack");
+    jclass spotifyTrackClass = env->FindClass("com/lenerd/spotifyplus/sdk/spotify/entities/SpotifyTrack");
     if (!spotifyTrackClass)
     {
         __android_log_write(ANDROID_LOG_ERROR, TAG, "Failed to find SpotifyTrack class");
@@ -413,7 +413,7 @@ bool SpotifyPlusEngine::CacheMethodsLocked(JNIEnv* env)
         return false;
     }
 
-    jclass spotifyAlbumClass = env->FindClass("com/lenerd/spotifyplus/module/entities/SpotifyAlbum");
+    jclass spotifyAlbumClass = env->FindClass("com/lenerd/spotifyplus/sdk/spotify/entities/SpotifyAlbum");
     if (!spotifyAlbumClass)
     {
         __android_log_write(ANDROID_LOG_ERROR, TAG, "Failed to find SpotifyAlbum class");
@@ -434,8 +434,9 @@ bool SpotifyPlusEngine::CacheMethodsLocked(JNIEnv* env)
         return false;
     }
 
-    m_getCurrentTrackMethod = env->GetMethodID(m_bridgeClass, "getCurrentTrack", "()Lcom/lenerd/spotifyplus/module/entities/SpotifyTrack;");
-    m_getTrackMethod = env->GetMethodID(m_bridgeClass, "getTrack", "(Ljava/lang/String;)Lcom/lenerd/spotifyplus/module/entities/SpotifyTrack;");
+    m_loadDexMethod = env->GetMethodID(m_bridgeClass, "loadDex", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+    m_getCurrentTrackMethod = env->GetMethodID(m_bridgeClass, "getCurrentTrack", "()Lcom/lenerd/spotifyplus/sdk/spotify/entities/SpotifyTrack;");
+    m_getTrackMethod = env->GetMethodID(m_bridgeClass, "getTrack", "(Ljava/lang/String;)Lcom/lenerd/spotifyplus/sdk/spotify/entities/SpotifyTrack;");
 
     m_spotifyAlbumTitleField = getField(m_spotifyAlbumClass, "title", "Ljava/lang/String;");
     m_spotifyAlbumArtistField = getField(m_spotifyAlbumClass, "artist", "Ljava/lang/String;");
@@ -450,7 +451,7 @@ bool SpotifyPlusEngine::CacheMethodsLocked(JNIEnv* env)
     m_spotifyTrackIdField = getField(m_spotifyTrackClass, "id", "Ljava/lang/String;");
     m_spotifyTrackArtistField = getField(m_spotifyTrackClass, "artist", "Ljava/lang/String;");
     m_spotifyTrackArtistsField = getField(m_spotifyTrackClass, "artists", "[Ljava/lang/String;");
-    m_spotifyTrackAlbumField = getField(m_spotifyTrackClass, "album", "Lcom/lenerd/spotifyplus/module/entities/SpotifyAlbum;");
+    m_spotifyTrackAlbumField = getField(m_spotifyTrackClass, "album", "Lcom/lenerd/spotifyplus/sdk/spotify/entities/SpotifyAlbum;");
 
     if (!m_getCurrentTrackMethod || !m_getTrackMethod || !m_spotifyAlbumTitleField || !m_spotifyAlbumArtistField || !m_spotifyAlbumReleaseField || !m_spotifyAlbumImageField || !m_spotifyTrackTitleField || !m_spotifyTrackTrackNumberField || !m_spotifyTrackDurationField || !m_spotifyTrackExplicitField || !m_spotifyTrackUriField || !m_spotifyTrackArtistField || !m_spotifyTrackArtistsField || !m_spotifyTrackAlbumField)
     {
@@ -485,7 +486,7 @@ bool SpotifyPlusEngine::CacheMethodsLocked(JNIEnv* env)
     m_storageWriteBinaryMethod = env->GetMethodID(m_bridgeClass, "storageWriteBinary", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
     m_storageReadMethod = env->GetMethodID(m_bridgeClass, "storageRead", "(Ljava/lang/String;Ljava/lang/String;)Lcom/lenerd/spotifyplus/module/scripting/SpotifyNativeBridge$StorageReadResult;");
 
-    if (!m_getPlaybackPositionMethod || !m_seekMethod || !m_playMethod || !m_pauseMethod || !m_togglePlayMethod || !m_skipNextMethod || !m_skipPreviousMethod || !m_toastMethod || !m_openUriMethod || !m_registerContextMenuMethod || !m_registerSideDrawerMethod || !m_storageSetMethod || !m_storageGetMethod || !m_storageRemoveMethod || !m_storageWriteTextMethod || !m_storageWriteJsonMethod || !m_storageWriteBinaryMethod || !m_storageReadMethod)
+    if (!m_getPlaybackPositionMethod || !m_seekMethod || !m_playMethod || !m_pauseMethod || !m_togglePlayMethod || !m_skipNextMethod || !m_skipPreviousMethod || !m_toastMethod || !m_openUriMethod || !m_registerContextMenuMethod || !m_registerSideDrawerMethod || !m_storageSetMethod || !m_storageGetMethod || !m_storageRemoveMethod || !m_storageWriteTextMethod || !m_storageWriteJsonMethod || !m_storageWriteBinaryMethod || !m_storageReadMethod || !m_loadDexMethod)
     {
         __android_log_write(ANDROID_LOG_ERROR, TAG, "One or more required bridge methods were not found");
         if (env->ExceptionCheck())
@@ -832,6 +833,38 @@ SpotifyTrack SpotifyPlusEngine::ReadTrackLocked(JNIEnv* env, jobject spotifyTrac
     if (artists) env->DeleteLocalRef(artists);
 
     return result;
+}
+
+void SpotifyPlusEngine::LoadDex(const std::string& scriptId, const std::string& dexPath, const std::string& pluginClass)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    bool didAttach = false;
+    JNIEnv* env = GetEnv(&didAttach);
+    if (!env || !EnsureBridgeLocked(env) || !m_loadDexMethod)
+    {
+        DetachIfNeeded(didAttach);
+        return;
+    }
+
+    jstring scriptIdValue = StdStringToJString(env, scriptId);
+    jstring dexPathValue = StdStringToJString(env, dexPath);
+    jstring pluginClassValue = StdStringToJString(env, pluginClass);
+
+    env->CallVoidMethod(m_bridge, m_loadDexMethod, scriptIdValue, dexPathValue, pluginClassValue);
+
+    if (env->ExceptionCheck())
+    {
+        __android_log_write(ANDROID_LOG_ERROR, TAG, "Java exception in LoadDex()");
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+    }
+
+    if (scriptIdValue) env->DeleteLocalRef(scriptIdValue);
+    if (dexPathValue) env->DeleteLocalRef(dexPathValue);
+    if (pluginClassValue) env->DeleteLocalRef(pluginClassValue);
+
+    DetachIfNeeded(didAttach);
 }
 
 PlatformData SpotifyPlusEngine::GetPlatformData()

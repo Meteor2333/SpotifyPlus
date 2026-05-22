@@ -328,5 +328,8 @@ class HostRuntime {
         }
         this.spotifyReadyWaiters.clear();
     }
+    loadDex(scriptId, dexPath, pluginClass) {
+        this.bridge.loadDex(scriptId, dexPath, pluginClass);
+    }
 }
 exports.HostRuntime = HostRuntime;

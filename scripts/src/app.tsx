@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { ScrollView, Text, View } from 'spotifyplus/react'
+import { NativeView, ScrollView, Text, View } from 'spotifyplus/react'
 import { SpotifyTrack } from 'spotifyplus/entities';
 import { SpotifyPlus } from 'spotifyplus';
 import fetch from 'node-fetch';

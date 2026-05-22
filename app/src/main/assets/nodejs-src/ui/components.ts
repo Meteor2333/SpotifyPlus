@@ -1,8 +1,9 @@
 import React from "react";
-import AnimatedCore, {
+import AnimatedCore, { type AnimatedNodeLike as LegacyAnimatedNodeLike } from "./animated";
+import NativeAnimatedCore, {
     createAnimatedComponent,
-    type AnimatedNodeLike,
-} from "./animated";
+    type NativeAnimatedNodeLike,
+} from "./native-animated";
 import type { NativeComponentRef } from "./renderer";
 
 export type LayoutSize =
@@ -132,7 +133,7 @@ export type StyleProp<T> =
     | undefined
     | false
     | ReadonlyArray<StyleProp<T>>;
-export type AnimatedStyleValue<T> = T | AnimatedNodeLike;
+export type AnimatedStyleValue<T> = T | LegacyAnimatedNodeLike | NativeAnimatedNodeLike;
 
 type ReactChildren = React.ReactNode;
 type HostProps = Record<string, unknown>;
@@ -1159,6 +1160,23 @@ function createMappedRef(nativeRef: NativeComponentRef | null, mapper?: (input: 
     };
 }
 
+export interface NativeViewProps extends CommonViewProps {
+    [key: string]: any;
+}
+
+export type NativeViewOptions = {
+    scriptId?: string;
+};
+
+export type NativeComponentProps<TProps extends object = {}> = TProps & CommonViewProps;
+
+export function createNativeComponent<TProps extends object = {}>(name: string, options?: NativeViewOptions): SpotifyPlusComponent<NativeComponentProps<TProps>> {
+    const type = options?.scriptId ? `native:${options.scriptId}/${name}` : `native:${name}`;
+    return createHostComponent<NativeComponentProps<TProps>>(type, mapViewLike);
+}
+
+export const NativeView = createNativeComponent;
+
 function createHostComponent<P extends { style?: StyleProp<RNStyle>; children?: React.ReactNode }>(
     type: string,
     mapper?: (input: HostProps) => HostProps,
@@ -1466,6 +1484,22 @@ export const StyleSheet = {
 
 export const Animated = {
     ...AnimatedCore,
+    Native: NativeAnimatedCore,
+    useSharedValue: NativeAnimatedCore.useSharedValue,
+    useAnimatedStyle: NativeAnimatedCore.useAnimatedStyle,
+    useAnimatedProps: NativeAnimatedCore.useAnimatedProps,
+    useDerivedValue: NativeAnimatedCore.useDerivedValue,
+    usePlaybackClock: NativeAnimatedCore.usePlaybackClock,
+    usePlaybackValue: NativeAnimatedCore.usePlaybackValue,
+    withTiming: NativeAnimatedCore.withTiming,
+    withSpring: NativeAnimatedCore.withSpring,
+    interpolate: NativeAnimatedCore.interpolate,
+    interpolateColor: NativeAnimatedCore.interpolateColor,
+    add: NativeAnimatedCore.add,
+    subtract: NativeAnimatedCore.subtract,
+    multiply: NativeAnimatedCore.multiply,
+    divide: NativeAnimatedCore.divide,
+    clamp: NativeAnimatedCore.clamp,
     View: createAnimatedComponent(View),
     Text: createAnimatedComponent(Text),
     Image: createAnimatedComponent(Image),

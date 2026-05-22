@@ -84,9 +84,11 @@ public class ScriptManager implements BridgeMessageListener {
 
         File hostFile = new File(projectDir, "host.js");
         File scripts = new File(projectDir, "scriptss");
+        File optimizedDirectory = new File(activity.getCodeCacheDir(), "script-dex/");
+        if(!optimizedDirectory.exists()) optimizedDirectory.mkdirs();
 
         new Thread(() -> {
-            SpotifyNativeBridge bridge = new SpotifyNativeBridge(activity.getClassLoader());
+            SpotifyNativeBridge bridge = new SpotifyNativeBridge(activity.getClassLoader(), scripts, optimizedDirectory, activity);
             initializeNativeBridge(bridge, new String[]{"node", hostFile.getAbsolutePath(), scripts.getAbsolutePath()});
         }).start();
     }
@@ -96,6 +98,16 @@ public class ScriptManager implements BridgeMessageListener {
         if (assets == null) return;
 
         if (assets.length == 0) {
+            File outFile = new File(outPath);
+
+            if(outFile.exists()) {
+                outFile.setWritable(true, false);
+                if(!outFile.delete()) throw new IOException("Failed to delete existing file: " + outFile);
+            }
+
+            File parent = outFile.getParentFile();
+            if(parent != null && !parent.exists() && !parent.mkdirs()) throw new IOException("Failed to create directory: " + parent.getAbsolutePath());
+
             try (InputStream in = assetManager.open(assetPath); FileOutputStream out = new FileOutputStream(outPath)) {
                 byte[] buffer = new byte[8192];
                 int read;

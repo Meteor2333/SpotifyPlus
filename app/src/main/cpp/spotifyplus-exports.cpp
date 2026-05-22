@@ -39,6 +39,11 @@ extern "C" bool SpotifyPlus_SetEventHandler(napi_env env, napi_value callback)
     return SpotifyPlusEngine::Get().SetEventHandler(env, callback);
 }
 
+extern "C" void SpotifyPlus_LoadDex(const char* scriptId, const char* dexPath, const char* pluginClass)
+{
+    SpotifyPlusEngine::Get().LoadDex(scriptId ? scriptId : "", dexPath ? dexPath : "", pluginClass ? pluginClass : "");
+}
+
 extern "C" void SpotifyPlus_GetPlatformData(PlatformData* data)
 {
     if (!data) return;
