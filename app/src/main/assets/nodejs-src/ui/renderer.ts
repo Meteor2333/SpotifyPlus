@@ -309,6 +309,8 @@ export type MutationOp =
     | { op: 'updateText'; id: number; text: string }
     | { op: 'setAnimatedProps'; nodeId: number; props: Record<string, any> }
     | { op: 'removeAnimatedProps'; nodeId: number }
+    | { op: 'updateAnimatedValue'; valueId: number; value: any; animation?: Record<string, any> }
+    | { op: 'cancelAnimatedValue'; valueId: number }
     | { op: 'updateSharedValue'; valueId: number; value: any; animation?: Record<string, any> }
     | { op: 'startNativeAnimation'; nodeId: number; animationId: number; type?: string; duration?: number; delay?: number; easing?: string; tracks: Array<{ property: string; from: number; to: number }> }
     | { op: 'stopNativeAnimation'; animationId: number }
@@ -436,6 +438,25 @@ export function removeAnimatedProps(nodeId: number) {
     const surfaceId = nodeSurfaceIds.get(nodeId);
     if (!surfaceId) return;
     dispatchSurfaceOps(surfaceId, [{ op: 'removeAnimatedProps', nodeId }]);
+}
+
+export function updateAnimatedValue(valueId: number, value: any, animation?: Record<string, any>) {
+    const surfaceIds = new Set(nodeSurfaceIds.values());
+    if (surfaceIds.size === 0) return;
+    for (const surfaceId of surfaceIds) {
+        dispatchSurfaceOps(surfaceId, [{
+            op: 'updateAnimatedValue',
+            valueId,
+            value: toBridgeValue(value),
+            ...(animation ? { animation: toBridgeValue(animation) } : {}),
+        }]);
+    }
+}
+
+export function cancelAnimatedValue(valueId: number) {
+    const surfaceIds = new Set(nodeSurfaceIds.values());
+    if (surfaceIds.size === 0) return;
+    for (const surfaceId of surfaceIds) dispatchSurfaceOps(surfaceId, [{ op: 'cancelAnimatedValue', valueId }]);
 }
 
 export function updateSharedValue(valueId: number, value: any, animation?: Record<string, any>) {

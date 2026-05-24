@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { View, Text, ScrollView, VerticalStackLayout } from 'spotifyplus/react'
+import { View, Text, ScrollView, VerticalStackLayout, NativeView } from 'spotifyplus/react'
 import { TransformedLyrics } from './lyric-utilities'
 import { StaticSyncedLyrics, SyllableSyncedLyrics } from '../Types/lyrics-types';
 import { SpotifyPlus } from 'spotifyplus';
@@ -10,6 +10,8 @@ import SyllableVocalLine from '../Entities/syllable-vocals';
 interface Props {
     lyrics: TransformedLyrics | undefined;
 }
+
+const LyricView = NativeView('LyricView');
 
 const LyricsView = ({ lyrics }: Props) => {
 

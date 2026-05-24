@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { View, Text, HorizontalStackLayout, CommonViewProps } from 'spotifyplus/react'
+import { View, Text, HorizontalStackLayout, CommonViewProps, NativeView } from 'spotifyplus/react'
 import { SyllableVocalSet } from '../Types/lyrics-types'
 import SyllableView from './syllable';
 import { usePlaybackTime } from './clock';
@@ -7,6 +7,10 @@ import { usePlaybackTime } from './clock';
 interface Props extends CommonViewProps {
     metadata: SyllableVocalSet;
 }
+
+const SyllableLine = NativeView<{
+    startTime: number;
+}>('SyllableLine');
 
 const SyllableVocalLine = ({ metadata }: Props) => {
     const currentTime = usePlaybackTime();

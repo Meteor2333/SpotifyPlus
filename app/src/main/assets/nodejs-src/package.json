@@ -12,6 +12,10 @@
         "./react": {
             "types": "./../nodejs/ui/components.d.ts",
             "default": "./../nodejs/ui/components.js"
+        },
+        "./react/Animated": {
+            "types": "./../nodejs/sdk/animated.d.ts",
+            "default": "./../nodejs/sdk/animated.js"
         }
     },
     "files": [

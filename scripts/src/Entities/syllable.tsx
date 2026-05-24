@@ -1,9 +1,6 @@
-import React, { useEffect, useMemo } from 'react'
-import { View, Text, CommonViewProps, Animated, NativeView, createNativeComponent } from 'spotifyplus/react'
+import React from 'react'
+import { CommonViewProps, Animated, Text } from 'spotifyplus/react'
 import { SyllableMetadata } from '../Types/lyrics-types'
-import { usePlaybackTime } from './clock';
-import LinearGradient from './linear-gradient';
-import Spring from './spring';
 
 interface Props extends CommonViewProps {
     syllable: SyllableMetadata;
@@ -18,70 +15,81 @@ interface Props extends CommonViewProps {
     startTime: number;
 }
 
-const GradientText = NativeView<{
-    text: string;
-    fontSizee: number;
-    startTime: number;
-    duration: number;
-    startScale: number;
-    durationScale: number;
-}>('GradientText');
-
 const SyllableView = ({ syllable, relativeTime, timeScale, relativeStart, relativeEnd, duration, startScale, durationScale, isBackground = false, startTime }: Props) => {
-    const isActive = relativeTime >= relativeStart && relativeTime < relativeEnd;
-    const isPast = relativeTime >= relativeEnd;
-
-    const timeScaleThing = Math.max(0, Math.min(relativeTime / duration));
-    const syllableTimeScale = Math.max(0, Math.min((timeScaleThing - startScale) / durationScale, 1));
     const text = `${syllable.Text}${syllable.IsPartOfWord ? '' : ' '}`;
     const fontSize = isBackground ? 18 : 36;
+    const startMs = syllable.StartTime * 1000;
+    const endMs = syllable.EndTime * 1000;
 
-    const progress = Animated.usePlaybackValue({
-        inputRange: [syllable.StartTime * 1000, syllable.EndTime * 1000],
-        outputRange: [0, 1],
-        unit: 'ms',
-        extrapolate: 'clamp'
-    });
+    const playbackMs = Animated.useDerivedValue(() => Animated.playbackClock({ unit: 'ms' }), []);
+    const progress = Animated.useDerivedValue(
+        () => Animated.interpolate(playbackMs, [startMs, endMs], [0, 1], { extrapolate: 'clamp' }),
+        [startMs, endMs],
+    );
+    const scale = Animated.interpolate(
+        progress,
+        [0, 0.1, 0.58, 0.86, 1],
+        [1, 1.2, 1.2, 1.04, 1],
+        { extrapolate: 'clamp' },
+    );
+    const yOffset = Animated.interpolate(
+        progress,
+        [0, 0.06, 0.58, 0.98, 1],
+        [0, -fontSize * 0.15, -fontSize * 0.15, -fontSize * 0.06, 0],
+        { extrapolate: 'clamp' },
+    );
+    const fullReveal = Animated.clamp(Animated.subtract(progress, 0.08), 0, 1);
+    const midReveal = Animated.clamp(Animated.subtract(progress, 0.04), 0, 1);
+    const softReveal = progress;
 
-    // const scale = Animated.interpolate(progress, [0, 0.7, 1], [1, 1.5, 1]);
-    // const yOffset = Animated.interpolate(progress, [0, 0.9, 1], [fontSize / 100, -fontSize / 10, 0]);
-    const scale = Animated.interpolate(progress, [0, 0.3, 1], [1, 1.03, 1]);
-    const yOffset = Animated.interpolate(progress, [0, 0.3, 1], [0, -fontSize / 60, 0]);
-    const glow = Animated.interpolate(progress, [0, 0.15, 0.6, 1], [0, 1, 1, 0]);
-
-    // useEffect(() => {
-    //     if (isActive) {
-    //         scale.value = Animated.withSpring(1.03, { damping: 10, stiffness: 140, mass: 1 });
-    //         yOffset.value = Animated.withSpring(-fontSize / 60, { damping: 12, stiffness: 120, mass: 1 });
-    //     } else {
-    //         scale.value = Animated.withSpring(1, { damping: 16, stiffness: 120, mass: 1 });
-    //         yOffset.value = Animated.withSpring(0, { damping: 14, stiffness: 100, mass: 1 });
-    //     }
-    // }, [isActive]);
+    const wordStyle = Animated.useAnimatedStyle(() => ({
+        transform: [{ translateY: yOffset }, { scale }],
+    }), [progress, scale, yOffset]);
+    const fullRevealStyle = Animated.useAnimatedStyle(() => ({ clipRight: fullReveal }), [fullReveal]);
+    const midRevealStyle = Animated.useAnimatedStyle(() => ({ clipRight: midReveal }), [midReveal]);
+    const softRevealStyle = Animated.useAnimatedStyle(() => ({ clipRight: softReveal }), [softReveal]);
+    const revealTextStyle = {
+        position: 'absolute' as const,
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: '100%',
+        overflow: 'hidden' as const,
+        fontSize,
+    };
 
     return (
-        <View style={{ position: 'relative', alignSelf: 'flex-start' }}>
-            <GradientText text={text} fontSizee={fontSize} startTime={startTime} duration={duration} startScale={startScale} durationScale={durationScale} />
-        </View>
+        <Animated.View style={[{ position: 'relative', alignSelf: 'flex-start' }, wordStyle]}>
+            <Text fontSize={fontSize} textColor={isBackground ? '#777777' : '#9b9b9b'}>{text}</Text>
+
+            <Animated.Text
+                style={[{
+                    ...revealTextStyle,
+                    textColor: isBackground ? '#cfcfcf' : '#d3d3d3',
+                }, softRevealStyle]}
+            >
+                {text}
+            </Animated.Text>
+
+            <Animated.Text
+                style={[{
+                    ...revealTextStyle,
+                    textColor: isBackground ? '#e7e7e7' : '#ececec',
+                }, midRevealStyle]}
+            >
+                {text}
+            </Animated.Text>
+
+            <Animated.Text
+                style={[{
+                    ...revealTextStyle,
+                    textColor: '#ffffff',
+                }, fullRevealStyle]}
+            >
+                {text}
+            </Animated.Text>
+        </Animated.View>
     )
-
-    // return (
-    //     <Animated.View style={{ position: 'relative', alignSelf: 'flex-start', transform: [{ translateY: yOffset, scale: scale }] }}>
-    //         <GradientText progress={syllableTimeScale} text={text} fontSize={fontSize} />
-
-    //         <Animated.View style={{
-    //             position: 'absolute',
-    //             left: 0,
-    //             top: 0,
-    //             bottom: 0,
-    //             width: '100%',
-    //             overflow: 'hidden',
-    //             clipRight: progress
-    //         }}>
-    //             <Text fontSize={fontSize} textColor={'#ffffff'}>{text}</Text>
-    //         </Animated.View>
-    //     </Animated.View>
-    // )
 }
 
 export default SyllableView

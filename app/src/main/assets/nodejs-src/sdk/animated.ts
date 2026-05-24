@@ -1,1 +1,2 @@
-export * as Animation from '../ui/native-animated';
+export * from '../ui/native-animation';
+export { default } from '../ui/native-animation';

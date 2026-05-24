@@ -1,9 +1,7 @@
 import React from "react";
-import AnimatedCore, { type AnimatedNodeLike as LegacyAnimatedNodeLike } from "./animated";
-import NativeAnimatedCore, {
-    createAnimatedComponent,
-    type NativeAnimatedNodeLike,
-} from "./native-animated";
+import LegacyAnimatedCore, { type AnimatedNodeLike as LegacyAnimatedNodeLike } from "./animated";
+import * as NativeAnimatedCore from "./native-animation/core";
+import type { NativeAnimatedNodeLike } from "./native-animation/core";
 import type { NativeComponentRef } from "./renderer";
 
 export type LayoutSize =
@@ -1483,31 +1481,17 @@ export const StyleSheet = {
 };
 
 export const Animated = {
-    ...AnimatedCore,
-    Native: NativeAnimatedCore,
-    useSharedValue: NativeAnimatedCore.useSharedValue,
-    useAnimatedStyle: NativeAnimatedCore.useAnimatedStyle,
-    useAnimatedProps: NativeAnimatedCore.useAnimatedProps,
-    useDerivedValue: NativeAnimatedCore.useDerivedValue,
-    usePlaybackClock: NativeAnimatedCore.usePlaybackClock,
-    usePlaybackValue: NativeAnimatedCore.usePlaybackValue,
-    withTiming: NativeAnimatedCore.withTiming,
-    withSpring: NativeAnimatedCore.withSpring,
-    interpolate: NativeAnimatedCore.interpolate,
-    interpolateColor: NativeAnimatedCore.interpolateColor,
-    add: NativeAnimatedCore.add,
-    subtract: NativeAnimatedCore.subtract,
-    multiply: NativeAnimatedCore.multiply,
-    divide: NativeAnimatedCore.divide,
-    clamp: NativeAnimatedCore.clamp,
-    View: createAnimatedComponent(View),
-    Text: createAnimatedComponent(Text),
-    Image: createAnimatedComponent(Image),
-    ScriptView: createAnimatedComponent(ScriptView),
-    RenderView: createAnimatedComponent(RenderView),
-    CanvasView: createAnimatedComponent(CanvasView),
-    ScrollView: createAnimatedComponent(ScrollView as any),
-    FlatList: createAnimatedComponent(FlatList as any),
+    ...LegacyAnimatedCore,
+    ...NativeAnimatedCore,
+    Legacy: LegacyAnimatedCore,
+    View: NativeAnimatedCore.createAnimatedComponent(View),
+    Text: NativeAnimatedCore.createAnimatedComponent(Text),
+    Image: NativeAnimatedCore.createAnimatedComponent(Image),
+    ScriptView: NativeAnimatedCore.createAnimatedComponent(ScriptView),
+    RenderView: NativeAnimatedCore.createAnimatedComponent(RenderView),
+    CanvasView: NativeAnimatedCore.createAnimatedComponent(CanvasView),
+    ScrollView: NativeAnimatedCore.createAnimatedComponent(ScrollView as any),
+    FlatList: NativeAnimatedCore.createAnimatedComponent(FlatList as any),
 };
 
 export default {

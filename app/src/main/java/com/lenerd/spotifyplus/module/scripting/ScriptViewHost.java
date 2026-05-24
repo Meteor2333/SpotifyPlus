@@ -110,7 +110,11 @@ public class ScriptViewHost {
     private final Map<Integer, AnimatedBindingSet> animatedBindingSets = new HashMap<>();
     private final Map<Integer, AnimatedSharedValue> animatedSharedValues = new HashMap<>();
     private final Map<Integer, SharedValueAnimation> runningSharedValueAnimations = new HashMap<>();
+    private final Map<Integer, NativeAnimatedBindingSet> nativeAnimatedBindingSets = new HashMap<>();
+    private final Map<Integer, NativeAnimatedValue> nativeAnimatedValues = new HashMap<>();
+    private final Map<Integer, NativeAnimatedValueAnimation> nativeAnimatedValueAnimations = new HashMap<>();
     private boolean animatedPropsFrameLoopRunning = false;
+    private boolean nativeAnimatedFrameLoopRunning = false;
     private long animatedLastPlaybackSyncRealtimeMs = 0;
     private long animatedPlaybackBaseRealtimeMs = 0;
     private double animatedPlaybackBasePositionMs = 0.0;
@@ -118,6 +122,12 @@ public class ScriptViewHost {
         @Override
         public void doFrame(long frameTimeNanos) {
             runAnimatedPropsFrame(frameTimeNanos);
+        }
+    };
+    private final android.view.Choreographer.FrameCallback nativeAnimatedFrameCallback = new android.view.Choreographer.FrameCallback() {
+        @Override
+        public void doFrame(long frameTimeNanos) {
+            runNativeAnimatedFrame(frameTimeNanos);
         }
     };
     private int nextImageRequestId = 1;
@@ -319,6 +329,12 @@ public class ScriptViewHost {
             case "removeAnimatedProps":
                 removeAnimatedProps(op);
                 break;
+            case "updateAnimatedValue":
+                updateNativeAnimatedValue(op);
+                break;
+            case "cancelAnimatedValue":
+                cancelNativeAnimatedValue(op);
+                break;
             case "updateSharedValue":
                 updateSharedValue(op);
                 break;
@@ -489,7 +505,7 @@ public class ScriptViewHost {
     private boolean opRequiresLayout(JSONObject op) {
         String kind = op.optString("op", "");
         if ("updateProps".equals(kind)) return propsAffectLayout(op.optJSONObject("props"));
-        if ("startNativeAnimation".equals(kind) || "stopNativeAnimation".equals(kind) || "setAnimatedProps".equals(kind) || "removeAnimatedProps".equals(kind) || "updateSharedValue".equals(kind) || "viewCommand".equals(kind)) return false;
+        if ("startNativeAnimation".equals(kind) || "stopNativeAnimation".equals(kind) || "setAnimatedProps".equals(kind) || "removeAnimatedProps".equals(kind) || "updateAnimatedValue".equals(kind) || "cancelAnimatedValue".equals(kind) || "updateSharedValue".equals(kind) || "viewCommand".equals(kind)) return false;
         return true;
     }
 
@@ -673,34 +689,441 @@ public class ScriptViewHost {
     }
 
     private void setAnimatedProps(JSONObject op) throws Exception {
+        setNativeAnimatedProps(op);
+    }
+
+    private void removeAnimatedProps(JSONObject op) {
+        removeNativeAnimatedProps(op.optInt("nodeId", -1));
+    }
+
+    private void removeAnimatedProps(int nodeId) {
+        removeNativeAnimatedProps(nodeId);
+    }
+
+    private void setNativeAnimatedProps(JSONObject op) throws Exception {
         int nodeId = op.getInt("nodeId");
         RenderNode node = getNode(nodeId);
         if (node.view == null) return;
 
         JSONObject props = op.optJSONObject("props");
         if (props == null || props.length() == 0) {
-            removeAnimatedProps(nodeId);
+            removeNativeAnimatedProps(nodeId);
             return;
         }
 
         JSONObject copiedProps = copyJson(props);
-        registerAnimatedSharedValues(copiedProps);
-        animatedBindingSets.put(nodeId, new AnimatedBindingSet(nodeId, copiedProps, animatedBindingNeedsFrame(copiedProps)));
+        registerNativeAnimatedValues(copiedProps);
+        NativeAnimatedBindingSet set = new NativeAnimatedBindingSet(nodeId, copiedProps, nativeAnimatedBindingNeedsFrame(copiedProps));
+        nativeAnimatedBindingSets.put(nodeId, set);
 
-        boolean needsLayout = applyAnimatedBindingSet(animatedBindingSets.get(nodeId), android.os.SystemClock.elapsedRealtime());
+        boolean needsLayout = applyNativeAnimatedBindingSet(set, android.os.SystemClock.elapsedRealtime());
         if (needsLayout) forceLayoutNow();
-        else if (node.view != null) node.view.invalidate();
+        else node.view.invalidate();
 
-        maybeStartAnimatedPropsFrameLoop();
+        maybeStartNativeAnimatedFrameLoop();
     }
 
-    private void removeAnimatedProps(JSONObject op) {
-        removeAnimatedProps(op.optInt("nodeId", -1));
-    }
-
-    private void removeAnimatedProps(int nodeId) {
+    private void removeNativeAnimatedProps(int nodeId) {
         if (nodeId < 0) return;
-        animatedBindingSets.remove(nodeId);
+        nativeAnimatedBindingSets.remove(nodeId);
+    }
+
+    private void updateNativeAnimatedValue(JSONObject op) throws Exception {
+        int valueId = op.getInt("valueId");
+        Object value = op.has("value") ? op.opt("value") : 0;
+        JSONObject animation = op.optJSONObject("animation");
+
+        if (animation != null) {
+            long now = android.os.SystemClock.elapsedRealtime();
+            NativeAnimatedValue current = nativeAnimatedValues.get(valueId);
+            double from = current != null ? current.numberValue : parseDouble(evaluateNativeAnimatedNode(value, now), parseDouble(value, 0));
+            nativeAnimatedValues.put(valueId, new NativeAnimatedValue(from));
+            NativeAnimatedValueAnimation nativeAnimation = createNativeAnimatedValueAnimation(valueId, from, animation, now, 0);
+            if (nativeAnimation != null) nativeAnimatedValueAnimations.put(valueId, nativeAnimation);
+        } else {
+            nativeAnimatedValueAnimations.remove(valueId);
+            Object evaluated = evaluateNativeAnimatedNode(value, android.os.SystemClock.elapsedRealtime());
+            nativeAnimatedValues.put(valueId, new NativeAnimatedValue(evaluated));
+        }
+
+        boolean needsLayout = applyNativeAnimatedFrame(android.os.SystemClock.elapsedRealtime());
+        if (needsLayout) forceLayoutNow();
+        maybeStartNativeAnimatedFrameLoop();
+    }
+
+    private void cancelNativeAnimatedValue(JSONObject op) {
+        int valueId = op.optInt("valueId", -1);
+        if (valueId < 0) return;
+        nativeAnimatedValueAnimations.remove(valueId);
+    }
+
+    private void registerNativeAnimatedValues(Object raw) {
+        if (raw == null || raw == JSONObject.NULL) return;
+        if (raw instanceof JSONArray array) {
+            for (int i = 0; i < array.length(); i++) registerNativeAnimatedValues(array.opt(i));
+            return;
+        }
+        if (!(raw instanceof JSONObject obj)) return;
+
+        if ("value".equals(obj.optString("$a"))) {
+            int id = obj.optInt("id", -1);
+            if (id >= 0 && !nativeAnimatedValues.containsKey(id))
+                nativeAnimatedValues.put(id, new NativeAnimatedValue(obj.has("initial") ? obj.opt("initial") : 0));
+        }
+
+        Iterator<String> keys = obj.keys();
+        while (keys.hasNext()) registerNativeAnimatedValues(obj.opt(keys.next()));
+    }
+
+    private boolean nativeAnimatedBindingNeedsFrame(Object raw) {
+        if (raw == null || raw == JSONObject.NULL) return false;
+        if (raw instanceof JSONArray array) {
+            for (int i = 0; i < array.length(); i++) if (nativeAnimatedBindingNeedsFrame(array.opt(i))) return true;
+            return false;
+        }
+        if (!(raw instanceof JSONObject obj)) return false;
+
+        String type = obj.optString("$a", "");
+        if ("playbackClock".equals(type) || "clock".equals(type) || "systemTime".equals(type)) return true;
+
+        Iterator<String> keys = obj.keys();
+        while (keys.hasNext()) if (nativeAnimatedBindingNeedsFrame(obj.opt(keys.next()))) return true;
+        return false;
+    }
+
+    private void maybeStartNativeAnimatedFrameLoop() {
+        if (nativeAnimatedFrameLoopRunning) return;
+        if (nativeAnimatedBindingSets.isEmpty() && nativeAnimatedValueAnimations.isEmpty()) return;
+        nativeAnimatedFrameLoopRunning = true;
+        android.view.Choreographer.getInstance().postFrameCallback(nativeAnimatedFrameCallback);
+    }
+
+    private boolean shouldContinueNativeAnimatedFrameLoop() {
+        if (!nativeAnimatedValueAnimations.isEmpty()) return true;
+        for (NativeAnimatedBindingSet set : nativeAnimatedBindingSets.values()) if (set.needsFrameCallback) return true;
+        return false;
+    }
+
+    private void runNativeAnimatedFrame(long frameTimeNanos) {
+        long frameTimeMs = android.os.SystemClock.elapsedRealtime();
+        boolean needsLayout = applyNativeAnimatedFrame(frameTimeMs);
+        if (needsLayout) forceLayoutNow();
+        else {
+            surfaceView.invalidate();
+            hostRoot.invalidate();
+        }
+
+        if (!nativeAnimatedBindingSets.isEmpty() && shouldContinueNativeAnimatedFrameLoop()) {
+            android.view.Choreographer.getInstance().postFrameCallback(nativeAnimatedFrameCallback);
+        } else {
+            nativeAnimatedFrameLoopRunning = false;
+        }
+    }
+
+    private boolean applyNativeAnimatedFrame(long frameTimeMs) {
+        updateRunningNativeAnimatedValueAnimations(frameTimeMs);
+        boolean needsLayout = false;
+        for (NativeAnimatedBindingSet set : new ArrayList<>(nativeAnimatedBindingSets.values()))
+            needsLayout = applyNativeAnimatedBindingSet(set, frameTimeMs) || needsLayout;
+        return needsLayout;
+    }
+
+    private void updateRunningNativeAnimatedValueAnimations(long frameTimeMs) {
+        if (nativeAnimatedValueAnimations.isEmpty()) return;
+        List<Integer> finished = new ArrayList<>();
+        for (NativeAnimatedValueAnimation animation : new ArrayList<>(nativeAnimatedValueAnimations.values())) {
+            NativeAnimatedFrameValue frame = animation.update(frameTimeMs);
+            nativeAnimatedValues.put(animation.valueId, new NativeAnimatedValue(frame.value));
+            if (frame.finished) finished.add(animation.valueId);
+        }
+        for (Integer id : finished) nativeAnimatedValueAnimations.remove(id);
+    }
+
+    private boolean applyNativeAnimatedBindingSet(NativeAnimatedBindingSet set, long frameTimeMs) {
+        RenderNode node = findNode(set.nodeId);
+        if (node == null || node.view == null) return false;
+
+        boolean needsLayout = false;
+        Iterator<String> keys = set.props.keys();
+        while (keys.hasNext()) {
+            String prop = keys.next();
+            Object value = evaluateNativeAnimatedNode(set.props.opt(prop), frameTimeMs);
+            Object oldValue = set.lastValues.get(prop);
+            if (nativeAnimatedValuesEqual(oldValue, value)) continue;
+            set.lastValues.put(prop, copyNativeAnimatedValue(value));
+
+            try {
+                JSONObject patch = new JSONObject();
+                patch.put(prop, value != null ? value : JSONObject.NULL);
+                if (propsAffectLayout(patch)) {
+                    node.props = mergeJson(node.props, patch);
+                    rebuildYogaNode(node);
+                    if (node.view != null) {
+                        withSuppressedEvents(node.id, () -> applyViewProps(node, node.view, node.props));
+                        if (node.nativeComponent != null) node.nativeComponent.updateViewProps(node.view, null, node.props);
+                    }
+                    needsLayout = true;
+                } else {
+                    applyNativeAnimatedPropValue(node, prop, value);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed applying native animated prop " + prop + " to node " + node.id, e);
+            }
+        }
+        return needsLayout;
+    }
+
+    private Object evaluateNativeAnimatedNode(Object raw, long frameTimeMs) {
+        if (raw == null || raw == JSONObject.NULL) return raw;
+        if (raw instanceof JSONArray array) {
+            JSONArray output = new JSONArray();
+            for (int i = 0; i < array.length(); i++) output.put(evaluateNativeAnimatedNode(array.opt(i), frameTimeMs));
+            return output;
+        }
+        if (!(raw instanceof JSONObject obj)) return raw;
+
+        String type = obj.optString("$a", "");
+        if (type == null || type.isEmpty()) {
+            JSONObject output = new JSONObject();
+            Iterator<String> keys = obj.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                try {
+                    output.put(key, evaluateNativeAnimatedNode(obj.opt(key), frameTimeMs));
+                } catch (Exception ignored) { }
+            }
+            return output;
+        }
+
+        switch (type) {
+            case "value": {
+                int id = obj.optInt("id", -1);
+                NativeAnimatedValue value = nativeAnimatedValues.get(id);
+                return value != null ? value.rawValue : (obj.has("initial") ? obj.opt("initial") : 0);
+            }
+            case "derived":
+                return evaluateNativeAnimatedNode(obj.opt("expr"), frameTimeMs);
+            case "const":
+                return obj.opt("value");
+            case "playbackClock": {
+                double positionMs = getAnimatedPlaybackPositionMs() + obj.optDouble("offset", 0);
+                return "seconds".equals(obj.optString("unit", "ms")) ? positionMs / 1000.0 : positionMs;
+            }
+            case "clock":
+            case "systemTime":
+                return (double) frameTimeMs;
+            case "add":
+                return reduceNativeAnimatedValues(obj.optJSONArray("values"), frameTimeMs, 0, (a, b) -> a + b);
+            case "sub": {
+                JSONArray values = obj.optJSONArray("values");
+                if (values == null || values.length() == 0) return 0;
+                double first = evaluateNativeAnimatedNumber(values.opt(0), frameTimeMs, 0);
+                for (int i = 1; i < values.length(); i++) first -= evaluateNativeAnimatedNumber(values.opt(i), frameTimeMs, 0);
+                return first;
+            }
+            case "mul":
+                return reduceNativeAnimatedValues(obj.optJSONArray("values"), frameTimeMs, 1, (a, b) -> a * b);
+            case "div": {
+                JSONArray values = obj.optJSONArray("values");
+                if (values == null || values.length() == 0) return 0;
+                double first = evaluateNativeAnimatedNumber(values.opt(0), frameTimeMs, 0);
+                for (int i = 1; i < values.length(); i++) {
+                    double divisor = evaluateNativeAnimatedNumber(values.opt(i), frameTimeMs, 1);
+                    first = divisor == 0 ? 0 : first / divisor;
+                }
+                return first;
+            }
+            case "mod": {
+                JSONArray values = obj.optJSONArray("values");
+                if (values == null || values.length() == 0) return 0;
+                double first = evaluateNativeAnimatedNumber(values.opt(0), frameTimeMs, 0);
+                for (int i = 1; i < values.length(); i++) {
+                    double divisor = evaluateNativeAnimatedNumber(values.opt(i), frameTimeMs, 1);
+                    first = divisor == 0 ? 0 : first % divisor;
+                }
+                return first;
+            }
+            case "clamp": {
+                double input = evaluateNativeAnimatedNumber(obj.opt("input"), frameTimeMs, 0);
+                double min = obj.optDouble("min", 0);
+                double max = obj.optDouble("max", 1);
+                return Math.max(min, Math.min(max, input));
+            }
+            case "interpolate":
+                return interpolateNativeAnimatedValue(obj, frameTimeMs, false);
+            case "interpolateColor":
+                return interpolateNativeAnimatedValue(obj, frameTimeMs, true);
+            default:
+                return raw;
+        }
+    }
+
+    private double reduceNativeAnimatedValues(JSONArray values, long frameTimeMs, double initial, AnimatedReducer reducer) {
+        if (values == null) return initial;
+        double result = initial;
+        for (int i = 0; i < values.length(); i++) result = reducer.reduce(result, evaluateNativeAnimatedNumber(values.opt(i), frameTimeMs, 0));
+        return result;
+    }
+
+    private Object interpolateNativeAnimatedValue(JSONObject obj, long frameTimeMs, boolean forceColor) {
+        double input = evaluateNativeAnimatedNumber(obj.opt("input"), frameTimeMs, 0);
+        JSONArray inputRangeJson = obj.optJSONArray("inputRange");
+        JSONArray outputRangeJson = obj.optJSONArray("outputRange");
+        if (inputRangeJson == null || outputRangeJson == null || inputRangeJson.length() < 2 || outputRangeJson.length() < 2) return 0;
+
+        int last = Math.min(inputRangeJson.length(), outputRangeJson.length()) - 1;
+        int index = 0;
+        for (int i = 1; i <= last; i++) {
+            if (input <= inputRangeJson.optDouble(i)) {
+                index = i - 1;
+                break;
+            }
+            index = i - 1;
+        }
+
+        double inMin = inputRangeJson.optDouble(index);
+        double inMax = inputRangeJson.optDouble(index + 1);
+        double t = inMax == inMin ? 0 : (input - inMin) / (inMax - inMin);
+
+        String extrapolateLeft = obj.optString("extrapolateLeft", obj.optString("extrapolate", "extend"));
+        String extrapolateRight = obj.optString("extrapolateRight", obj.optString("extrapolate", "extend"));
+
+        if (input < inputRangeJson.optDouble(0)) {
+            if ("identity".equals(extrapolateLeft)) return input;
+            if ("clamp".equals(extrapolateLeft)) {
+                index = 0;
+                t = 0;
+            }
+        } else if (input > inputRangeJson.optDouble(last)) {
+            if ("identity".equals(extrapolateRight)) return input;
+            if ("clamp".equals(extrapolateRight)) {
+                index = last - 1;
+                t = 1;
+            }
+        }
+
+        t = Math.max(0, Math.min(1, t));
+        Object outMinRaw = outputRangeJson.opt(index);
+        Object outMaxRaw = outputRangeJson.opt(index + 1);
+        if (forceColor || looksLikeAnimatedColor(outMinRaw) || looksLikeAnimatedColor(outMaxRaw)) {
+            Integer from = parseColor(outMinRaw);
+            Integer to = parseColor(outMaxRaw);
+            if (from == null || to == null) return outMinRaw;
+            return interpolateColorInt(from, to, (float) t);
+        }
+
+        double outMin = parseDouble(outMinRaw, 0);
+        double outMax = parseDouble(outMaxRaw, outMin);
+        return outMin + ((outMax - outMin) * t);
+    }
+
+    private double evaluateNativeAnimatedNumber(Object raw, long frameTimeMs, double fallback) {
+        return parseDouble(evaluateNativeAnimatedNode(raw, frameTimeMs), fallback);
+    }
+
+    private void applyNativeAnimatedPropValue(RenderNode node, String property, Object value) throws Exception {
+        if (node.view == null) return;
+        View view = node.view;
+
+        JSONObject patch = new JSONObject();
+        patch.put(property, value != null ? value : JSONObject.NULL);
+        node.props = mergeJson(node.props, patch);
+
+        switch (property) {
+            case "alpha":
+            case "opacity":
+                view.setAlpha((float) parseDouble(value, view.getAlpha()));
+                break;
+            case "translationX":
+            case "translateX":
+                view.setTranslationX(parseYogaPoint(value, Math.round(view.getTranslationX())));
+                break;
+            case "translationY":
+            case "translateY":
+                view.setTranslationY(parseYogaPoint(value, Math.round(view.getTranslationY())));
+                break;
+            case "translationZ":
+            case "translateZ":
+                view.setTranslationZ(parseYogaPoint(value, Math.round(view.getTranslationZ())));
+                break;
+            case "scale": {
+                float scale = (float) parseDouble(value, view.getScaleX());
+                view.setScaleX(scale);
+                view.setScaleY(scale);
+                break;
+            }
+            case "scaleX":
+                view.setScaleX((float) parseDouble(value, view.getScaleX()));
+                break;
+            case "scaleY":
+                view.setScaleY((float) parseDouble(value, view.getScaleY()));
+                break;
+            case "rotation":
+            case "rotate":
+                view.setRotation((float) parseAngleDegrees(value, view.getRotation()));
+                break;
+            case "rotationX":
+            case "rotateX":
+                view.setRotationX((float) parseAngleDegrees(value, view.getRotationX()));
+                break;
+            case "rotationY":
+            case "rotateY":
+                view.setRotationY((float) parseAngleDegrees(value, view.getRotationY()));
+                break;
+            case "elevation":
+                view.setElevation(parseYogaPoint(value, Math.round(view.getElevation())));
+                break;
+            case "progress":
+                if (view instanceof ProgressBar progressBar)
+                    progressBar.setProgress((int) Math.round(parseDouble(value, progressBar.getProgress())));
+                else withSuppressedEvents(node.id, () -> applyViewProps(node, view, node.props));
+                break;
+            case "textColor":
+            case "color": {
+                Integer color = parseColor(value);
+                if (color != null && view instanceof TextView textView) textView.setTextColor(color);
+                else withSuppressedEvents(node.id, () -> applyViewProps(node, view, node.props));
+                break;
+            }
+            case "backgroundColor":
+                applyBackgroundProps(view, node.props);
+                break;
+            case "clipRight": {
+                float progress = Math.max(0f, Math.min(1f, (float) parseDouble(value, 1)));
+                int right = Math.round(view.getWidth() * progress);
+                view.setClipBounds(new android.graphics.Rect(0, 0, right, view.getHeight()));
+                break;
+            }
+            case "clipLeft": {
+                float progress = Math.max(0f, Math.min(1f, (float) parseDouble(value, 0)));
+                int left = Math.round(view.getWidth() * progress);
+                view.setClipBounds(new android.graphics.Rect(left, 0, view.getWidth(), view.getHeight()));
+                break;
+            }
+            default:
+                withSuppressedEvents(node.id, () -> applyViewProps(node, view, node.props));
+                break;
+        }
+
+        if (node.nativeComponent != null) node.nativeComponent.updateViewProps(view, null, node.props);
+        view.invalidate();
+    }
+
+    private Object copyNativeAnimatedValue(Object value) {
+        try {
+            if (value instanceof JSONObject obj) return new JSONObject(obj.toString());
+            if (value instanceof JSONArray array) return new JSONArray(array.toString());
+        } catch (Exception ignored) { }
+        return value;
+    }
+
+    private boolean nativeAnimatedValuesEqual(Object left, Object right) {
+        if (left == right) return true;
+        if (left == null || left == JSONObject.NULL) return right == null || right == JSONObject.NULL;
+        if (right == null || right == JSONObject.NULL) return false;
+        if (left instanceof Number leftNumber && right instanceof Number rightNumber)
+            return Math.abs(leftNumber.doubleValue() - rightNumber.doubleValue()) < 0.0001;
+        return Objects.equals(String.valueOf(left), String.valueOf(right));
     }
 
     private void updateSharedValue(JSONObject op) throws Exception {
@@ -1087,16 +1510,228 @@ public class ScriptViewHost {
         if (animatedPlaybackBaseRealtimeMs <= 0 || now - animatedLastPlaybackSyncRealtimeMs > 750) {
             try {
                 double raw = Utils.getCurrentPlaybackPosition();
-                animatedPlaybackBasePositionMs = raw < 10000 ? raw * 1000.0 : raw;
-                animatedPlaybackBaseRealtimeMs = now;
-                animatedLastPlaybackSyncRealtimeMs = now;
+                if (raw >= 0) {
+                    animatedPlaybackBasePositionMs = raw;
+                    animatedPlaybackBaseRealtimeMs = now;
+                    animatedLastPlaybackSyncRealtimeMs = now;
+                }
             } catch (Throwable ignored) { }
         }
         return animatedPlaybackBasePositionMs + Math.max(0, now - animatedPlaybackBaseRealtimeMs);
     }
 
+    private NativeAnimatedValueAnimation createNativeAnimatedValueAnimation(int valueId, double from, JSONObject config, long now, long extraDelayMs) {
+        if (config == null) return null;
+        String type = config.optString("$anim", config.optString("type", "timing"));
+
+        if ("delay".equals(type)) {
+            JSONObject child = config.optJSONObject("animation");
+            long delay = Math.max(0, config.optLong("delayMs", 0));
+            return createNativeAnimatedValueAnimation(valueId, from, child, now, extraDelayMs + delay);
+        }
+
+        if ("sequence".equals(type)) {
+            JSONArray animations = config.optJSONArray("animations");
+            if (animations == null || animations.length() == 0) return null;
+            return new NativeAnimatedSequenceAnimation(valueId, from, animations, now + extraDelayMs);
+        }
+
+        double to = parseDouble(evaluateNativeAnimatedNode(config.opt("toValue"), now), from);
+        long delay = Math.max(0, config.optLong("delay", 0)) + extraDelayMs;
+
+        if ("spring".equals(type)) {
+            return new NativeAnimatedSpringAnimation(
+                    valueId,
+                    from,
+                    to,
+                    now + delay,
+                    config.optDouble("stiffness", 180),
+                    config.optDouble("damping", 22),
+                    Math.max(0.001, config.optDouble("mass", 1)),
+                    config.optDouble("velocity", 0),
+                    config.optBoolean("overshootClamping", false),
+                    config.optDouble("restSpeedThreshold", 0.05),
+                    config.optDouble("restDisplacementThreshold", 0.05)
+            );
+        }
+
+        long duration = Math.max(0, config.optLong("duration", 300));
+        TimeInterpolator interpolator = parseAnimationInterpolator("timing", config.optString("easing", "easeInOut"));
+        return new NativeAnimatedTimingAnimation(valueId, from, to, now + delay, duration, interpolator);
+    }
+
     private interface AnimatedReducer {
         double reduce(double a, double b);
+    }
+
+    private static class NativeAnimatedBindingSet {
+        final int nodeId;
+        final JSONObject props;
+        final boolean needsFrameCallback;
+        final Map<String, Object> lastValues = new HashMap<>();
+
+        NativeAnimatedBindingSet(int nodeId, JSONObject props, boolean needsFrameCallback) {
+            this.nodeId = nodeId;
+            this.props = props;
+            this.needsFrameCallback = needsFrameCallback;
+        }
+    }
+
+    private class NativeAnimatedValue {
+        final Object rawValue;
+        final double numberValue;
+
+        NativeAnimatedValue(Object rawValue) {
+            this.rawValue = rawValue;
+            this.numberValue = parseDouble(rawValue, 0);
+        }
+    }
+
+    private static class NativeAnimatedFrameValue {
+        final double value;
+        final boolean finished;
+
+        NativeAnimatedFrameValue(double value, boolean finished) {
+            this.value = value;
+            this.finished = finished;
+        }
+    }
+
+    private abstract static class NativeAnimatedValueAnimation {
+        final int valueId;
+
+        NativeAnimatedValueAnimation(int valueId) {
+            this.valueId = valueId;
+        }
+
+        abstract NativeAnimatedFrameValue update(long frameTimeMs);
+    }
+
+    private static class NativeAnimatedTimingAnimation extends NativeAnimatedValueAnimation {
+        final double from;
+        final double to;
+        final long startTimeMs;
+        final long durationMs;
+        final TimeInterpolator interpolator;
+
+        NativeAnimatedTimingAnimation(int valueId, double from, double to, long startTimeMs, long durationMs, TimeInterpolator interpolator) {
+            super(valueId);
+            this.from = from;
+            this.to = to;
+            this.startTimeMs = startTimeMs;
+            this.durationMs = durationMs;
+            this.interpolator = interpolator;
+        }
+
+        @Override
+        NativeAnimatedFrameValue update(long frameTimeMs) {
+            if (frameTimeMs < startTimeMs) return new NativeAnimatedFrameValue(from, false);
+            float rawProgress = durationMs <= 0 ? 1f : Math.max(0f, Math.min(1f, (frameTimeMs - startTimeMs) / (float) durationMs));
+            float eased = interpolator != null ? interpolator.getInterpolation(rawProgress) : rawProgress;
+            double value = from + ((to - from) * eased);
+            return new NativeAnimatedFrameValue(rawProgress >= 1f ? to : value, rawProgress >= 1f);
+        }
+    }
+
+    private static class NativeAnimatedSpringAnimation extends NativeAnimatedValueAnimation {
+        final double startPosition;
+        final double to;
+        final long startTimeMs;
+        final double stiffness;
+        final double damping;
+        final double mass;
+        final boolean overshootClamping;
+        final double restSpeedThreshold;
+        final double restDisplacementThreshold;
+        double position;
+        double velocity;
+        long lastFrameTimeMs = -1;
+
+        NativeAnimatedSpringAnimation(int valueId, double from, double to, long startTimeMs, double stiffness, double damping, double mass, double velocity, boolean overshootClamping, double restSpeedThreshold, double restDisplacementThreshold) {
+            super(valueId);
+            this.startPosition = from;
+            this.position = from;
+            this.to = to;
+            this.startTimeMs = startTimeMs;
+            this.stiffness = stiffness;
+            this.damping = damping;
+            this.mass = mass;
+            this.velocity = velocity;
+            this.overshootClamping = overshootClamping;
+            this.restSpeedThreshold = restSpeedThreshold;
+            this.restDisplacementThreshold = restDisplacementThreshold;
+        }
+
+        @Override
+        NativeAnimatedFrameValue update(long frameTimeMs) {
+            if (frameTimeMs < startTimeMs) return new NativeAnimatedFrameValue(position, false);
+            if (lastFrameTimeMs < 0) {
+                lastFrameTimeMs = frameTimeMs;
+                return new NativeAnimatedFrameValue(position, false);
+            }
+
+            double dt = Math.min(0.064, Math.max(0.001, (frameTimeMs - lastFrameTimeMs) / 1000.0));
+            lastFrameTimeMs = frameTimeMs;
+
+            double springForce = -stiffness * (position - to);
+            double dampingForce = -damping * velocity;
+            double acceleration = (springForce + dampingForce) / mass;
+            velocity += acceleration * dt;
+            position += velocity * dt;
+
+            boolean overshooting = (to >= startPosition && position > to) || (to <= startPosition && position < to);
+            if (overshootClamping && overshooting) {
+                position = to;
+                velocity = 0;
+            }
+
+            boolean resting = Math.abs(velocity) <= restSpeedThreshold && Math.abs(to - position) <= restDisplacementThreshold;
+            if (resting) {
+                position = to;
+                velocity = 0;
+            }
+
+            return new NativeAnimatedFrameValue(position, resting);
+        }
+    }
+
+    private class NativeAnimatedSequenceAnimation extends NativeAnimatedValueAnimation {
+        final JSONArray animations;
+        final long startTimeMs;
+        int index = 0;
+        double currentValue;
+        NativeAnimatedValueAnimation current;
+
+        NativeAnimatedSequenceAnimation(int valueId, double from, JSONArray animations, long startTimeMs) {
+            super(valueId);
+            this.currentValue = from;
+            this.animations = animations;
+            this.startTimeMs = startTimeMs;
+        }
+
+        @Override
+        NativeAnimatedFrameValue update(long frameTimeMs) {
+            if (frameTimeMs < startTimeMs) return new NativeAnimatedFrameValue(currentValue, false);
+
+            while (index < animations.length()) {
+                if (current == null) {
+                    JSONObject config = animations.optJSONObject(index);
+                    current = createNativeAnimatedValueAnimation(valueId, currentValue, config, frameTimeMs, 0);
+                    if (current == null) {
+                        index++;
+                        continue;
+                    }
+                }
+
+                NativeAnimatedFrameValue frame = current.update(frameTimeMs);
+                currentValue = frame.value;
+                if (!frame.finished) return frame;
+                index++;
+                current = null;
+            }
+
+            return new NativeAnimatedFrameValue(currentValue, true);
+        }
     }
 
     private static class AnimatedBindingSet {
@@ -2596,6 +3231,19 @@ public class ScriptViewHost {
         }
     }
 
+    private double parseAngleDegrees(Object value, double fallback) {
+        if (value == null || value == JSONObject.NULL) return fallback;
+        if (value instanceof Number number) return number.doubleValue();
+        try {
+            String text = String.valueOf(value).trim().toLowerCase();
+            if (text.endsWith("deg")) return Double.parseDouble(text.substring(0, text.length() - 3));
+            if (text.endsWith("rad")) return Math.toDegrees(Double.parseDouble(text.substring(0, text.length() - 3)));
+            return Double.parseDouble(text);
+        } catch (Exception ignored) {
+            return fallback;
+        }
+    }
+
     public Integer parseColor(Object value) {
         try {
             if (value == null || value == JSONObject.NULL) return null;
@@ -3852,8 +4500,13 @@ public class ScriptViewHost {
         animatedBindingSets.clear();
         animatedSharedValues.clear();
         runningSharedValueAnimations.clear();
+        nativeAnimatedBindingSets.clear();
+        nativeAnimatedValues.clear();
+        nativeAnimatedValueAnimations.clear();
         if (animatedPropsFrameLoopRunning) android.view.Choreographer.getInstance().removeFrameCallback(animatedPropsFrameCallback);
         animatedPropsFrameLoopRunning = false;
+        if (nativeAnimatedFrameLoopRunning) android.view.Choreographer.getInstance().removeFrameCallback(nativeAnimatedFrameCallback);
+        nativeAnimatedFrameLoopRunning = false;
         nodes.clear();
         nodesByView.clear();
         textWatchers.clear();

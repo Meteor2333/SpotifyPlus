@@ -15,7 +15,7 @@ const App = () => {
     useEffect(() => {
         const getLyrics = async () => {
             try {
-                setLoading(false);
+                setLoading(true);
                 setError(undefined);
 
                 const spicyVersion: string = '5.22.3'
