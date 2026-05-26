@@ -258,6 +258,9 @@ export interface TextStyle extends LayoutStyle, TransformStyle {
     letterSpacing?: number;
     includeFontPadding?: boolean;
     textTransform?: "none" | "uppercase";
+    textShadowColor?: ColorValue;
+    textShadowOffset?: { width?: SizeValue; height?: SizeValue };
+    textShadowRadius?: SizeValue;
 }
 
 export interface ViewStyle extends LayoutStyle, TransformStyle { }
@@ -418,6 +421,9 @@ export interface TextProps extends CommonViewProps {
     selectable?: boolean;
     allowFontPadding?: boolean;
     textTransform?: "none" | "uppercase";
+    textShadowColor?: ColorValue;
+    textShadowOffset?: { width?: SizeValue; height?: SizeValue };
+    textShadowRadius?: SizeValue;
     hint?: string;
     hintColor?: ColorValue;
     textColor?: ColorValue;

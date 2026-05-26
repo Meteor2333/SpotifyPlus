@@ -80,6 +80,7 @@ import java.util.zip.ZipFile;
 
 public class ScriptViewHost {
     private static final String TAG = "SpotifyPlus";
+    private static final String[] INHERITED_TEXT_PROP_KEYS = {"gravity", "textAlignment"};
     private static final YogaMeasureFunction LEAF_MEASURE_FUNCTION = (node, width, widthMode, height, heightMode) -> {
         Object data = node.getData();
         if (!(data instanceof RenderNode renderNode) || renderNode.view == null) return YogaMeasureOutput.make(0, 0);
@@ -436,6 +437,7 @@ public class ScriptViewHost {
         if (node.isRawText) return;
         JSONObject patch = op.optJSONObject("props");
         boolean affectsLayout = propsAffectLayout(patch);
+        boolean affectsInheritedTextProps = propsAffectInheritedText(patch);
         node.props = mergeJson(node.props, patch);
         if (affectsLayout) rebuildYogaNode(node);
         if (node.view != null) {
@@ -448,6 +450,8 @@ public class ScriptViewHost {
         if (node.nativeComponent != null && node.view != null) {
             node.nativeComponent.updateViewProps(node.view, null, node.props);
         }
+
+        if (affectsInheritedTextProps) applyInheritedTextPropsToDescendants(node);
     }
 
     private void updateText(JSONObject op) throws Exception {
@@ -513,6 +517,12 @@ public class ScriptViewHost {
         if (props == null) return false;
         String[] keys = {"display", "width", "height", "minWidth", "minHeight", "maxWidth", "maxHeight", "flex", "flexGrow", "flexShrink", "flexBasis", "flexDirection", "justifyContent", "alignItems", "alignSelf", "alignContent", "flexWrap", "overflow", "position", "top", "bottom", "left", "right", "start", "end", "margin", "marginHorizontal", "marginVertical", "marginLeft", "marginTop", "marginRight", "marginBottom", "marginStart", "marginEnd", "padding", "paddingHorizontal", "paddingVertical", "paddingLeft", "paddingTop", "paddingRight", "paddingBottom", "paddingStart", "paddingEnd", "borderWidth", "borderLeftWidth", "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderStartWidth", "borderEndWidth", "gap", "rowGap", "columnGap", "aspectRatio", "text", "textSizeSp", "maxLines", "minLines", "lines", "singleLine", "lineSpacingExtra", "lineSpacingMultiplier", "maxLength"};
         for (String key : keys) if (props.has(key)) return true;
+        return false;
+    }
+
+    private boolean propsAffectInheritedText(JSONObject props) {
+        if (props == null) return false;
+        for (String key : INHERITED_TEXT_PROP_KEYS) if (props.has(key)) return true;
         return false;
     }
 
@@ -740,6 +750,8 @@ public class ScriptViewHost {
             nativeAnimatedValues.put(valueId, new NativeAnimatedValue(from));
             NativeAnimatedValueAnimation nativeAnimation = createNativeAnimatedValueAnimation(valueId, from, animation, now, 0);
             if (nativeAnimation != null) nativeAnimatedValueAnimations.put(valueId, nativeAnimation);
+            maybeStartNativeAnimatedFrameLoop();
+            return;
         } else {
             nativeAnimatedValueAnimations.remove(valueId);
             Object evaluated = evaluateNativeAnimatedNode(value, android.os.SystemClock.elapsedRealtime());
@@ -1085,6 +1097,12 @@ public class ScriptViewHost {
                 else withSuppressedEvents(node.id, () -> applyViewProps(node, view, node.props));
                 break;
             }
+            case "textShadowColor":
+            case "textShadowOffset":
+            case "textShadowRadius":
+                if (view instanceof TextView textView) applyTextShadowProps(textView, node.props);
+                else withSuppressedEvents(node.id, () -> applyViewProps(node, view, node.props));
+                break;
             case "backgroundColor":
                 applyBackgroundProps(view, node.props);
                 break;
@@ -1142,6 +1160,8 @@ public class ScriptViewHost {
             String easing = animation.optString("easing", "easeInOut");
             runningSharedValueAnimations.put(valueId, new SharedValueAnimation(valueId, from, to, now + delay, duration, parseAnimationInterpolator(type, easing)));
             animatedSharedValues.put(valueId, new AnimatedSharedValue(from));
+            maybeStartAnimatedPropsFrameLoop();
+            return;
         } else {
             runningSharedValueAnimations.remove(valueId);
             animatedSharedValues.put(valueId, new AnimatedSharedValue(value));
@@ -1458,6 +1478,16 @@ public class ScriptViewHost {
                 if (color != null && view instanceof TextView textView) textView.setTextColor(color);
                 break;
             }
+            case "textShadowColor":
+            case "textShadowOffset":
+            case "textShadowRadius":
+                if (view instanceof TextView textView) {
+                    JSONObject patch = new JSONObject();
+                    patch.put(property, value != null ? value : JSONObject.NULL);
+                    node.props = mergeJson(node.props, patch);
+                    applyTextShadowProps(textView, node.props);
+                }
+                break;
             case "backgroundColor": {
                 JSONObject patch = new JSONObject();
                 patch.put("backgroundColor", value != null ? value : JSONObject.NULL);
@@ -1536,14 +1566,17 @@ public class ScriptViewHost {
             return new NativeAnimatedSequenceAnimation(valueId, from, animations, now + extraDelayMs);
         }
 
-        double to = parseDouble(evaluateNativeAnimatedNode(config.opt("toValue"), now), from);
+        Object toValueExpr = config.has("toValue") ? config.opt("toValue") : from;
+        double to = parseDouble(evaluateNativeAnimatedNode(toValueExpr, now), from);
         long delay = Math.max(0, config.optLong("delay", 0)) + extraDelayMs;
 
         if ("spring".equals(type)) {
             return new NativeAnimatedSpringAnimation(
                     valueId,
                     from,
+                    toValueExpr,
                     to,
+                    nativeAnimatedBindingNeedsFrame(toValueExpr),
                     now + delay,
                     config.optDouble("stiffness", 180),
                     config.optDouble("damping", 22),
@@ -1633,9 +1666,11 @@ public class ScriptViewHost {
         }
     }
 
-    private static class NativeAnimatedSpringAnimation extends NativeAnimatedValueAnimation {
+    private class NativeAnimatedSpringAnimation extends NativeAnimatedValueAnimation {
         final double startPosition;
-        final double to;
+        final Object toValueExpr;
+        final double initialTo;
+        final boolean targetNeedsFrame;
         final long startTimeMs;
         final double stiffness;
         final double damping;
@@ -1643,15 +1678,34 @@ public class ScriptViewHost {
         final boolean overshootClamping;
         final double restSpeedThreshold;
         final double restDisplacementThreshold;
+
         double position;
         double velocity;
+        double lastTarget;
         long lastFrameTimeMs = -1;
 
-        NativeAnimatedSpringAnimation(int valueId, double from, double to, long startTimeMs, double stiffness, double damping, double mass, double velocity, boolean overshootClamping, double restSpeedThreshold, double restDisplacementThreshold) {
+        NativeAnimatedSpringAnimation(
+                int valueId,
+                double from,
+                Object toValueExpr,
+                double initialTo,
+                boolean targetNeedsFrame,
+                long startTimeMs,
+                double stiffness,
+                double damping,
+                double mass,
+                double velocity,
+                boolean overshootClamping,
+                double restSpeedThreshold,
+                double restDisplacementThreshold
+        ) {
             super(valueId);
             this.startPosition = from;
             this.position = from;
-            this.to = to;
+            this.toValueExpr = toValueExpr;
+            this.initialTo = initialTo;
+            this.lastTarget = initialTo;
+            this.targetNeedsFrame = targetNeedsFrame;
             this.startTimeMs = startTimeMs;
             this.stiffness = stiffness;
             this.damping = damping;
@@ -1665,33 +1719,44 @@ public class ScriptViewHost {
         @Override
         NativeAnimatedFrameValue update(long frameTimeMs) {
             if (frameTimeMs < startTimeMs) return new NativeAnimatedFrameValue(position, false);
+
+            double target = parseDouble(evaluateNativeAnimatedNode(toValueExpr, frameTimeMs), lastTarget);
+
             if (lastFrameTimeMs < 0) {
                 lastFrameTimeMs = frameTimeMs;
+                lastTarget = target;
                 return new NativeAnimatedFrameValue(position, false);
             }
 
             double dt = Math.min(0.064, Math.max(0.001, (frameTimeMs - lastFrameTimeMs) / 1000.0));
             lastFrameTimeMs = frameTimeMs;
 
-            double springForce = -stiffness * (position - to);
+            double previousPosition = position;
+            double previousTarget = lastTarget;
+            lastTarget = target;
+
+            double springForce = -stiffness * (position - target);
             double dampingForce = -damping * velocity;
             double acceleration = (springForce + dampingForce) / mass;
+
             velocity += acceleration * dt;
             position += velocity * dt;
 
-            boolean overshooting = (to >= startPosition && position > to) || (to <= startPosition && position < to);
+            boolean overshooting = (target >= previousPosition && position > target) || (target <= previousPosition && position < target);
             if (overshootClamping && overshooting) {
-                position = to;
+                position = target;
                 velocity = 0;
             }
 
-            boolean resting = Math.abs(velocity) <= restSpeedThreshold && Math.abs(to - position) <= restDisplacementThreshold;
+            boolean targetStable = Math.abs(target - previousTarget) <= restDisplacementThreshold;
+            boolean resting = Math.abs(velocity) <= restSpeedThreshold && Math.abs(target - position) <= restDisplacementThreshold && targetStable;
+
             if (resting) {
-                position = to;
+                position = target;
                 velocity = 0;
             }
 
-            return new NativeAnimatedFrameValue(position, resting);
+            return new NativeAnimatedFrameValue(position, resting && !targetNeedsFrame);
         }
     }
 
@@ -1868,6 +1933,7 @@ public class ScriptViewHost {
 
         addChildViewToAndroidParent(parent, child, countViewChildrenBefore(parent, index));
         if (child.view instanceof ImageView) maybeLoadImageForView(child);
+        applyInheritedTextProps(child);
 
         RenderNode radioGroup = findNearestRadioGroup(parent);
         if (radioGroup != null) syncRadioGroup(radioGroup);
@@ -2365,20 +2431,51 @@ public class ScriptViewHost {
     }
 
     private void applyViewProps(RenderNode node, View view, JSONObject props) throws Exception {
-        applyCommonProps(view, props);
-        if (view instanceof ViewGroup) applyViewGroupProps((ViewGroup) view, props);
-        if (view instanceof ImageView) applyImageViewProps(node, (ImageView) view, props);
-        if (view instanceof TextView) applyTextViewProps(node, (TextView) view, props);
-        if (view instanceof EditText) applyEditTextProps((EditText) view, props);
-        if (view instanceof ProgressBar) applyProgressBarProps((ProgressBar) view, props);
-        if (view instanceof SeekBar) applySeekBarProps((SeekBar) view, props);
-        if (view instanceof CompoundButton) applyCompoundButtonProps((CompoundButton) view, props);
-        if (view instanceof Switch) applySwitchProps((Switch) view, props);
-        if (view instanceof RadioGroup) applyRadioGroupProps((RadioGroup) view, props);
-        if (view instanceof ToggleButton) applyToggleButtonProps((ToggleButton) view, props);
-        if (view instanceof ScrollView) applyScrollViewProps((ScrollView) view, props);
-        if (view instanceof HorizontalScrollView) applyHorizontalScrollViewProps((HorizontalScrollView) view, props);
-        if (view instanceof ScriptRenderView) applyScriptRenderViewProps(node, (ScriptRenderView) view, props);
+        JSONObject viewProps = view instanceof TextView ? resolveTextViewProps(node, props) : props;
+        applyCommonProps(view, viewProps);
+        if (view instanceof ViewGroup) applyViewGroupProps((ViewGroup) view, viewProps);
+        if (view instanceof ImageView) applyImageViewProps(node, (ImageView) view, viewProps);
+        if (view instanceof TextView) applyTextViewProps(node, (TextView) view, viewProps);
+        if (view instanceof EditText) applyEditTextProps((EditText) view, viewProps);
+        if (view instanceof ProgressBar) applyProgressBarProps((ProgressBar) view, viewProps);
+        if (view instanceof SeekBar) applySeekBarProps((SeekBar) view, viewProps);
+        if (view instanceof CompoundButton) applyCompoundButtonProps((CompoundButton) view, viewProps);
+        if (view instanceof Switch) applySwitchProps((Switch) view, viewProps);
+        if (view instanceof RadioGroup) applyRadioGroupProps((RadioGroup) view, viewProps);
+        if (view instanceof ToggleButton) applyToggleButtonProps((ToggleButton) view, viewProps);
+        if (view instanceof ScrollView) applyScrollViewProps((ScrollView) view, viewProps);
+        if (view instanceof HorizontalScrollView) applyHorizontalScrollViewProps((HorizontalScrollView) view, viewProps);
+        if (view instanceof ScriptRenderView) applyScriptRenderViewProps(node, (ScriptRenderView) view, viewProps);
+    }
+
+    private JSONObject resolveTextViewProps(RenderNode node, JSONObject props) {
+        try {
+            JSONObject inheritedProps = new JSONObject();
+            collectInheritedTextProps(node.parent, inheritedProps);
+            if (inheritedProps.length() == 0) return props;
+            return mergeJson(inheritedProps, props);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed resolving inherited text props node=" + node.id, e);
+            return props;
+        }
+    }
+
+    private void collectInheritedTextProps(RenderNode ancestor, JSONObject out) throws Exception {
+        if (ancestor == null) return;
+        collectInheritedTextProps(ancestor.parent, out);
+        for (String key : INHERITED_TEXT_PROP_KEYS) {
+            if (ancestor.props.has(key)) out.put(key, ancestor.props.opt(key));
+        }
+    }
+
+    private void applyInheritedTextProps(RenderNode node) throws Exception {
+        if (node == null || node.isRawText) return;
+        if (node.view instanceof TextView) applyViewProps(node, node.view, node.props);
+        applyInheritedTextPropsToDescendants(node);
+    }
+
+    private void applyInheritedTextPropsToDescendants(RenderNode node) throws Exception {
+        for (RenderNode child : node.children) applyInheritedTextProps(child);
     }
 
     private void applyEventProps(RenderNode node, View view, JSONObject props) {
@@ -2876,7 +2973,25 @@ public class ScriptViewHost {
         if (props.has("textIsSelectable")) view.setTextIsSelectable(parseBoolean(props.opt("textIsSelectable"), false));
         if (props.has("maxLength"))
             view.setFilters(new InputFilter[]{new InputFilter.LengthFilter(props.optInt("maxLength", Integer.MAX_VALUE))});
+        applyTextShadowProps(view, props);
         dirtyIfNeeded(node);
+    }
+
+    private void applyTextShadowProps(TextView view, JSONObject props) {
+        if (!props.has("textShadowColor") && !props.has("textShadowOffset") && !props.has("textShadowRadius"))
+            return;
+
+        Integer color = parseColor(props.opt("textShadowColor"));
+        int radius = parseYogaPoint(props.opt("textShadowRadius"), 0);
+        int dx = 0;
+        int dy = 0;
+        JSONObject offset = props.optJSONObject("textShadowOffset");
+        if (offset != null) {
+            dx = parseYogaPoint(offset.opt("width"), 0);
+            dy = parseYogaPoint(offset.opt("height"), 0);
+        }
+
+        view.setShadowLayer(radius, dx, dy, color != null ? color : Color.BLACK);
     }
 
     private void applyImageViewProps(RenderNode node, ImageView view, JSONObject props) {

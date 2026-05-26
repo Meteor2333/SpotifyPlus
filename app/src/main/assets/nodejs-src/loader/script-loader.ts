@@ -63,6 +63,8 @@ export class ScriptLoader {
         const componentsModule = nodeRequire(componentsPath);
         const animatedPath = path.resolve(__dirname, '../ui/reanimated.js');
         const animatedModule = nodeRequire(animatedPath);
+        const reanimatedPath = path.resolve(__dirname, '../ui/native-animation/index.js');
+        const reanimatedModule = nodeRequire(reanimatedPath);
 
         let fetchImpl: any = undefined;
         let HeadersImpl: any = undefined;
@@ -92,6 +94,10 @@ export class ScriptLoader {
 
             if (specifier === 'spotifyplus/animated') {
                 return animatedModule;
+            }
+
+            if (specifier === 'spotifyplus/react/Animated') {
+                return reanimatedModule;
             }
 
             return nodeRequire(specifier);
