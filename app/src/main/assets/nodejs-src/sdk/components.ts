@@ -5,6 +5,44 @@ import * as Internal from "../ui/components";
 
 export type * from "../ui/components";
 
+export interface View extends Internal.View {}
+export interface LinearLayout extends Internal.LinearLayout {}
+export interface FrameLayout extends Internal.FrameLayout {}
+export interface RelativeLayout extends Internal.RelativeLayout {}
+export interface PlainView extends Internal.PlainView {}
+export interface Text extends Internal.Text {}
+export interface TextView extends Internal.TextView {}
+export interface TextInput extends Internal.TextInput {}
+export interface Button extends Internal.Button {}
+export interface ProgressBar extends Internal.ProgressBar {}
+export interface ProgressBarHorizontal extends Internal.ProgressBarHorizontal {}
+export interface ActivityIndicator extends Internal.ActivityIndicator {}
+export interface Slider extends Internal.Slider {}
+export interface Image extends Internal.Image {}
+export interface ImageButton extends Internal.ImageButton {}
+export interface Switch extends Internal.Switch {}
+export interface CheckBox extends Internal.CheckBox {}
+export interface RadioButton extends Internal.RadioButton {}
+export interface RadioGroup extends Internal.RadioGroup {}
+export interface ToggleButton extends Internal.ToggleButton {}
+export interface Space extends Internal.Space {}
+export interface ScriptView extends Internal.ScriptView {}
+export interface EditText extends Internal.EditText {}
+export interface SeekBar extends Internal.SeekBar {}
+export interface ImageView extends Internal.ImageView {}
+export interface RenderView extends Internal.RenderView {}
+export interface CanvasView extends Internal.CanvasView {}
+export interface SafeAreaView extends Internal.SafeAreaView {}
+export interface ScrollView extends Internal.ScrollView {}
+export interface HorizontalScrollView extends Internal.HorizontalScrollView {}
+export interface Pressable extends Internal.Pressable {}
+export interface TouchableOpacity extends Internal.TouchableOpacity {}
+export interface FlatList<ItemT = any> extends Internal.FlatList<ItemT> {}
+export interface HorizontalStackLayout extends Internal.HorizontalStackLayout {}
+export interface VerticalStackLayout extends Internal.VerticalStackLayout {}
+export interface Row extends Internal.Row {}
+export interface Column extends Internal.Column {}
+
 export const createNativeComponent: typeof Internal.createNativeComponent = Internal.createNativeComponent;
 export const NativeView: typeof Internal.NativeView = Internal.NativeView;
 export const View: typeof Internal.View = Internal.View;
@@ -15,15 +53,12 @@ export const PlainView: typeof Internal.PlainView = Internal.PlainView;
 export const Text: typeof Internal.Text = Internal.Text;
 export const TextView: typeof Internal.TextView = Internal.TextView;
 export const TextInput: typeof Internal.TextInput = Internal.TextInput;
-export const EditText: typeof Internal.EditText = Internal.EditText;
 export const Button: typeof Internal.Button = Internal.Button;
 export const ProgressBar: typeof Internal.ProgressBar = Internal.ProgressBar;
 export const ProgressBarHorizontal: typeof Internal.ProgressBarHorizontal = Internal.ProgressBarHorizontal;
 export const ActivityIndicator: typeof Internal.ActivityIndicator = Internal.ActivityIndicator;
 export const Slider: typeof Internal.Slider = Internal.Slider;
-export const SeekBar: typeof Internal.SeekBar = Internal.SeekBar;
 export const Image: typeof Internal.Image = Internal.Image;
-export const ImageView: typeof Internal.ImageView = Internal.ImageView;
 export const ImageButton: typeof Internal.ImageButton = Internal.ImageButton;
 export const Switch: typeof Internal.Switch = Internal.Switch;
 export const CheckBox: typeof Internal.CheckBox = Internal.CheckBox;
@@ -32,15 +67,18 @@ export const RadioGroup: typeof Internal.RadioGroup = Internal.RadioGroup;
 export const ToggleButton: typeof Internal.ToggleButton = Internal.ToggleButton;
 export const Space: typeof Internal.Space = Internal.Space;
 export const ScriptView: typeof Internal.ScriptView = Internal.ScriptView;
+
+export const EditText: typeof Internal.EditText = Internal.EditText;
+export const SeekBar: typeof Internal.SeekBar = Internal.SeekBar;
+export const ImageView: typeof Internal.ImageView = Internal.ImageView;
 export const RenderView: typeof Internal.RenderView = Internal.RenderView;
 export const CanvasView: typeof Internal.CanvasView = Internal.CanvasView;
 export const SafeAreaView: typeof Internal.SafeAreaView = Internal.SafeAreaView;
-export const FlatList: typeof Internal.FlatList = Internal.FlatList;
-
 export const ScrollView: typeof Internal.ScrollView = Internal.ScrollView;
 export const HorizontalScrollView: typeof Internal.HorizontalScrollView = Internal.HorizontalScrollView;
 export const Pressable: typeof Internal.Pressable = Internal.Pressable;
 export const TouchableOpacity: typeof Internal.TouchableOpacity = Internal.TouchableOpacity;
+export const FlatList: typeof Internal.FlatList = Internal.FlatList;
 export const HorizontalStackLayout: typeof Internal.HorizontalStackLayout = Internal.HorizontalStackLayout;
 export const VerticalStackLayout: typeof Internal.VerticalStackLayout = Internal.VerticalStackLayout;
 export const Row: typeof Internal.Row = Internal.Row;
@@ -59,15 +97,12 @@ export default {
     Text,
     TextView,
     TextInput,
-    EditText,
     Button,
     ProgressBar,
     ProgressBarHorizontal,
     ActivityIndicator,
     Slider,
-    SeekBar,
     Image,
-    ImageView,
     ImageButton,
     Switch,
     CheckBox,
@@ -76,14 +111,17 @@ export default {
     ToggleButton,
     Space,
     ScriptView,
+    EditText,
+    SeekBar,
+    ImageView,
     RenderView,
     CanvasView,
     SafeAreaView,
-    FlatList,
     ScrollView,
     HorizontalScrollView,
     Pressable,
     TouchableOpacity,
+    FlatList,
     HorizontalStackLayout,
     VerticalStackLayout,
     Row,

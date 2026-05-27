@@ -11,6 +11,7 @@ const sourceFile = ts.createSourceFile(inputPath, sourceText, ts.ScriptTarget.La
 
 const components = new Map();
 const rawExports = new Set();
+const exportedInterfaces = new Set();
 
 function isExported(node) {
     return !!node.modifiers?.some(mod => mod.kind === ts.SyntaxKind.ExportKeyword);
@@ -45,6 +46,10 @@ function getPropsFromFunctionDeclaration(node) {
 }
 
 function visit(node) {
+    if (ts.isInterfaceDeclaration(node) && isExported(node)) {
+        exportedInterfaces.add(node.name.text);
+    }
+
     if (ts.isVariableStatement(node) && isExported(node)) {
         for (const declaration of node.declarationList.declarations) {
             const name = getIdentifierName(declaration.name);
@@ -95,6 +100,16 @@ lines.push(`import * as Internal from "../ui/components";`);
 lines.push(``);
 lines.push(`export type * from "../ui/components";`);
 lines.push(``);
+
+for (const [name] of componentEntries) {
+    if (exportedInterfaces.has(name)) lines.push(name === "FlatList" ? `export interface ${name}<ItemT = any> extends Internal.${name}<ItemT> {}` : `export interface ${name} extends Internal.${name} {}`);
+}
+for (const name of rawEntries) {
+    if (exportedInterfaces.has(name)) lines.push(name === "FlatList" ? `export interface ${name}<ItemT = any> extends Internal.${name}<ItemT> {}` : `export interface ${name} extends Internal.${name} {}`);
+}
+if (componentEntries.some(([name]) => exportedInterfaces.has(name)) || rawEntries.some(name => exportedInterfaces.has(name))) {
+    lines.push(``);
+}
 
 for (const [name] of componentEntries) {
     lines.push(`export const ${name}: typeof Internal.${name} = Internal.${name};`);

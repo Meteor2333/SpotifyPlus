@@ -135,22 +135,29 @@ export class ScriptRegistry {
     }
 
     mountSurface(scriptId: string, surface: Surface, element: React.ReactElement): void {
+        const key = `${scriptId}:${surface.id}`;
+        const existing = this.mountedSurfaces.get(key);
+        if (existing) existing.unmount();
+
         const root = createRoot(surface.type);
         console.log("before root.render", { surface, element });
         root.render(element);
         console.log("after root.render", { surface, children: root.getTree() });
-        this.mountedSurfaces.set(`${scriptId}:${surface.id}`, root);
+        this.mountedSurfaces.set(key, root);
     }
 
     unmountSurface(scriptId: string, surfaceId: string): void {
-        const root = this.mountedSurfaces.get(`${scriptId}:${surfaceId}`);
+        const key = `${scriptId}:${surfaceId}`;
+        const root = this.mountedSurfaces.get(key);
         root?.unmount();
+        this.mountedSurfaces.delete(key);
     }
 
     unmountAllSurfaces(surfaceId: string): void {
         this.mountedSurfaces.forEach((root, key) => {
             if (key.endsWith(`:${surfaceId}`)) {
                 root.unmount();
+                this.mountedSurfaces.delete(key);
             }
         });
     }

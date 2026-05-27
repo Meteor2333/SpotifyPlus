@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { View, Text, ScrollView, VerticalStackLayout, NativeView } from 'spotifyplus/react'
+import { View, Text, ScrollView, VerticalStackLayout, NativeView, FlatList } from 'spotifyplus/react'
 import { TransformedLyrics } from './lyric-utilities'
 import { StaticSyncedLyrics, SyllableSyncedLyrics } from '../Types/lyrics-types';
 import { SpotifyPlus } from 'spotifyplus';
@@ -11,9 +11,55 @@ interface Props {
     lyrics: TransformedLyrics | undefined;
 }
 
-const LyricView = NativeView('LyricView');
+const AnimatedBackground = NativeView('AnimatedBackground');
 
 const LyricsView = ({ lyrics }: Props) => {
+    const scroller = useRef<FlatList | null>(null);
+    const playbackTime = usePlaybackTime();
+    const lastActiveIndex = useRef<number | null>(null);
+
+    const getLineRange = (item: SyllableSyncedLyrics['Content'][number]) => {
+        if (item.Type !== 'Vocal') {
+            return {
+                start: item.StartTime,
+                end: item.EndTime
+            }
+        }
+
+        const starts = [
+            item.Lead.StartTime,
+            ...(item.Background?.map(vocal => vocal.StartTime) ?? [])
+        ];
+
+        const ends = [
+            item.Lead.EndTime,
+            ...(item.Background?.map(vocal => vocal.EndTime) ?? [])
+        ];
+
+        return {
+            start: Math.min(...starts),
+            end: Math.max(...ends)
+        };
+    };
+
+    useEffect(() => {
+        if (lyrics?.Type !== 'Syllable') return;
+
+        const activeIndex = lyrics.Content.findIndex(item => {
+            const { start, end } = getLineRange(item);
+            return playbackTime >= start && playbackTime <= end;
+        });
+
+        if (activeIndex === -1 || activeIndex === lastActiveIndex.current) return;
+
+        lastActiveIndex.current = activeIndex;
+
+        scroller.current?.scrollToIndex({
+            index: activeIndex,
+            animated: true,
+            viewPosition: 0.35
+        });
+    }, [lyrics, playbackTime]);
 
     if (lyrics?.Type === 'Line') {
         return (
@@ -27,15 +73,19 @@ const LyricsView = ({ lyrics }: Props) => {
 
     if (lyrics?.Type === 'Syllable') {
         return (
-            <ScrollView style={{ flex: 1, backgroundColor: '#313131' }}>
-                <VerticalStackLayout style={{ flex: 1 }}>
-                    {lyrics.Content.map((line, index) => {
-                        if (line.Type === 'Vocal') {
-                            return <SyllableVocalLine key={index} metadata={line} style={{ paddingVertical: 2 }} />
-                        }
-                    })}
-                </VerticalStackLayout>
-            </ScrollView>
+            <View style={{ flex: 1, position: 'relative' }}>
+                <AnimatedBackground style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, elevation: 0 }} />
+
+                <FlatList style={{ flex: 1, elevation: 10, backgroundColor: '#00000088' }} ref={scroller} data={lyrics.Content} renderItem={({ item, index }) => {
+                    if (item.Type === 'Vocal') {
+                        return (
+                            <View style={{ flex: 1, flexDirection: 'column' }}>
+                                <SyllableVocalLine key={index} metadata={item} style={{ paddingVertical: 2 }} />
+                            </View>
+                        )
+                    }
+                }} />
+            </View>
         )
     }
 }

@@ -66,11 +66,6 @@ const SyllableVocalLine = ({ metadata }: Props) => {
 
     const leadSyllables = useMemo(() => {
         return metadata.Lead.Syllables.map((syllable) => {
-            const relativeStart = syllable.StartTime - startTime;
-            const relativeEnd = syllable.EndTime - startTime;
-            const duration = relativeEnd - relativeStart;
-            const startScale = relativeStart / duration;
-
             const scaleTimes = ScaleRange.map(({ time }) => time);
             const scaleValues = ScaleRange.map(({ value }) => value);
 
@@ -84,16 +79,14 @@ const SyllableVocalLine = ({ metadata }: Props) => {
             const yOffsetSpline = new Spline(yOffsetTimes, yOffsetValues);
             const glowSpline = new Spline(glowTimes, glowValues);
 
+            const emphasized = syllable.EndTime - syllable.StartTime >= 1 && syllable.Text.length <= 12;
+
             return ({
                 syllable,
-                relativeStart,
-                relativeEnd,
-                duration,
-                startScale,
+                emphasized,
                 scaleSpline,
                 yOffsetSpline,
                 glowSpline,
-                durationScale: (relativeEnd / duration) - startScale
             });
         });
     }, [metadata, startTime]);
@@ -102,11 +95,6 @@ const SyllableVocalLine = ({ metadata }: Props) => {
         if (!metadata.Background) return null;
 
         return metadata.Background[0].Syllables.map((syllable) => {
-            const relativeStart = syllable.StartTime - startTime;
-            const relativeEnd = syllable.EndTime - startTime;
-            const duration = relativeEnd - relativeStart;
-            const startScale = relativeStart / duration;
-
             const scaleTimes = ScaleRange.map(({ time }) => time);
             const scaleValues = ScaleRange.map(({ value }) => value);
 
@@ -120,16 +108,14 @@ const SyllableVocalLine = ({ metadata }: Props) => {
             const yOffsetSpline = new Spline(yOffsetTimes, yOffsetValues);
             const glowSpline = new Spline(glowTimes, glowValues);
 
+            const emphasized = syllable.EndTime - syllable.StartTime >= 1 && syllable.Text.length <= 12;
+
             return ({
                 syllable,
-                relativeStart,
-                relativeEnd,
-                duration,
-                startScale,
+                emphasized,
                 scaleSpline,
                 yOffsetSpline,
                 glowSpline,
-                durationScale: (relativeEnd / duration) - startScale
             });
         });
     }, [metadata, startTime]);
@@ -159,8 +145,8 @@ const SyllableVocalLine = ({ metadata }: Props) => {
             <View style={{ flex: 1, flexWrap: 'wrap', flexDirection: 'row' }}>
                 {leadWords.map((word, index) => (
                     <View key={index} style={{ flexDirection: 'row' }}>
-                        {word.map(({ syllable, scaleSpline, yOffsetSpline, glowSpline }, syllableIndex) => (
-                            <SyllableView key={syllableIndex} syllable={syllable} scaleSpline={scaleSpline} yOffsetSpline={yOffsetSpline} glowSpline={glowSpline} />
+                        {word.map(({ syllable, emphasized, scaleSpline, yOffsetSpline, glowSpline }, syllableIndex) => (
+                            <SyllableView key={syllableIndex} syllable={syllable} emphasized={emphasized} scaleSpline={scaleSpline} yOffsetSpline={yOffsetSpline} glowSpline={glowSpline} />
                         ))}
                     </View>
                 ))}
@@ -170,8 +156,8 @@ const SyllableVocalLine = ({ metadata }: Props) => {
                 <View style={{ flex: 1, flexWrap: 'wrap', flexDirection: 'row' }}>
                     {backgroundWords.map((word, index) => (
                         <View key={index} style={{ flexDirection: 'row' }}>
-                            {word.map(({ syllable, scaleSpline, yOffsetSpline, glowSpline }, syllableIndex) => (
-                                <SyllableView key={syllableIndex} syllable={syllable} isBackground scaleSpline={scaleSpline} yOffsetSpline={yOffsetSpline} glowSpline={glowSpline} />
+                            {word.map(({ syllable, emphasized, scaleSpline, yOffsetSpline, glowSpline }, syllableIndex) => (
+                                <SyllableView key={syllableIndex} syllable={syllable} emphasized={emphasized} isBackground scaleSpline={scaleSpline} yOffsetSpline={yOffsetSpline} glowSpline={glowSpline} />
                             ))}
                         </View>
                     ))}

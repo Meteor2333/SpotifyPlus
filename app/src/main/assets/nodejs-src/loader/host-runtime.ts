@@ -215,6 +215,7 @@ export class HostRuntime {
             const data = payload as { surfaceId: string };
             if (!data?.surfaceId) return;
             this.registry.unmountAllSurfaces(data.surfaceId);
+            clearCommitListener(data.surfaceId);
             this.bridge.unregisterSurface(data.surfaceId);
         });
 

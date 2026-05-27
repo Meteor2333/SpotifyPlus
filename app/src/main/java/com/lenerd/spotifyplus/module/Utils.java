@@ -389,7 +389,7 @@ public final class Utils {
                         saved = Boolean.parseBoolean(savedValue);
                     }
 
-                    SpotifyAlbum albumObj = new SpotifyAlbum(album, artist, null, "https://i.scdn.co/image/" + imageId);
+                    SpotifyAlbum albumObj = new SpotifyAlbum(album, artist, null, "https://i.scdn.co/image/" + imageId.split(":")[2]);
                     Method positionMethod = playerState.getClass().getMethod("positionAsOfTimestamp");
                     Object posOpt = positionMethod.invoke(playerState);
                     if (posOpt == null) {

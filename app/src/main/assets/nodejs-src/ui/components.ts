@@ -2,7 +2,13 @@ import React from "react";
 import LegacyAnimatedCore, { type AnimatedNodeLike as LegacyAnimatedNodeLike } from "./animated";
 import * as NativeAnimatedCore from "./native-animation/core";
 import type { NativeAnimatedNodeLike } from "./native-animation/core";
-import type { NativeComponentRef } from "./renderer";
+import type {
+    NativeComponentRef,
+    ScrollToEndOptions,
+    ScrollToIndexOptions,
+    ScrollToOffsetOptions,
+    ScrollToOptions,
+} from "./renderer";
 
 export type LayoutSize =
     | number
@@ -151,6 +157,23 @@ export interface ScrollEvent {
     y: number;
     oldX: number;
     oldY: number;
+}
+export interface VisibleRangeEvent {
+    targetId: number;
+    first: number;
+    last: number;
+    visibleFirst: number;
+    visibleLast: number;
+}
+export interface ViewToken<ItemT = any> {
+    item: ItemT;
+    index: number;
+    key: string;
+    isViewable: boolean;
+}
+export interface ViewabilityChangeEvent<ItemT = any> {
+    viewableItems: ViewToken<ItemT>[];
+    changed: ViewToken<ItemT>[];
 }
 export interface SubmitEditingEvent {
     targetId: number;
@@ -584,6 +607,21 @@ export interface PressableProps extends Omit<
 export interface TouchableOpacityProps extends PressableProps {
     activeOpacity?: number;
 }
+export interface FlatListScrollToIndexParams {
+    index: number;
+    animated?: boolean;
+    viewOffset?: number;
+    viewPosition?: number;
+}
+export interface FlatListScrollToOffsetParams {
+    offset: number;
+    animated?: boolean;
+}
+export interface FlatListGetItemLayoutResult {
+    length: number;
+    offset: number;
+    index: number;
+}
 export interface FlatListProps<ItemT> extends Omit<
     ScrollViewProps,
     "children"
@@ -595,7 +633,72 @@ export interface FlatListProps<ItemT> extends Omit<
     ListFooterComponent?: React.ComponentType<any> | React.ReactElement | null;
     ListEmptyComponent?: React.ComponentType<any> | React.ReactElement | null;
     ItemSeparatorComponent?: React.ComponentType<any> | React.ReactElement | null;
+    initialNumToRender?: number;
+    windowSize?: number;
+    maxToRenderPerBatch?: number;
+    estimatedItemSize?: number;
+    getItemLayout?: (data: readonly ItemT[] | null | undefined, index: number) => FlatListGetItemLayoutResult;
+    initialScrollIndex?: number;
+    onViewableItemsChanged?: (event: ViewabilityChangeEvent<ItemT>) => void;
 }
+
+interface VirtualizedListProps extends Omit<ScrollViewProps, "children"> {
+    itemCount: number;
+    estimatedItemSize?: number;
+    initialNumToRender?: number;
+    windowSize?: number;
+    initialScrollIndex?: number;
+    onVisibleRangeChange?: (event: VisibleRangeEvent) => void;
+}
+
+interface VirtualizedCellProps extends ViewProps {
+    itemIndex: number;
+}
+
+export interface View extends NativeComponentRef { }
+export interface LinearLayout extends View { }
+export interface FrameLayout extends View { }
+export interface RelativeLayout extends View { }
+export interface PlainView extends View { }
+export interface Text extends TextView { }
+export interface TextView extends View { }
+export interface TextInput extends EditText { }
+export interface EditText extends TextView { }
+export interface Button extends TextView { }
+export interface ProgressBar extends View { }
+export interface ProgressBarHorizontal extends ProgressBar { }
+export interface ActivityIndicator extends ProgressBar { }
+export interface Slider extends View { }
+export interface SeekBar extends Slider { }
+export interface Image extends View { }
+export interface ImageView extends Image { }
+export interface ImageButton extends Image { }
+export interface Switch extends TextView { }
+export interface CheckBox extends TextView { }
+export interface RadioButton extends TextView { }
+export interface RadioGroup extends View { }
+export interface ToggleButton extends TextView { }
+export interface Space extends View { }
+export interface ScriptView extends View { }
+export interface RenderView extends ScriptView { }
+export interface CanvasView extends ScriptView { }
+export interface SafeAreaView extends View { }
+export interface ScrollView extends View {
+    scrollTo(options?: ScrollToOptions | number, y?: number, animated?: boolean): void;
+    scrollToEnd(options?: ScrollToEndOptions): void;
+    flashScrollIndicators(): void;
+}
+export interface HorizontalScrollView extends ScrollView { }
+export interface Pressable extends View { }
+export interface TouchableOpacity extends Pressable { }
+export interface FlatList<ItemT = any> extends ScrollView {
+    scrollToIndex(params: FlatListScrollToIndexParams): void;
+    scrollToOffset(params: FlatListScrollToOffsetParams): void;
+}
+export interface HorizontalStackLayout extends View { }
+export interface VerticalStackLayout extends View { }
+export interface Row extends HorizontalStackLayout { }
+export interface Column extends VerticalStackLayout { }
 
 export type RNStyle = ViewStyle | TextStyle;
 
@@ -1102,7 +1205,7 @@ export interface SpotifyPlusComponent<P, R = NativeComponentRef> {
     displayName?: string;
 }
 
-function createMappedRef(nativeRef: NativeComponentRef | null, mapper?: (input: HostProps) => HostProps): NativeComponentRef | null {
+function createMappedRef<R extends NativeComponentRef = NativeComponentRef>(nativeRef: NativeComponentRef | null, mapper?: (input: HostProps) => HostProps): R | null {
     if (!nativeRef) return null;
 
     return {
@@ -1161,7 +1264,7 @@ function createMappedRef(nativeRef: NativeComponentRef | null, mapper?: (input: 
         command(command: string, args?: Record<string, any>, callback?: (payload: any) => void) {
             nativeRef.command(command, args, callback);
         },
-    };
+    } as R;
 }
 
 export interface NativeViewProps extends CommonViewProps {
@@ -1174,24 +1277,24 @@ export type NativeViewOptions = {
 
 export type NativeComponentProps<TProps extends object = {}> = TProps & CommonViewProps;
 
-export function createNativeComponent<TProps extends object = {}>(name: string, options?: NativeViewOptions): SpotifyPlusComponent<NativeComponentProps<TProps>> {
+export function createNativeComponent<TProps extends object = {}>(name: string, options?: NativeViewOptions): SpotifyPlusComponent<NativeComponentProps<TProps>, View> {
     const type = options?.scriptId ? `native:${options.scriptId}/${name}` : `native:${name}`;
-    return createHostComponent<NativeComponentProps<TProps>>(type, mapViewLike);
+    return createHostComponent<NativeComponentProps<TProps>, View>(type, mapViewLike);
 }
 
 export const NativeView = createNativeComponent;
 
-function createHostComponent<P extends { style?: StyleProp<RNStyle>; children?: React.ReactNode }>(
+function createHostComponent<P extends { style?: StyleProp<RNStyle>; children?: React.ReactNode }, R extends NativeComponentRef = NativeComponentRef>(
     type: string,
     mapper?: (input: HostProps) => HostProps,
-): SpotifyPlusComponent<P> {
-    const Component = React.forwardRef<NativeComponentRef, P>((props, ref) => {
+): SpotifyPlusComponent<P, R> {
+    const Component = React.forwardRef<R, P>((props, ref) => {
         const nativeRef = React.useRef<NativeComponentRef | null>(null);
 
-        React.useImperativeHandle(ref, () => createMappedRef(nativeRef.current, mapper) as NativeComponentRef, [mapper]);
+        React.useImperativeHandle(ref, () => createMappedRef<R>(nativeRef.current, mapper) as R, [mapper]);
 
         return React.createElement(type, { ...normalizeProps(props, mapper), ref: nativeRef });
-    }) as unknown as SpotifyPlusComponent<P>;
+    }) as unknown as SpotifyPlusComponent<P, R>;
 
     Component.displayName = type;
     return Component;
@@ -1250,7 +1353,8 @@ const NativeScrollView = createHostComponent<
         | "contentContainerStyle"
         | "showsVerticalScrollIndicator"
         | "showsHorizontalScrollIndicator"
-    >
+    >,
+    ScrollView
 >("ScrollView", mapViewLike);
 const NativeHorizontalScrollView = createHostComponent<
     Omit<
@@ -1259,81 +1363,91 @@ const NativeHorizontalScrollView = createHostComponent<
         | "contentContainerStyle"
         | "showsVerticalScrollIndicator"
         | "showsHorizontalScrollIndicator"
-    >
+    >,
+    HorizontalScrollView
 >("HorizontalScrollView", mapViewLike);
 
-export const View = createHostComponent<ViewProps>('View', mapViewLike);
-export const LinearLayout = createHostComponent<ViewProps>(
+const NativeVirtualizedList = createHostComponent<VirtualizedListProps, FlatList>(
+    "VirtualizedList",
+    mapViewLike,
+);
+const VirtualizedCell = createHostComponent<VirtualizedCellProps, View>(
+    "VirtualizedCell",
+    mapViewLike,
+);
+
+export const View = createHostComponent<ViewProps, View>('View', mapViewLike);
+export const LinearLayout = createHostComponent<ViewProps, LinearLayout>(
     "LinearLayout",
     mapViewLike,
 );
-export const FrameLayout = createHostComponent<FrameLayoutProps>(
+export const FrameLayout = createHostComponent<FrameLayoutProps, FrameLayout>(
     "FrameLayout",
     mapViewLike,
 );
-export const RelativeLayout = createHostComponent<RelativeLayoutProps>(
+export const RelativeLayout = createHostComponent<RelativeLayoutProps, RelativeLayout>(
     "RelativeLayout",
     mapViewLike,
 );
-export const PlainView = createHostComponent<PlainViewProps>(
+export const PlainView = createHostComponent<PlainViewProps, PlainView>(
     "PlainView",
     mapViewLike,
 );
-export const Text = createHostComponent<TextProps>('Text', mapTextLike);
-export const TextView = createHostComponent<TextProps>("TextView", mapTextLike);
-export const TextInput = createHostComponent<TextInputProps>(
+export const Text = createHostComponent<TextProps, Text>('Text', mapTextLike);
+export const TextView = createHostComponent<TextProps, TextView>("TextView", mapTextLike);
+export const TextInput = createHostComponent<TextInputProps, TextInput>(
     "EditText",
     mapTextInputLike,
 );
-export const EditText = TextInput;
-export const Button = createHostComponent<ButtonProps>("Button", mapButtonLike);
-export const ProgressBar = createHostComponent<ProgressBarProps>(
+export const EditText = TextInput as unknown as SpotifyPlusComponent<TextInputProps, EditText>;
+export const Button = createHostComponent<ButtonProps, Button>("Button", mapButtonLike);
+export const ProgressBar = createHostComponent<ProgressBarProps, ProgressBar>(
     "ProgressBar",
     mapProgressLike,
 );
-export const ProgressBarHorizontal = createHostComponent<ProgressBarProps>(
+export const ProgressBarHorizontal = createHostComponent<ProgressBarProps, ProgressBarHorizontal>(
     "ProgressBarHorizontal",
     mapProgressLike,
 );
-export const ActivityIndicator = createHostComponent<ActivityIndicatorProps>(
+export const ActivityIndicator = createHostComponent<ActivityIndicatorProps, ActivityIndicator>(
     "ProgressBar",
     mapActivityIndicatorLike,
 );
-export const Slider = createHostComponent<SliderProps>(
+export const Slider = createHostComponent<SliderProps, Slider>(
     "SeekBar",
     mapSliderLike,
 );
-export const SeekBar = Slider;
-export const Image = createHostComponent<ImageProps>("Image", mapImageLike);
-export const ImageView = Image;
-export const ImageButton = createHostComponent<ImageButtonProps>(
+export const SeekBar = Slider as unknown as SpotifyPlusComponent<SliderProps, SeekBar>;
+export const Image = createHostComponent<ImageProps, Image>("Image", mapImageLike);
+export const ImageView = Image as unknown as SpotifyPlusComponent<ImageProps, ImageView>;
+export const ImageButton = createHostComponent<ImageButtonProps, ImageButton>(
     "ImageButton",
     mapImageLike,
 );
-export const Switch = createHostComponent<SwitchProps>("Switch", mapSwitchLike);
-export const CheckBox = createHostComponent<CheckBoxProps>(
+export const Switch = createHostComponent<SwitchProps, Switch>("Switch", mapSwitchLike);
+export const CheckBox = createHostComponent<CheckBoxProps, CheckBox>(
     "CheckBox",
     mapCompoundButtonLike,
 );
-export const RadioButton = createHostComponent<RadioButtonProps>(
+export const RadioButton = createHostComponent<RadioButtonProps, RadioButton>(
     "RadioButton",
     mapCompoundButtonLike,
 );
-export const RadioGroup = createHostComponent<RadioGroupProps>(
+export const RadioGroup = createHostComponent<RadioGroupProps, RadioGroup>(
     "RadioGroup",
     mapViewLike,
 );
-export const ToggleButton = createHostComponent<ToggleButtonProps>(
+export const ToggleButton = createHostComponent<ToggleButtonProps, ToggleButton>(
     "ToggleButton",
     mapCompoundButtonLike,
 );
-export const Space = createHostComponent<SpaceProps>("Space", mapViewLike);
-export const ScriptView = createHostComponent<ScriptViewProps>("ScriptView", mapViewLike);
-export const RenderView = ScriptView;
-export const CanvasView = ScriptView;
-export const SafeAreaView = View;
+export const Space = createHostComponent<SpaceProps, Space>("Space", mapViewLike);
+export const ScriptView = createHostComponent<ScriptViewProps, ScriptView>("ScriptView", mapViewLike);
+export const RenderView = ScriptView as unknown as SpotifyPlusComponent<ScriptViewProps, RenderView>;
+export const CanvasView = ScriptView as unknown as SpotifyPlusComponent<ScriptViewProps, CanvasView>;
+export const SafeAreaView = View as unknown as SpotifyPlusComponent<ViewProps, SafeAreaView>;
 
-export const ScrollView = React.forwardRef<NativeComponentRef, ScrollViewProps>((props, ref) => {
+export const ScrollView = React.forwardRef<ScrollView, ScrollViewProps>((props, ref) => {
     const {
         horizontal,
         contentContainerStyle,
@@ -1355,17 +1469,17 @@ export const ScrollView = React.forwardRef<NativeComponentRef, ScrollViewProps>(
     const content = contentContainerStyle ? React.createElement(View, { style: contentContainerStyle }, children) : children;
 
     return React.createElement(HostComponent, { ...hostProps, ref }, content);
-}) as unknown as SpotifyPlusComponent<ScrollViewProps>;
+}) as unknown as SpotifyPlusComponent<ScrollViewProps, ScrollView>;
 
 ScrollView.displayName = "ScrollView";
 
-export const HorizontalScrollView = React.forwardRef<NativeComponentRef, HorizontalScrollViewProps>((props, ref) =>
+export const HorizontalScrollView = React.forwardRef<HorizontalScrollView, HorizontalScrollViewProps>((props, ref) =>
     React.createElement(ScrollView, { ...props, horizontal: true, ref }),
-) as SpotifyPlusComponent<HorizontalScrollViewProps>;
+) as SpotifyPlusComponent<HorizontalScrollViewProps, HorizontalScrollView>;
 
 HorizontalScrollView.displayName = "HorizontalScrollView";
 
-export const Pressable = React.forwardRef<NativeComponentRef, PressableProps>((props, ref) => {
+export const Pressable = React.forwardRef<Pressable, PressableProps>((props, ref) => {
     const { style, children, onPressIn, onPressOut, onFocus, onBlur, ...rest } = props;
     const [pressed, setPressed] = React.useState(false);
     const [focused, setFocused] = React.useState(false);
@@ -1397,11 +1511,11 @@ export const Pressable = React.forwardRef<NativeComponentRef, PressableProps>((p
         },
         resolvePressableChildren(children, state),
     );
-}) as SpotifyPlusComponent<PressableProps>;
+}) as SpotifyPlusComponent<PressableProps, Pressable>;
 
 Pressable.displayName = "Pressable";
 
-export const TouchableOpacity = React.forwardRef<NativeComponentRef, TouchableOpacityProps>((props, ref) => {
+export const TouchableOpacity = React.forwardRef<TouchableOpacity, TouchableOpacityProps>((props, ref) => {
     const { activeOpacity = 0.2, style, ...rest } = props;
 
     return React.createElement(Pressable, {
@@ -1412,11 +1526,59 @@ export const TouchableOpacity = React.forwardRef<NativeComponentRef, TouchableOp
             state.pressed ? { opacity: activeOpacity } : null,
         ],
     });
-}) as SpotifyPlusComponent<TouchableOpacityProps>;
+}) as SpotifyPlusComponent<TouchableOpacityProps, TouchableOpacity>;
 
 TouchableOpacity.displayName = "TouchableOpacity";
 
-export function FlatList<ItemT>(props: FlatListProps<ItemT>) {
+type FlatListRow<ItemT> =
+    | { kind: "header"; key: string }
+    | { kind: "footer"; key: string }
+    | { kind: "empty"; key: string }
+    | { kind: "item"; key: string; item: ItemT; dataIndex: number }
+    | { kind: "separator"; key: string; leadingItem: ItemT; dataIndex: number };
+
+export interface FlatListComponent {
+    <ItemT>(props: RefableProps<FlatListProps<ItemT>, FlatList<ItemT>>): React.ReactElement | null;
+    displayName?: string;
+}
+
+function clampRange(first: number, last: number, itemCount: number) {
+    if (itemCount <= 0) return { first: 0, last: -1 };
+    return {
+        first: Math.max(0, Math.min(first, itemCount - 1)),
+        last: Math.max(0, Math.min(last, itemCount - 1)),
+    };
+}
+
+function renderFlatListRow<ItemT>(
+    row: FlatListRow<ItemT>,
+    renderItem: FlatListProps<ItemT>["renderItem"],
+    ListHeaderComponent: FlatListProps<ItemT>["ListHeaderComponent"],
+    ListFooterComponent: FlatListProps<ItemT>["ListFooterComponent"],
+    ListEmptyComponent: FlatListProps<ItemT>["ListEmptyComponent"],
+    ItemSeparatorComponent: FlatListProps<ItemT>["ItemSeparatorComponent"],
+) {
+    switch (row.kind) {
+        case "header":
+            return renderComponentOrElement(ListHeaderComponent);
+        case "footer":
+            return renderComponentOrElement(ListFooterComponent);
+        case "empty":
+            return renderComponentOrElement(ListEmptyComponent);
+        case "separator":
+            return renderComponentOrElement(ItemSeparatorComponent, {
+                leadingItem: row.leadingItem,
+                leadingIndex: row.dataIndex,
+            });
+        case "item":
+            return renderItem({ item: row.item, index: row.dataIndex });
+    }
+}
+
+export const FlatList = React.forwardRef(function FlatListInner<ItemT>(
+    props: FlatListProps<ItemT>,
+    ref: React.Ref<FlatList<ItemT>>,
+) {
     const {
         data,
         renderItem,
@@ -1425,43 +1587,129 @@ export function FlatList<ItemT>(props: FlatListProps<ItemT>) {
         ListFooterComponent,
         ListEmptyComponent,
         ItemSeparatorComponent,
-        ...scrollViewProps
+        initialNumToRender = 10,
+        windowSize = 5,
+        maxToRenderPerBatch,
+        estimatedItemSize = 64,
+        getItemLayout,
+        initialScrollIndex,
+        onViewableItemsChanged,
+        ...listProps
     } = props;
     const items = data ?? [];
-    return React.createElement(
-        ScrollView,
-        scrollViewProps,
-        renderComponentOrElement(ListHeaderComponent),
-        items.length === 0
-            ? renderComponentOrElement(ListEmptyComponent)
-            : items.map((item, index) =>
-                React.createElement(
-                    React.Fragment,
-                    { key: keyExtractor ? keyExtractor(item, index) : String(index) },
-                    renderItem({ item, index }),
-                    index < items.length - 1
-                        ? renderComponentOrElement(ItemSeparatorComponent)
-                        : null,
-                ),
-            ),
-        renderComponentOrElement(ListFooterComponent),
-    );
-}
+    const nativeRef = React.useRef<FlatList<ItemT> | null>(null);
 
-export const HorizontalStackLayout = React.forwardRef<NativeComponentRef, ViewProps>((props, ref) =>
+    const rows = React.useMemo(() => {
+        const output: FlatListRow<ItemT>[] = [];
+        if (ListHeaderComponent) output.push({ kind: "header", key: "$header" });
+        if (items.length === 0) {
+            if (ListEmptyComponent) output.push({ kind: "empty", key: "$empty" });
+        } else {
+            items.forEach((item, index) => {
+                const key = keyExtractor ? keyExtractor(item, index) : String(index);
+                output.push({ kind: "item", key, item, dataIndex: index });
+                if (ItemSeparatorComponent && index < items.length - 1)
+                    output.push({ kind: "separator", key: `${key}:separator`, leadingItem: item, dataIndex: index });
+            });
+        }
+        if (ListFooterComponent) output.push({ kind: "footer", key: "$footer" });
+        return output;
+    }, [ItemSeparatorComponent, ListEmptyComponent, ListFooterComponent, ListHeaderComponent, items, keyExtractor]);
+
+    const dataIndexToRowIndex = React.useMemo(() => {
+        const map = new Map<number, number>();
+        rows.forEach((row, index) => {
+            if (row.kind === "item") map.set(row.dataIndex, index);
+        });
+        return map;
+    }, [rows]);
+
+    const initialRange = React.useMemo(() => {
+        const targetRow = initialScrollIndex != null ? dataIndexToRowIndex.get(initialScrollIndex) ?? 0 : 0;
+        return clampRange(targetRow, targetRow + Math.max(1, initialNumToRender) - 1, rows.length);
+    }, [dataIndexToRowIndex, initialNumToRender, initialScrollIndex, rows.length]);
+
+    const [visibleRange, setVisibleRange] = React.useState(initialRange);
+
+    React.useEffect(() => {
+        setVisibleRange(initialRange);
+    }, [initialRange.first, initialRange.last]);
+
+    React.useImperativeHandle(ref, () => {
+        const base = (createMappedRef<FlatList<ItemT>>(nativeRef.current, mapViewLike) ?? {}) as FlatList<ItemT>;
+        return {
+            ...base,
+            scrollToIndex(params: FlatListScrollToIndexParams) {
+                const rowIndex = dataIndexToRowIndex.get(params.index);
+                if (rowIndex == null) return;
+                const layout = getItemLayout?.(data, params.index);
+                nativeRef.current?.dispatchCommand("scrollToIndex", {
+                    index: rowIndex,
+                    animated: params.animated !== false,
+                    viewOffset: params.viewOffset ?? 0,
+                    viewPosition: params.viewPosition ?? 0,
+                    offset: layout?.offset,
+                });
+            },
+            scrollToOffset(params: FlatListScrollToOffsetParams) {
+                nativeRef.current?.dispatchCommand("scrollToOffset", {
+                    offset: params.offset,
+                    animated: params.animated !== false,
+                });
+            },
+        };
+    }, [data, dataIndexToRowIndex, getItemLayout]);
+
+    const renderedRows = rows.slice(visibleRange.first, visibleRange.last + 1);
+
+    return React.createElement(
+        NativeVirtualizedList,
+        {
+            ...listProps,
+            ref: nativeRef,
+            itemCount: rows.length,
+            estimatedItemSize,
+            initialNumToRender,
+            windowSize,
+            initialScrollIndex: initialScrollIndex != null ? dataIndexToRowIndex.get(initialScrollIndex) ?? 0 : undefined,
+            onVisibleRangeChange: (event: VisibleRangeEvent) => {
+                const next = clampRange(event.first, event.last, rows.length);
+                setVisibleRange(next);
+                if (onViewableItemsChanged) {
+                    const viewableItems = rows
+                        .slice(Math.max(0, event.visibleFirst), Math.min(rows.length, event.visibleLast + 1))
+                        .filter((row): row is Extract<FlatListRow<ItemT>, { kind: "item" }> => row.kind === "item")
+                        .map(row => ({ item: row.item, index: row.dataIndex, key: row.key, isViewable: true }));
+                    onViewableItemsChanged({ viewableItems, changed: viewableItems });
+                }
+            },
+        },
+        renderedRows.map((row, offset) =>
+            React.createElement(
+                VirtualizedCell,
+                { key: row.key, itemIndex: visibleRange.first + offset, style: { width: "100%" } },
+                renderFlatListRow(row, renderItem, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, ItemSeparatorComponent),
+            ),
+        ),
+    );
+}) as FlatListComponent;
+
+FlatList.displayName = "FlatList";
+
+export const HorizontalStackLayout = React.forwardRef<HorizontalStackLayout, ViewProps>((props, ref) =>
     React.createElement(View, { ...props, ref, style: [{ flexDirection: "row" }, props.style] }),
-) as SpotifyPlusComponent<ViewProps>;
+) as SpotifyPlusComponent<ViewProps, HorizontalStackLayout>;
 
 HorizontalStackLayout.displayName = "HorizontalStackLayout";
 
-export const VerticalStackLayout = React.forwardRef<NativeComponentRef, ViewProps>((props, ref) =>
+export const VerticalStackLayout = React.forwardRef<VerticalStackLayout, ViewProps>((props, ref) =>
     React.createElement(View, { ...props, ref, style: [{ flexDirection: "column" }, props.style] }),
-) as SpotifyPlusComponent<ViewProps>;
+) as SpotifyPlusComponent<ViewProps, VerticalStackLayout>;
 
 VerticalStackLayout.displayName = "VerticalStackLayout";
 
-export const Row = HorizontalStackLayout;
-export const Column = VerticalStackLayout;
+export const Row = HorizontalStackLayout as unknown as SpotifyPlusComponent<ViewProps, Row>;
+export const Column = VerticalStackLayout as unknown as SpotifyPlusComponent<ViewProps, Column>;
 
 export const StyleSheet = {
     create<T extends Record<string, RNStyle>>(styles: T): T {

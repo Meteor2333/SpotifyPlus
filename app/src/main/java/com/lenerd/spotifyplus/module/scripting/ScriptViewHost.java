@@ -33,6 +33,10 @@ import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.*;
 
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.LinearSmoothScroller;
+import androidx.recyclerview.widget.RecyclerView;
+
 import com.facebook.soloader.SoLoader;
 import com.facebook.yoga.YogaAlign;
 import com.facebook.yoga.YogaConfig;
@@ -451,6 +455,10 @@ public class ScriptViewHost {
             node.nativeComponent.updateViewProps(node.view, null, node.props);
         }
 
+        if (node.parent != null && node.parent.view instanceof YogaVirtualizedList && "VirtualizedCell".equals(node.type)) {
+            ((YogaVirtualizedList) node.parent.view).registerCell(node);
+        }
+
         if (affectsInheritedTextProps) applyInheritedTextPropsToDescendants(node);
     }
 
@@ -573,6 +581,21 @@ public class ScriptViewHost {
                 scrollToEnd(view, args);
                 break;
 
+            case "scrollToIndex":
+                scrollToIndex(view, args);
+                break;
+
+            case "scrollToOffset":
+                scrollToOffset(view, args);
+                break;
+
+            case "flashScrollIndicators":
+                if (view instanceof YogaScrollContainer scrollContainer) scrollContainer.flashScrollIndicators();
+                else if (view instanceof YogaHorizontalScrollContainer scrollContainer) scrollContainer.flashScrollIndicators();
+                else if (view instanceof YogaVirtualizedList virtualizedList) virtualizedList.flashScrollIndicators();
+                else view.invalidate();
+                break;
+
             default:
                 if (view instanceof ScriptRenderView scriptRenderView) {
                     scriptRenderView.receiveCommand(command, args);
@@ -618,6 +641,9 @@ public class ScriptViewHost {
         } else if (view instanceof HorizontalScrollView horizontalScrollView) {
             if (animated) horizontalScrollView.smoothScrollTo(x, y);
             else horizontalScrollView.scrollTo(x, y);
+        } else if (view instanceof YogaVirtualizedList virtualizedList) {
+            int offset = virtualizedList.canScrollHorizontally(1) || virtualizedList.canScrollHorizontally(-1) ? x : y;
+            virtualizedList.scrollToOffset(offset, animated);
         }
     }
 
@@ -632,7 +658,26 @@ public class ScriptViewHost {
             int x = horizontalScrollView.getChildCount() > 0 ? Math.max(0, horizontalScrollView.getChildAt(0).getMeasuredWidth() - horizontalScrollView.getWidth()) : 0;
             if (animated) horizontalScrollView.smoothScrollTo(x, horizontalScrollView.getScrollY());
             else horizontalScrollView.scrollTo(x, horizontalScrollView.getScrollY());
+        } else if (view instanceof YogaVirtualizedList virtualizedList) {
+            virtualizedList.scrollToIndex(Math.max(0, virtualizedList.getItemCount() - 1), animated, 0, 1f);
         }
+    }
+
+    private void scrollToIndex(View view, JSONObject args) {
+        if (!(view instanceof YogaVirtualizedList virtualizedList)) return;
+        if (args == null) return;
+        int index = Math.max(0, args.optInt("index", 0));
+        boolean animated = parseBoolean(args.opt("animated"), true);
+        int viewOffset = parseYogaPoint(args.opt("viewOffset"), 0);
+        float viewPosition = (float) Math.max(0.0, Math.min(1.0, args.optDouble("viewPosition", 0.0)));
+        virtualizedList.scrollToIndex(index, animated, viewOffset, viewPosition);
+    }
+
+    private void scrollToOffset(View view, JSONObject args) {
+        if (!(view instanceof YogaVirtualizedList virtualizedList)) return;
+        int offset = args != null ? parseYogaPoint(args.opt("offset"), 0) : 0;
+        boolean animated = args == null || parseBoolean(args.opt("animated"), true);
+        virtualizedList.scrollToOffset(offset, animated);
     }
 
     private void startNativeAnimation(JSONObject op) throws Exception {
@@ -1917,6 +1962,7 @@ public class ScriptViewHost {
         int index = requestedIndex < 0 || requestedIndex > parent.children.size() ? parent.children.size() : requestedIndex;
         parent.children.add(index, child);
         child.parent = parent;
+        boolean parentIsVirtualizedList = parent.view instanceof YogaVirtualizedList;
 
         if (child.isRawText) {
             rebuildTextChildren(parent);
@@ -1924,14 +1970,16 @@ public class ScriptViewHost {
             return;
         }
 
-        if (parent.yogaNode != null && parent.yogaNode.isMeasureDefined()) {
+        if (parentIsVirtualizedList) {
+            ((YogaVirtualizedList) parent.view).registerCell(child);
+        } else if (parent.yogaNode != null && parent.yogaNode.isMeasureDefined()) {
             Log.d(TAG, "Rebuilding measured leaf parent=" + parent.id + " type=" + parent.type + " because child=" + child.id + " type=" + child.type);
             rebuildYogaNode(parent);
         } else if (parent.yogaNode != null && child.yogaNode != null) {
             parent.yogaNode.addChildAt(child.yogaNode, countYogaChildrenBefore(parent, index));
         }
 
-        addChildViewToAndroidParent(parent, child, countViewChildrenBefore(parent, index));
+        if (!parentIsVirtualizedList) addChildViewToAndroidParent(parent, child, countViewChildrenBefore(parent, index));
         if (child.view instanceof ImageView) maybeLoadImageForView(child);
         applyInheritedTextProps(child);
 
@@ -1942,7 +1990,10 @@ public class ScriptViewHost {
     private void detachChild(RenderNode parent, RenderNode child) {
         int index = parent.children.indexOf(child);
         if (index < 0) return;
-        if (!child.isRawText && parent.yogaNode != null && child.yogaNode != null) {
+        boolean parentIsVirtualizedList = parent.view instanceof YogaVirtualizedList;
+        if (parentIsVirtualizedList && !child.isRawText) {
+            ((YogaVirtualizedList) parent.view).unregisterCell(child);
+        } else if (!child.isRawText && parent.yogaNode != null && child.yogaNode != null) {
             int yogaIndex = countYogaChildrenBefore(parent, index);
             if (yogaIndex >= 0 && yogaIndex < parent.yogaNode.getChildCount()) parent.yogaNode.removeChildAt(yogaIndex);
         }
@@ -2070,6 +2121,7 @@ public class ScriptViewHost {
 
     private boolean shouldUseMeasureFunction(RenderNode node) {
         if (node.isRawText || node.view == null) return false;
+        if (node.view instanceof YogaVirtualizedList) return true;
         if (node.view instanceof YogaLayoutView) return false;
         if (node.view instanceof YogaScrollContainer) return false;
         if (node.view instanceof YogaHorizontalScrollContainer) return false;
@@ -2107,6 +2159,10 @@ public class ScriptViewHost {
                 return new YogaScrollContainer(context, this, node);
             case "HorizontalScrollView":
                 return new YogaHorizontalScrollContainer(context, this, node);
+            case "VirtualizedList":
+                return new YogaVirtualizedList(context, this, node);
+            case "VirtualizedCell":
+                return new YogaVirtualizedCell(context, this, node);
             case "Text":
             case "TextView":
                 return new TextView(context);
@@ -2445,6 +2501,7 @@ public class ScriptViewHost {
         if (view instanceof ToggleButton) applyToggleButtonProps((ToggleButton) view, viewProps);
         if (view instanceof ScrollView) applyScrollViewProps((ScrollView) view, viewProps);
         if (view instanceof HorizontalScrollView) applyHorizontalScrollViewProps((HorizontalScrollView) view, viewProps);
+        if (view instanceof YogaVirtualizedList) applyVirtualizedListProps((YogaVirtualizedList) view, viewProps);
         if (view instanceof ScriptRenderView) applyScriptRenderViewProps(node, (ScriptRenderView) view, viewProps);
     }
 
@@ -2485,6 +2542,8 @@ public class ScriptViewHost {
         if (view instanceof SeekBar) applySeekBarEventProps(node, (SeekBar) view, props);
         if (view instanceof ScrollView || view instanceof HorizontalScrollView)
             applyScrollEventProps(node, view, props);
+        if (view instanceof YogaVirtualizedList)
+            applyVirtualizedListEventProps(node, (YogaVirtualizedList) view, props);
         if (view instanceof ScriptRenderView) applyScriptRenderViewEventProps(node, (ScriptRenderView) view, props);
     }
 
@@ -2739,6 +2798,10 @@ public class ScriptViewHost {
         } else {
             view.setOnScrollChangeListener(null);
         }
+    }
+
+    private void applyVirtualizedListEventProps(RenderNode node, YogaVirtualizedList view, JSONObject props) {
+        view.setEventIds(getEventId(props, "onVisibleRangeChange"), getEventId(props, "onScroll"));
     }
 
     private RenderNode findNearestRadioGroup(RenderNode node) {
@@ -3220,6 +3283,10 @@ public class ScriptViewHost {
         if (props.has("overScrollMode")) view.setOverScrollMode(parseOverScrollMode(props.opt("overScrollMode")));
     }
 
+    private void applyVirtualizedListProps(YogaVirtualizedList view, JSONObject props) {
+        view.applyProps(props);
+    }
+
     private void detachFromParent(View view) {
         if (view.getParent() instanceof ViewGroup parent) parent.removeView(view);
     }
@@ -3265,6 +3332,7 @@ public class ScriptViewHost {
             if (watcher != null) editText.removeTextChangedListener(watcher);
             editText.setOnEditorActionListener(null);
         }
+        if (node.view instanceof YogaVirtualizedList virtualizedList) virtualizedList.dispose();
         if (node.view instanceof ScriptRenderView scriptRenderView) scriptRenderView.dispose();
     }
 
@@ -3864,6 +3932,10 @@ public class ScriptViewHost {
             contentView.measure(View.MeasureSpec.makeMeasureSpec(contentWidth, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(contentHeight, View.MeasureSpec.EXACTLY));
             setMeasuredDimension(viewportWidth, viewportHeight);
         }
+
+        void flashScrollIndicators() {
+            awakenScrollBars();
+        }
     }
 
     private static class YogaHorizontalScrollContainer extends HorizontalScrollView {
@@ -3903,6 +3975,267 @@ public class ScriptViewHost {
         @Override
         protected void onScrollChanged(int l, int t, int oldl, int oldt) {
             super.onScrollChanged(l, t, oldl, oldt);
+        }
+
+        void flashScrollIndicators() {
+            awakenScrollBars();
+        }
+    }
+
+    private static class YogaVirtualizedCell extends YogaLayoutView {
+        YogaVirtualizedCell(Context context, ScriptViewHost host, RenderNode node) {
+            super(context, host, node);
+        }
+
+        @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+            float availableWidth = View.MeasureSpec.getMode(widthMeasureSpec) == View.MeasureSpec.UNSPECIFIED ? YogaConstants.UNDEFINED : View.MeasureSpec.getSize(widthMeasureSpec);
+            float availableHeight = View.MeasureSpec.getMode(heightMeasureSpec) == View.MeasureSpec.UNSPECIFIED ? YogaConstants.UNDEFINED : View.MeasureSpec.getSize(heightMeasureSpec);
+            if (node.yogaNode != null) node.yogaNode.calculateLayout(availableWidth, availableHeight);
+            host.measureChildrenForNode(node);
+            int measuredWidth = node.yogaNode != null ? Math.max(0, Math.round(node.yogaNode.getLayoutWidth())) : View.MeasureSpec.getSize(widthMeasureSpec);
+            int measuredHeight = node.yogaNode != null ? Math.max(0, Math.round(node.yogaNode.getLayoutHeight())) : View.MeasureSpec.getSize(heightMeasureSpec);
+            if (View.MeasureSpec.getMode(widthMeasureSpec) == View.MeasureSpec.EXACTLY) measuredWidth = View.MeasureSpec.getSize(widthMeasureSpec);
+            if (View.MeasureSpec.getMode(heightMeasureSpec) == View.MeasureSpec.EXACTLY) measuredHeight = View.MeasureSpec.getSize(heightMeasureSpec);
+            setMeasuredDimension(measuredWidth, measuredHeight);
+        }
+    }
+
+    private static class YogaVirtualizedList extends RecyclerView {
+        final ScriptViewHost host;
+        final RenderNode node;
+        final LinearLayoutManager layoutManager;
+        final VirtualizedAdapter adapter;
+        final Map<Integer, RenderNode> cellsByIndex = new HashMap<>();
+        final Map<Integer, FrameLayout> holdersByIndex = new HashMap<>();
+        int itemCount = 0;
+        int estimatedItemSize = 64;
+        int initialNumToRender = 10;
+        int windowSize = 5;
+        int initialScrollIndex = -1;
+        int visibleRangeEventId = -1;
+        int scrollEventId = -1;
+        int lastFirst = -1;
+        int lastLast = -1;
+        int lastScrollX = 0;
+        int lastScrollY = 0;
+        boolean initialScrollApplied = false;
+
+        YogaVirtualizedList(Context context, ScriptViewHost host, RenderNode node) {
+            super(context);
+            this.host = host;
+            this.node = node;
+            this.layoutManager = new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false);
+            this.adapter = new VirtualizedAdapter(this);
+            setLayoutManager(layoutManager);
+            setAdapter(adapter);
+            setClipChildren(true);
+            setClipToPadding(true);
+            addOnScrollListener(new OnScrollListener() {
+                @Override
+                public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                    dispatchScroll(dx, dy);
+                    dispatchVisibleRangeIfNeeded();
+                }
+            });
+        }
+
+        void applyProps(JSONObject props) {
+            int nextCount = props.optInt("itemCount", itemCount);
+            int nextEstimated = Math.max(1, host.parseYogaPoint(props.opt("estimatedItemSize"), estimatedItemSize));
+            int nextInitialNum = Math.max(1, props.optInt("initialNumToRender", initialNumToRender));
+            int nextWindowSize = Math.max(1, props.optInt("windowSize", windowSize));
+            int nextInitialIndex = props.has("initialScrollIndex") ? Math.max(0, props.optInt("initialScrollIndex", 0)) : -1;
+
+            boolean countChanged = nextCount != itemCount;
+            itemCount = nextCount;
+            estimatedItemSize = nextEstimated;
+            initialNumToRender = nextInitialNum;
+            windowSize = nextWindowSize;
+            initialScrollIndex = nextInitialIndex;
+            if (countChanged) adapter.notifyDataSetChanged();
+            if (!initialScrollApplied && initialScrollIndex >= 0) {
+                post(() -> {
+                    scrollToIndex(initialScrollIndex, false, 0, 0f);
+                    initialScrollApplied = true;
+                });
+            }
+            post(this::dispatchVisibleRangeIfNeeded);
+        }
+
+        int getItemCount() {
+            return itemCount;
+        }
+
+        void setEventIds(Integer visibleRange, Integer scroll) {
+            visibleRangeEventId = visibleRange != null ? visibleRange : -1;
+            scrollEventId = scroll != null ? scroll : -1;
+            post(this::dispatchVisibleRangeIfNeeded);
+        }
+
+        void registerCell(RenderNode cell) {
+            if (!"VirtualizedCell".equals(cell.type)) return;
+            int index = cell.props.optInt("itemIndex", -1);
+            if (index < 0) return;
+            cellsByIndex.put(index, cell);
+            FrameLayout holder = holdersByIndex.get(index);
+            if (holder != null) attachCellToHolder(index, holder);
+            adapter.notifyItemChanged(index);
+        }
+
+        void unregisterCell(RenderNode cell) {
+            int index = cell.props.optInt("itemIndex", -1);
+            if (index >= 0 && cellsByIndex.get(index) == cell) cellsByIndex.remove(index);
+            if (cell.view != null) host.detachFromParent(cell.view);
+            if (index >= 0 && index < itemCount) adapter.notifyItemChanged(index);
+        }
+
+        void dispose() {
+            cellsByIndex.clear();
+            holdersByIndex.clear();
+            clearOnScrollListeners();
+        }
+
+        void bindHolder(int position, FrameLayout holder) {
+            holdersByIndex.put(position, holder);
+            attachCellToHolder(position, holder);
+        }
+
+        void recycleHolder(FrameLayout holder) {
+            Integer removeKey = null;
+            for (Map.Entry<Integer, FrameLayout> entry : holdersByIndex.entrySet()) {
+                if (entry.getValue() == holder) {
+                    removeKey = entry.getKey();
+                    break;
+                }
+            }
+            if (removeKey != null) holdersByIndex.remove(removeKey);
+            holder.removeAllViews();
+        }
+
+        void attachCellToHolder(int position, FrameLayout holder) {
+            holder.removeAllViews();
+            RenderNode cell = cellsByIndex.get(position);
+            if (cell == null || cell.view == null) {
+                Space placeholder = new Space(getContext());
+                holder.addView(placeholder, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, estimatedItemSize));
+                return;
+            }
+            host.detachFromParent(cell.view);
+            holder.addView(cell.view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+
+        void scrollToIndex(int index, boolean animated, int viewOffset, float viewPosition) {
+            int safeIndex = Math.max(0, Math.min(index, Math.max(0, itemCount - 1)));
+            int viewportOffset = Math.round(Math.max(0, getHeight()) * viewPosition) + viewOffset;
+            if (animated) {
+                LinearSmoothScroller smoothScroller = new LinearSmoothScroller(getContext()) {
+                    @Override
+                    public int calculateDtToFit(int viewStart, int viewEnd, int boxStart, int boxEnd, int snapPreference) {
+                        return (boxStart + viewportOffset) - viewStart;
+                    }
+                };
+                smoothScroller.setTargetPosition(safeIndex);
+                layoutManager.startSmoothScroll(smoothScroller);
+            } else {
+                layoutManager.scrollToPositionWithOffset(safeIndex, viewportOffset);
+            }
+            post(this::dispatchVisibleRangeIfNeeded);
+        }
+
+        void scrollToOffset(int offset, boolean animated) {
+            int current = computeVerticalScrollOffset();
+            int delta = Math.max(0, offset) - current;
+            if (animated) smoothScrollBy(0, delta);
+            else scrollBy(0, delta);
+            post(this::dispatchVisibleRangeIfNeeded);
+        }
+
+        void flashScrollIndicators() {
+            awakenScrollBars();
+        }
+
+        void dispatchScroll(int dx, int dy) {
+            if (scrollEventId < 0) return;
+            try {
+                int x = computeHorizontalScrollOffset();
+                int y = computeVerticalScrollOffset();
+                JSONObject payload = host.basePayload(node.id);
+                payload.put("x", x);
+                payload.put("y", y);
+                payload.put("oldX", lastScrollX);
+                payload.put("oldY", lastScrollY);
+                lastScrollX = x;
+                lastScrollY = y;
+                host.sendEventToNode(node.id, "onScroll", scrollEventId, payload);
+            } catch (Exception ignored) {
+            }
+        }
+
+        void dispatchVisibleRangeIfNeeded() {
+            if (visibleRangeEventId < 0 || itemCount <= 0) return;
+            int visibleFirst = layoutManager.findFirstVisibleItemPosition();
+            int visibleLast = layoutManager.findLastVisibleItemPosition();
+            if (visibleFirst == RecyclerView.NO_POSITION || visibleLast == RecyclerView.NO_POSITION) {
+                visibleFirst = 0;
+                visibleLast = Math.min(itemCount - 1, Math.max(0, initialNumToRender - 1));
+            }
+            int visibleCount = Math.max(1, visibleLast - visibleFirst + 1);
+            int overscan = Math.max(initialNumToRender, Math.round(visibleCount * Math.max(1, windowSize - 1) / 2f));
+            int first = Math.max(0, visibleFirst - overscan);
+            int last = Math.min(itemCount - 1, visibleLast + overscan);
+            if (first == lastFirst && last == lastLast) return;
+            lastFirst = first;
+            lastLast = last;
+            try {
+                JSONObject payload = host.basePayload(node.id);
+                payload.put("first", first);
+                payload.put("last", last);
+                payload.put("visibleFirst", visibleFirst);
+                payload.put("visibleLast", visibleLast);
+                host.sendEventToNode(node.id, "onVisibleRangeChange", visibleRangeEventId, payload);
+            } catch (Exception ignored) {
+            }
+        }
+
+        static class VirtualizedAdapter extends RecyclerView.Adapter<VirtualizedHolder> {
+            final YogaVirtualizedList owner;
+
+            VirtualizedAdapter(YogaVirtualizedList owner) {
+                this.owner = owner;
+                setHasStableIds(false);
+            }
+
+            @Override
+            public VirtualizedHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+                FrameLayout frame = new FrameLayout(parent.getContext());
+                frame.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                return new VirtualizedHolder(frame);
+            }
+
+            @Override
+            public void onBindViewHolder(VirtualizedHolder holder, int position) {
+                owner.bindHolder(position, holder.frame);
+            }
+
+            @Override
+            public void onViewRecycled(VirtualizedHolder holder) {
+                owner.recycleHolder(holder.frame);
+            }
+
+            @Override
+            public int getItemCount() {
+                return owner.itemCount;
+            }
+        }
+
+        static class VirtualizedHolder extends RecyclerView.ViewHolder {
+            final FrameLayout frame;
+
+            VirtualizedHolder(FrameLayout frame) {
+                super(frame);
+                this.frame = frame;
+            }
         }
     }
 

@@ -211,8 +211,7 @@ public class LyricsHook extends SpotifyHook {
             }
         } else if (member.getName().equals("finish")) {
             try {
-                SpotifyNativeBridge.sendEvent("react.surfaceEvent", new JSONObject().put("surfaceId", "lyrics-view").toString());
-//                ScriptManager.send("", "event", "react.surfaceClose", new JSONObject().put("surfaceId", "lyrics-view"));
+                SpotifyNativeBridge.sendEvent("react.surfaceClose", new JSONObject().put("surfaceId", "lyrics-view").toString());
 
                 stop = true;
                 lineSprings.clear();

@@ -26,6 +26,11 @@ export type MeasureInWindowCallback = (
     height: number,
 ) => void;
 
+export type ScrollToOptions = { x?: number; y?: number; animated?: boolean };
+export type ScrollToEndOptions = { animated?: boolean };
+export type ScrollToIndexOptions = { index: number; animated?: boolean; viewOffset?: number; viewPosition?: number };
+export type ScrollToOffsetOptions = { offset: number; animated?: boolean };
+
 export interface NativeComponentRef {
     readonly nodeId: number;
     readonly type: string;
@@ -40,8 +45,8 @@ export interface NativeComponentRef {
     measure(callback: MeasureCallback): void;
     measureInWindow(callback: MeasureInWindowCallback): void;
 
-    scrollTo(options?: { x?: number; y?: number; animated?: boolean } | number, y?: number, animated?: boolean): void;
-    scrollToEnd(options?: { animated?: boolean }): void;
+    scrollTo(options?: ScrollToOptions | number, y?: number, animated?: boolean): void;
+    scrollToEnd(options?: ScrollToEndOptions): void;
     flashScrollIndicators(): void;
 
     dispatchCommand(command: string, args?: Record<string, any>, callback?: (payload: any) => void): void;
@@ -192,7 +197,10 @@ function createPublicInstance(instance: HostNode): NativeComponentRef {
         }]);
     };
 
-    return {
+    const publicInstance: NativeComponentRef & {
+        scrollToIndex(options: ScrollToIndexOptions): void;
+        scrollToOffset(options: ScrollToOffsetOptions): void;
+    } = {
         get nodeId() {
             return instance.id;
         },
@@ -266,6 +274,14 @@ function createPublicInstance(instance: HostNode): NativeComponentRef {
             runCommand('flashScrollIndicators');
         },
 
+        scrollToIndex(options: ScrollToIndexOptions) {
+            runCommand('scrollToIndex', options);
+        },
+
+        scrollToOffset(options: ScrollToOffsetOptions) {
+            runCommand('scrollToOffset', options);
+        },
+
         dispatchCommand(command: string, args?: Record<string, any>, callback?: (payload: any) => void) {
             runCommand(command, args, callback);
         },
@@ -274,6 +290,8 @@ function createPublicInstance(instance: HostNode): NativeComponentRef {
             runCommand(command, args, callback);
         },
     };
+
+    return publicInstance;
 }
 
 type HostNode = {

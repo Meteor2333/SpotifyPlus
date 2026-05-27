@@ -10,5 +10,6 @@ public class NativePlugin implements SpotifyPlusPlugin {
         registry.registerComponent(new LyricsView());
         registry.registerComponent(new SyllableLine());
         registry.registerComponent(new GradientText());
+        registry.registerComponent(new AnimatedBackground());
     }
 }

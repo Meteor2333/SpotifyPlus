@@ -168,6 +168,7 @@ class HostRuntime {
             if (!data?.surfaceId)
                 return;
             this.registry.unmountAllSurfaces(data.surfaceId);
+            (0, renderer_1.clearCommitListener)(data.surfaceId);
             this.bridge.unregisterSurface(data.surfaceId);
         });
         this.bridge.on('react.event', payload => {
