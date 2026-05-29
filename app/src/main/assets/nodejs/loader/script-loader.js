@@ -107,7 +107,7 @@ class ScriptLoader {
         globals.process = process;
         //@ts-ignore
         globals.Buffer = Buffer;
-        globals.console = console;
+        globals.console = api.console;
         globals.setTimeout = setTimeout;
         globals.clearTimeout = clearTimeout;
         globals.setInterval = setInterval;

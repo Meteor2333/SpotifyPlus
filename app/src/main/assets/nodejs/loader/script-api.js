@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScriptApiFactory = void 0;
 const models_1 = require("../core/models");
+const logger_1 = require("../core/logger");
 class ScriptApiFactory {
     constructor(runtime, logger) {
         this.runtime = runtime;
@@ -33,9 +34,9 @@ class ScriptApiFactory {
         const api = {
             scriptId,
             version: 1,
-            log: (...args) => this.runtime.log(formatLogArgs(args)),
-            warn: (...args) => this.runtime.log(formatLogArgs(args)),
-            error: (...args) => this.runtime.log(formatLogArgs(args)),
+            log: (...args) => this.runtime.log((0, logger_1.formatLogArgs)(args)),
+            warn: (...args) => this.runtime.log((0, logger_1.formatLogArgs)(args)),
+            error: (...args) => this.runtime.log((0, logger_1.formatLogArgs)(args)),
             on: (eventName, handler) => this.runtime.registry.on(scriptId, eventName, handler),
             off: (eventName, handler) => this.runtime.registry.off(scriptId, eventName, handler),
             request: (name, payload = {}) => this.runtime.request(name, payload),
@@ -116,18 +117,6 @@ class ScriptApiFactory {
     }
 }
 exports.ScriptApiFactory = ScriptApiFactory;
-function formatLogArgs(args) {
-    return args.map(arg => {
-        if (typeof arg === 'string')
-            return arg;
-        try {
-            return JSON.stringify(arg);
-        }
-        catch {
-            return String(arg);
-        }
-    }).join(' ');
-}
 function isBinaryLike(value) {
     return value instanceof Uint8Array || value instanceof ArrayBuffer || ArrayBuffer.isView(value);
 }

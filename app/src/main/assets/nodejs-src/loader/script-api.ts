@@ -1,6 +1,6 @@
 import { EventHandler, SurfaceRenderer } from "./script-registry";
 import { ContextMenu, OnClickCallback, PlatformData, Session, ShouldAddCallback, SideDrawerItem, SideOnClickCallback, SpotifyTrack } from "../core/models";
-import { Logger } from "../core/logger";
+import { Logger, formatLogArgs } from "../core/logger";
 import { HostRuntime } from "./host-runtime";
 import React from "react";
 
@@ -199,17 +199,6 @@ export class ScriptApiFactory {
         globals.globalThis = globals;
         return globals;
     }
-}
-
-function formatLogArgs(args: unknown[]): string {
-    return args.map(arg => {
-        if (typeof arg === 'string') return arg;
-        try {
-            return JSON.stringify(arg);
-        } catch {
-            return String(arg);
-        }
-    }).join(' ');
 }
 
 function isBinaryLike(value: unknown): value is Uint8Array | ArrayBuffer | ArrayBufferView {

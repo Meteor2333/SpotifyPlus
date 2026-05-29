@@ -37,7 +37,6 @@ class HostRuntime {
             this.bridge.commitSurface(surfaceId, ops);
         });
         this.bridge.log('Starting script runtime!');
-        console.log(`Access Token: ${this.session.accessToken}`);
     }
     sendEvent(name, payload = {}) {
         this.bridge.send({ type: 'event', name, payload });
@@ -148,7 +147,6 @@ class HostRuntime {
             if (!surface)
                 return;
             const renderers = this.registry.getSurfaceRenderers(surface.id);
-            console.log(`Received react.surfaceEvent | ${renderers.length} | ${surface.id} | ${surface.type}`);
             for (const renderer of renderers) {
                 try {
                     const element = renderer.renderer(surface);

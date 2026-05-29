@@ -61,7 +61,6 @@ function registerEventHandler(nodeId: number, eventName: string, handler: Functi
     const id = nextEventId++;
     eventHandlers.set(id, { eventName, handler });
 
-    console.log('Registering event handler', { nodeId, eventName, id });
     let ids = nodeEventIds.get(nodeId);
     if (!ids) {
         ids = new Set<number>();
@@ -361,8 +360,7 @@ function sanitizeProps(props: Record<string, any> | null | undefined) {
 
     for (const [key, value] of Object.entries(props)) {
         if (key === 'children' || key === 'ref') continue;
-        if (isEventProp(key, value)) console.log('Creating event handler for prop', key);
-        else result[key] = toBridgeValue(value);
+        if (!isEventProp(key, value)) result[key] = toBridgeValue(value);
     }
 
     return result;
@@ -382,12 +380,6 @@ function serializeNode(node: HostNode | TextNode): any {
         type: node.type,
         props: (node as HostNode).props,
         children: (node as HostNode).children.map(serializeNode),
-    };
-}
-
-function dumpTree(container: RootContainer) {
-    return {
-        children: container.children.map(serializeNode),
     };
 }
 
@@ -417,7 +409,6 @@ function clearSurfaceId(instance: HostNode | TextNode) {
 
 export function dispatchSurfaceOps(surfaceId: string, ops: MutationOp[]) {
     if (commitDispatcher) commitDispatcher(surfaceId, ops);
-    else console.warn('No native commit dispatcher for surface ops', surfaceId, ops);
 }
 
 export function dispatchViewCommand(
@@ -546,13 +537,6 @@ const hostConfig = {
         const ops = pendingOps;
         pendingOps = [];
 
-        // console.log("resetAfterCommit reached", {
-        //     surfaceId,
-        //     opCount: ops.length,
-        //     hasDispatcher: !!commitDispatcher,
-        //     hasListener: commitListeners.has(surfaceId),
-        // });
-
         if (ops.length === 0) return;
 
         if (commitDispatcher) {
@@ -562,7 +546,6 @@ const hostConfig = {
 
         const listener = commitListeners.get(surfaceId);
         if (listener) listener(ops, null);
-        else console.warn('No native commit dispatcher/listener for surface ops', surfaceId, ops);
     },
 
     preparePortalMount() { },
@@ -572,8 +555,6 @@ const hostConfig = {
     },
 
     createInstance(type: string, props: any): HostNode {
-        console.log("createInstance", { type, propsKeys: Object.keys(props ?? {}) });
-
         const processedProps = preprocessProps(props ?? {});
         const { children, ...rest } = processedProps;
         const id = createId();
@@ -586,7 +567,6 @@ const hostConfig = {
         };
 
         pendingOps.push({ op: 'createNode', id: node.id, type: node.type, props: node.props });
-        console.log("createInstance pushed", { id: node.id, type: node.type, pendingOps: pendingOps.length });
 
         return node;
     },
@@ -620,20 +600,9 @@ const hostConfig = {
     },
 
     appendChildToContainer(container: RootContainer, child: HostNode | TextNode) {
-        console.warn("appendChildToContainer", {
-            surfaceId: (container as any).__surfaceId,
-            childId: child.id,
-            childType: child.type,
-            pendingOpsBefore: pendingOps.length,
-        });
-
         container.children.push(child);
         assignSurfaceId(child, (container as any).__surfaceId as string);
         pendingOps.push({ op: 'appendToRoot', childId: child.id });
-
-        console.warn("appendChildToContainer pushed", {
-            pendingOpsAfter: pendingOps.length,
-        });
     },
 
     insertBefore(parent: HostNode, child: HostNode | TextNode, beforeChild: HostNode | TextNode) {
@@ -678,15 +647,6 @@ const hostConfig = {
     },
 
     removeChildFromContainer(container: RootContainer, child: HostNode | TextNode) {
-        console.warn("removeChildFromContainer", {
-            surfaceId: (container as any).__surfaceId,
-            childId: child.id,
-            childType: child.type,
-            rootChildrenBefore: container.children.map(c => ({ id: c.id, type: c.type })),
-        });
-
-        console.trace("removeChildFromContainer stack");
-
         container.children = container.children.filter(c => c !== child);
         releaseSubtree(child);
 
@@ -732,12 +692,7 @@ const hostConfig = {
     },
 
     clearContainer(container: RootContainer) {
-        console.warn("clearContainer called; ignoring native removal", {
-            surfaceId: (container as any).__surfaceId,
-            children: container.children.map(c => ({ id: c.id, type: c.type })),
-        });
-
-        console.trace("clearContainer stack");
+        container.children = [];
     },
 
     scheduleTimeout: setTimeout,
@@ -847,7 +802,7 @@ function buildPropDiff(nodeId: number, oldProps: any, newProps: any) {
         if (key === 'children') continue;
         const oldValue = oldPreview[key];
         const newValue = newPreview[key];
-        if (JSON.stringify(oldValue) === JSON.stringify(newValue)) continue;
+        if (bridgeValuesEqual(oldValue, newValue)) continue;
         changed[key] = Object.prototype.hasOwnProperty.call(newProcessed, key) ? newProcessed[key] : undefined;
         hasChanges = true;
         if (isEventProp(key, oldProcessed[key]) || isEventProp(key, newProcessed[key])) eventChanged = true;
@@ -886,6 +841,30 @@ function destroySubtree(instance: HostNode | TextNode | null | undefined) {
     pendingOps.push({ op: 'destroyNode', id: instance.id });
 }
 
+function bridgeValuesEqual(left: any, right: any): boolean {
+    if (Object.is(left, right)) return true;
+    if (left == null || right == null) return false;
+    if (typeof left !== typeof right) return false;
+    if (typeof left !== "object") return false;
+
+    if (Array.isArray(left) || Array.isArray(right)) {
+        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+        for (let i = 0; i < left.length; i++) if (!bridgeValuesEqual(left[i], right[i])) return false;
+        return true;
+    }
+
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    if (leftKeys.length !== rightKeys.length) return false;
+
+    for (const key of leftKeys) {
+        if (!Object.prototype.hasOwnProperty.call(right, key)) return false;
+        if (!bridgeValuesEqual(left[key], right[key])) return false;
+    }
+
+    return true;
+}
+
 function logReactError(kind: string) {
     return (error: any, errorInfo?: any) => {
         console.error(`[React ${kind}]`, {
@@ -907,12 +886,6 @@ export function createRoot(surfaceId: string): RenderRoot {
 
     return {
         render(element: React.ReactNode) {
-            console.log("React root render", {
-                surfaceId,
-                element: describeElement(element),
-                existingChildren: container.children.map(c => ({ id: c.id, type: c.type })),
-            });
-
             try {
                 reconciler.updateContainerSync(element, root, null, null);
                 reconciler.flushSyncWork();
@@ -922,20 +895,13 @@ export function createRoot(surfaceId: string): RenderRoot {
                     message: error?.message,
                     stack: error?.stack,
                     error: String(error),
-                    tree: dumpTree(container),
+                    rootChildCount: container.children.length,
                 });
                 throw error;
             }
         },
 
         unmount() {
-            console.warn("React root unmount", {
-                surfaceId,
-                existingChildren: container.children.map(c => ({ id: c.id, type: c.type })),
-            });
-
-            console.trace("React root unmount stack");
-
             reconciler.updateContainerSync(null, root, null, null);
             reconciler.flushSyncWork();
         },
@@ -945,16 +911,3 @@ export function createRoot(surfaceId: string): RenderRoot {
     };
 }
 
-function describeElement(element: React.ReactNode): any {
-    if (element == null || typeof element === "boolean") return element;
-    if (Array.isArray(element)) return { kind: "array", length: element.length };
-    if (React.isValidElement(element)) {
-        const type: any = element.type;
-        return {
-            kind: "element",
-            type: typeof type === "string" ? type : type?.name ?? String(type),
-            key: element.key,
-        };
-    }
-    return { kind: typeof element, value: String(element) };
-}

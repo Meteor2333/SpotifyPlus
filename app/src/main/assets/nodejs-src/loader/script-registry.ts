@@ -123,8 +123,6 @@ export class ScriptRegistry {
     }
 
     registerSurfaceRenderer<T extends string>(scriptId: string, surfaceType: T, renderer: SurfaceRenderer<T>): void {
-        console.log('Registering surface renderer', { scriptId, surfaceType });
-
         const existing = this.renderers.get(surfaceType) ?? [];
         existing.push({ scriptId, surfaceType, renderer });
         this.renderers.set(surfaceType, existing);
@@ -140,9 +138,7 @@ export class ScriptRegistry {
         if (existing) existing.unmount();
 
         const root = createRoot(surface.type);
-        console.log("before root.render", { surface, element });
         root.render(element);
-        console.log("after root.render", { surface, children: root.getTree() });
         this.mountedSurfaces.set(key, root);
     }
 

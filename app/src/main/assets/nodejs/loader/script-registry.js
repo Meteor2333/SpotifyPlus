@@ -89,7 +89,6 @@ class ScriptRegistry {
         }
     }
     registerSurfaceRenderer(scriptId, surfaceType, renderer) {
-        console.log('Registering surface renderer', { scriptId, surfaceType });
         const existing = this.renderers.get(surfaceType) ?? [];
         existing.push({ scriptId, surfaceType, renderer });
         this.renderers.set(surfaceType, existing);
@@ -103,9 +102,7 @@ class ScriptRegistry {
         if (existing)
             existing.unmount();
         const root = (0, renderer_1.createRoot)(surface.type);
-        console.log("before root.render", { surface, element });
         root.render(element);
-        console.log("after root.render", { surface, children: root.getTree() });
         this.mountedSurfaces.set(key, root);
     }
     unmountSurface(scriptId, surfaceId) {

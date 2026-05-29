@@ -330,14 +330,8 @@ public class SpotifyNativeBridge {
         if (!registeredSurfaces.contains(surfaceId)) return;
 
         mainHandler.post(() -> {
-            ScriptViewHost host = surfaceHosts.get(surfaceId);
-            if (host == null) {
-                Log.w(TAG, "commitSurface ignored because host was missing for " + surfaceId);
-                return;
-            }
-
             try {
-                host.applyOps(new JSONArray(opsJson));
+                applySurfaceOpsNow(surfaceId, new JSONArray(opsJson));
             } catch (Exception e) {
                 Log.e(TAG, "Failed to apply commit for surface " + surfaceId, e);
             }
@@ -345,14 +339,18 @@ public class SpotifyNativeBridge {
     }
 
     public static void attachSurfaceHost(String surfaceId, ViewGroup root) {
-        Log.d(TAG, "Attaching surface!!!!!!  " + surfaceId);
-
-        mainHandler.post(() -> {
+        Runnable attach = () -> {
             var existing = surfaceHosts.get(surfaceId);
-            if (existing == null) {
-                surfaceHosts.put(surfaceId, new ScriptViewHost(surfaceId, root));
+            if (existing != null) {
+                if (existing.getHostRoot() == root) return;
+                existing.dispose();
             }
-        });
+
+            surfaceHosts.put(surfaceId, new ScriptViewHost(surfaceId, root));
+        };
+
+        if (Looper.myLooper() == Looper.getMainLooper()) attach.run();
+        else mainHandler.post(attach);
     }
 
     public static void detachSurfaceHost(String surfaceId) {
@@ -360,6 +358,20 @@ public class SpotifyNativeBridge {
             ScriptViewHost existing = surfaceHosts.remove(surfaceId);
             if (existing != null) existing.dispose();
         });
+    }
+
+    public static void applySurfaceOps(String surfaceId, JSONArray ops) {
+        mainHandler.post(() -> applySurfaceOpsNow(surfaceId, ops));
+    }
+
+    private static void applySurfaceOpsNow(String surfaceId, JSONArray ops) {
+        ScriptViewHost host = surfaceHosts.get(surfaceId);
+        if (host == null) {
+            Log.w(TAG, "commitSurface ignored because host was missing for " + surfaceId);
+            return;
+        }
+
+        host.applyOps(ops);
     }
 
     public static void registerHandler(String type, SpotifyHook hook) {

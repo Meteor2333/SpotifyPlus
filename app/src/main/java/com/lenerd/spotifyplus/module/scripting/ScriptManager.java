@@ -88,6 +88,7 @@ public class ScriptManager implements BridgeMessageListener {
         if(!optimizedDirectory.exists()) optimizedDirectory.mkdirs();
 
         new Thread(() -> {
+            ScriptViewHost.preloadNativeLibraries(activity.getApplicationContext());
             SpotifyNativeBridge bridge = new SpotifyNativeBridge(activity.getClassLoader(), scripts, optimizedDirectory, activity);
             initializeNativeBridge(bridge, new String[]{"node", hostFile.getAbsolutePath(), scripts.getAbsolutePath()});
         }).start();

@@ -69,6 +69,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -90,9 +91,16 @@ public class ScriptViewHost {
         if (!(data instanceof RenderNode renderNode) || renderNode.view == null) return YogaMeasureOutput.make(0, 0);
         return renderNode.host.measureLeaf(renderNode, width, widthMode, height, heightMode);
     };
+    private static final Object INIT_LOCK = new Object();
+    private static final int MAX_OPS_PER_DRAIN = 80;
+    private static final long MAX_OP_DRAIN_NANOS = 4_000_000L;
 
-    private final List<JSONArray> pendingBatches = new ArrayList<>();
+    private final ArrayDeque<JSONObject> queuedOps = new ArrayDeque<>();
     private boolean attached = false;
+    private boolean opDrainScheduled = false;
+    private boolean queuedOpsNeedLayout = false;
+    private boolean queuedOpsNeedInvalidate = false;
+    private boolean layoutPassScheduled = false;
     private final Map<Integer, String> lastNativeEditTextValues = new HashMap<>();
     private final Map<Integer, Integer> lastNativeSeekBarValues = new HashMap<>();
     private final Set<Integer> activelyDraggingSeekBars = new HashSet<>();
@@ -136,31 +144,13 @@ public class ScriptViewHost {
         }
     };
     private int nextImageRequestId = 1;
-    private static boolean initialized = false;
+    private static volatile boolean initialized = false;
     private final Map<Integer, Integer> nativeChildrenStartIndexes = new HashMap<>();
 
     public ScriptViewHost(String surfaceId, ViewGroup root) {
         Context context = root.getContext();
 
-        if (!initialized) {
-            try {
-                File outDir = new File(context.getCodeCacheDir(), "spotifyplus-libs");
-                if (!outDir.exists() && !outDir.mkdirs())
-                    throw new IllegalStateException("Failed to create cache directory");
-
-                extractAndLoad(Utils.MODULE_APK_PATH, outDir, "libc++_shared.so");
-//                extractAndLoad(Utils.MODULE_APK_PATH, outDir, "libfbjni.so");
-                extractAndLoad(Utils.MODULE_APK_PATH, outDir, "libyoga.so");
-                Log.d("SpotifyPlus", "Loaded libraries!");
-
-                SoLoader.init(root.getContext(), false);
-                initialized = true;
-            } catch (Exception e) {
-                Log.e("SpotifyPlus", "Failed to get library", e);
-            }
-
-            markSoLoaderLibraryAsLoaded();
-        }
+        ensureNativeLibraries(context);
 
         this.surfaceId = surfaceId;
         this.hostRoot = root;
@@ -177,7 +167,7 @@ public class ScriptViewHost {
             @Override
             public void onViewAttachedToWindow(View v) {
                 attached = true;
-                flushPendingBatches();
+                scheduleQueuedOpsDrain();
             }
 
             @Override
@@ -190,7 +180,40 @@ public class ScriptViewHost {
 
         if (this.surfaceView.isAttachedToWindow()) {
             attached = true;
-            flushPendingBatches();
+            scheduleQueuedOpsDrain();
+        }
+    }
+
+    public ViewGroup getHostRoot() {
+        return hostRoot;
+    }
+
+    public static void preloadNativeLibraries(Context context) {
+        ensureNativeLibraries(context);
+    }
+
+    private static void ensureNativeLibraries(Context context) {
+        if (initialized) return;
+
+        synchronized (INIT_LOCK) {
+            if (initialized) return;
+
+            try {
+                File outDir = new File(context.getCodeCacheDir(), "spotifyplus-libs");
+                if (!outDir.exists() && !outDir.mkdirs())
+                    throw new IllegalStateException("Failed to create cache directory");
+
+                extractAndLoad(Utils.MODULE_APK_PATH, outDir, "libc++_shared.so");
+//                extractAndLoad(Utils.MODULE_APK_PATH, outDir, "libfbjni.so");
+                extractAndLoad(Utils.MODULE_APK_PATH, outDir, "libyoga.so");
+                Log.d("SpotifyPlus", "Loaded libraries!");
+
+                SoLoader.init(context, false);
+                markSoLoaderLibraryAsLoaded();
+                initialized = true;
+            } catch (Exception e) {
+                Log.e("SpotifyPlus", "Failed to get library", e);
+            }
         }
     }
 
@@ -220,9 +243,15 @@ public class ScriptViewHost {
         }
 
         File outFile = new File(outDir, libName);
-        extractEntry(apkPath, entry, outFile);
+        if (!isCachedLibraryUsable(outFile, entry)) extractEntry(apkPath, entry, outFile);
         Log.d(TAG, "Loading " + outFile.getAbsolutePath());
         System.load(outFile.getAbsolutePath());
+    }
+
+    private static boolean isCachedLibraryUsable(File outFile, ZipEntry entry) {
+        if (!outFile.exists() || !outFile.canRead() || outFile.length() <= 0) return false;
+        long expectedSize = entry.getSize();
+        return expectedSize <= 0 || outFile.length() == expectedSize;
     }
 
     private static ZipEntry findBestLibEntry(String apkPath, String libName) throws Exception {
@@ -255,47 +284,74 @@ public class ScriptViewHost {
         }
     }
 
-    private void applyOpsNow(JSONArray ops) {
+    private void applyOpsNow(JSONObject item) {
         try {
-            boolean needsLayout = false;
-            for (int i = 0; i < ops.length(); i++) {
-                JSONObject item = ops.getJSONObject(i);
-                try {
-                    applyOp(item);
-                    needsLayout = needsLayout || opRequiresLayout(item);
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed applying op index=" + i + " op=" + item, e);
-                }
-            }
-
-            if (needsLayout) forceLayoutNow();
-            else {
-                surfaceView.invalidate();
-                hostRoot.invalidate();
-            }
+            applyOp(item);
+            queuedOpsNeedLayout = queuedOpsNeedLayout || opRequiresLayout(item);
+            queuedOpsNeedInvalidate = true;
         } catch (Exception e) {
-            Log.e(TAG, "Failed applying Yoga UI ops", e);
+            Log.e(TAG, "Failed applying op=" + item.optString("op") + " id=" + item.opt("id"), e);
         }
     }
 
-    private void flushPendingBatches() {
+    private void scheduleQueuedOpsDrain() {
         if (!attached && !surfaceView.isAttachedToWindow()) return;
-        if (pendingBatches.isEmpty()) return;
+        if (queuedOps.isEmpty() || opDrainScheduled) return;
 
-        List<JSONArray> batches = new ArrayList<>(pendingBatches);
-        pendingBatches.clear();
+        opDrainScheduled = true;
+        mainHandler.post(this::drainQueuedOps);
+    }
 
-        for (JSONArray batch : batches) applyOpsNow(batch);
+    private void drainQueuedOps() {
+        opDrainScheduled = false;
+        if (!attached && !surfaceView.isAttachedToWindow()) return;
+
+        long startNs = System.nanoTime();
+        int applied = 0;
+        while (!queuedOps.isEmpty()) {
+            JSONObject item = queuedOps.pollFirst();
+            if (item != null) applyOpsNow(item);
+            applied++;
+
+            if (applied >= MAX_OPS_PER_DRAIN || System.nanoTime() - startNs >= MAX_OP_DRAIN_NANOS) break;
+        }
+
+        if (!queuedOps.isEmpty()) {
+            scheduleQueuedOpsDrain();
+            return;
+        }
+
+        finishQueuedOps();
+    }
+
+    private void finishQueuedOps() {
+        if (!queuedOpsNeedInvalidate && !queuedOpsNeedLayout) return;
+        if (queuedOpsNeedLayout) {
+            scheduleLayoutPass();
+            return;
+        }
+
+        queuedOpsNeedInvalidate = false;
+        surfaceView.invalidate();
+        hostRoot.invalidate();
+    }
+
+    private void scheduleLayoutPass() {
+        if (layoutPassScheduled) return;
+        layoutPassScheduled = true;
+        mainHandler.post(() -> {
+            layoutPassScheduled = false;
+            if (!attached && !surfaceView.isAttachedToWindow()) return;
+            queuedOpsNeedLayout = false;
+            queuedOpsNeedInvalidate = false;
+            forceLayoutNow();
+        });
     }
 
     public void applyOps(JSONArray ops) {
         try {
-            if (!attached && !surfaceView.isAttachedToWindow()) {
-                pendingBatches.add(new JSONArray(ops.toString()));
-                return;
-            }
-
-            applyOpsNow(ops);
+            for (int i = 0; i < ops.length(); i++) queuedOps.addLast(ops.getJSONObject(i));
+            scheduleQueuedOpsDrain();
         } catch (Exception e) {
             Log.e(TAG, "Failed applying Yoga UI ops", e);
         }
