@@ -9,6 +9,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
@@ -1208,16 +1209,11 @@ public class ScriptViewHost {
             case "backgroundColor":
                 applyBackgroundProps(view, node.props);
                 break;
-            case "clipRight": {
-                float progress = Math.max(0f, Math.min(1f, (float) parseDouble(value, 1)));
-                int right = Math.round(view.getWidth() * progress);
-                view.setClipBounds(new android.graphics.Rect(0, 0, right, view.getHeight()));
-                break;
-            }
-            case "clipLeft": {
-                float progress = Math.max(0f, Math.min(1f, (float) parseDouble(value, 0)));
-                int left = Math.round(view.getWidth() * progress);
-                view.setClipBounds(new android.graphics.Rect(left, 0, view.getWidth(), view.getHeight()));
+            case "clipRight":
+            case "clipLeft":
+            case "clipBottom":
+            case "clipTop": {
+                applyClipBounds(view, property, value);
                 break;
             }
             default:
@@ -1597,31 +1593,11 @@ public class ScriptViewHost {
                 applyBackgroundProps(view, node.props);
                 break;
             }
-            case "clipRight": {
-                float progress = Math.max(0f, Math.min(1f, (float) parseDouble(value, 1)));
-                int right = Math.round(view.getWidth() * progress);
-                view.setClipBounds(new android.graphics.Rect(0, 0, right, view.getHeight()));
-                view.invalidate();
-                break;
-            }
-            case "clipLeft": {
-                float progress = Math.max(0f, Math.min(1f, (float) parseDouble(value, 0)));
-                int left = Math.round(view.getWidth() * progress);
-                view.setClipBounds(new android.graphics.Rect(left, 0, view.getWidth(), view.getHeight()));
-                view.invalidate();
-                break;
-            }
-            case "clipBottom": {
-                float progress = Math.max(0f, Math.min(1f, (float) parseDouble(value, 1)));
-                int bottom = Math.round(view.getHeight() * progress);
-                view.setClipBounds(new android.graphics.Rect(0, 0, view.getWidth(), bottom));
-                view.invalidate();
-                break;
-            }
+            case "clipRight":
+            case "clipLeft":
+            case "clipBottom":
             case "clipTop": {
-                float progress = Math.max(0f, Math.min(1f, (float) parseDouble(value, 0)));
-                int top = Math.round(view.getHeight() * progress);
-                view.setClipBounds(new android.graphics.Rect(0, top, view.getWidth(), view.getHeight()));
+                applyClipBounds(view, property, value);
                 view.invalidate();
                 break;
             }
@@ -1965,35 +1941,59 @@ public class ScriptViewHost {
             case "rotation":
                 view.setRotation(value);
                 break;
-            case "clipRight": {
-                float progress = Math.max(0f, Math.min(1f, value));
-                int right = Math.round(view.getWidth() * progress);
-                view.setClipBounds(new android.graphics.Rect(0, 0, right, view.getHeight()));
-                view.invalidate();
-                break;
-            }
-            case "clipLeft": {
-                float progress = Math.max(0f, Math.min(1f, value));
-                int left = Math.round(view.getWidth() * progress);
-                view.setClipBounds(new android.graphics.Rect(left, 0, view.getWidth(), view.getHeight()));
-                view.invalidate();
-                break;
-            }
-            case "clipBottom": {
-                float progress = Math.max(0f, Math.min(1f, value));
-                int bottom = Math.round(view.getHeight() * progress);
-                view.setClipBounds(new android.graphics.Rect(0, 0, view.getWidth(), bottom));
-                view.invalidate();
-                break;
-            }
+            case "clipRight":
+            case "clipLeft":
+            case "clipBottom":
             case "clipTop": {
-                float progress = Math.max(0f, Math.min(1f, value));
-                int top = Math.round(view.getHeight() * progress);
-                view.setClipBounds(new android.graphics.Rect(0, top, view.getWidth(), view.getHeight()));
+                applyClipBounds(view, property, value);
                 view.invalidate();
                 break;
             }
         }
+    }
+
+    private void applyClipBounds(View view, String property, Object rawValue) {
+        if (rawValue == null || rawValue == JSONObject.NULL) {
+            view.setClipBounds(null);
+            return;
+        }
+
+        int width = view.getWidth();
+        int height = view.getHeight();
+        if (width <= 0 || height <= 0) {
+            view.post(() -> applyClipBounds(view, property, rawValue));
+            return;
+        }
+
+        float fallback = ("clipLeft".equals(property) || "clipTop".equals(property)) ? 0f : 1f;
+        float progress = Math.max(0f, Math.min(1f, (float) parseDouble(rawValue, fallback)));
+
+        Rect bounds;
+        switch (property) {
+            case "clipLeft": {
+                int left = Math.round(width * progress);
+                bounds = new Rect(left, 0, width, height);
+                break;
+            }
+            case "clipBottom": {
+                int bottom = Math.round(height * progress);
+                bounds = new Rect(0, 0, width, bottom);
+                break;
+            }
+            case "clipTop": {
+                int top = Math.round(height * progress);
+                bounds = new Rect(0, top, width, height);
+                break;
+            }
+            case "clipRight":
+            default: {
+                int right = Math.round(width * progress);
+                bounds = new Rect(0, 0, right, height);
+                break;
+            }
+        }
+
+        view.setClipBounds(bounds);
     }
 
     private TimeInterpolator parseAnimationInterpolator(String type, String easing) {
@@ -2960,6 +2960,10 @@ public class ScriptViewHost {
             view.setFitsSystemWindows(parseBoolean(props.opt("fitsSystemWindows"), view.getFitsSystemWindows()));
         if (props.has("clipToOutline"))
             view.setClipToOutline(parseBoolean(props.opt("clipToOutline"), view.getClipToOutline()));
+        if (props.has("clipRight")) applyClipBounds(view, "clipRight", props.opt("clipRight"));
+        if (props.has("clipLeft")) applyClipBounds(view, "clipLeft", props.opt("clipLeft"));
+        if (props.has("clipBottom")) applyClipBounds(view, "clipBottom", props.opt("clipBottom"));
+        if (props.has("clipTop")) applyClipBounds(view, "clipTop", props.opt("clipTop"));
         if (props.has("tag")) view.setTag(String.valueOf(props.opt("tag")));
         if (props.has("textAlignment")) view.setTextAlignment(parseTextAlignment(props.optString("textAlignment", "")));
         if (props.has("backgroundColor") || props.has("borderRadius") || props.has("borderWidth") || props.has("borderColor") || props.has("borderTopLeftRadius") || props.has("borderTopRightRadius") || props.has("borderBottomLeftRadius") || props.has("borderBottomRightRadius"))

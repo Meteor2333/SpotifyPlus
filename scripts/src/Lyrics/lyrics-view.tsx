@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, ScrollView, NativeView, FlatList, Pressable, StyleSheet } from 'spotifyplus/react'
+import { View, Text, ScrollView, FlatList, Pressable, StyleSheet } from 'spotifyplus/react'
 import { TransformedLyrics } from './lyric-utilities'
-import { StaticSyncedLyrics, SyllableSyncedLyrics } from '../Types/lyrics-types';
+import { LineSyncedLyrics, StaticSyncedLyrics, SyllableSyncedLyrics } from '../Types/lyrics-types';
 import { SpotifyPlus } from 'spotifyplus';
 import SyllableVocalLine from '../Entities/syllable-vocals';
 import InterludeView from '../Entities/interlude';
+import LineView from '../Entities/line';
 
 interface Props {
     lyrics: TransformedLyrics | undefined;
@@ -20,13 +21,13 @@ const LyricsView = ({ lyrics }: Props) => {
     const [activeIndex, setActiveIndex] = useState(-1);
 
     const lineRanges = useMemo(() => {
-        if (lyrics?.Type !== 'Syllable') return [];
+        if (!lyrics || lyrics.Type === 'Static') return [];
 
         return lyrics.Content.map(item => getLineRange(item));
     }, [lyrics]);
 
     useEffect(() => {
-        if (lyrics?.Type !== 'Syllable' || lineRanges.length === 0) return;
+        if (!lyrics || lyrics.Type === 'Static' || lineRanges.length === 0) return;
 
         lastActiveIndex.current = null;
         let disposed = false;
@@ -82,13 +83,37 @@ const LyricsView = ({ lyrics }: Props) => {
         };
     }, [lyrics, lineRanges]);
 
-    if (lyrics?.Type === 'Line') {
+    if (lyrics?.Type === 'Static') {
         return (
             <ScrollView style={{ flex: 1 }}>
                 {(lyrics as unknown as StaticSyncedLyrics).Lines.map((line, index) => (
                     <Text key={index}>{line.Text}</Text>
                 ))}
             </ScrollView>
+        )
+    }
+
+    if (lyrics?.Type === 'Line') {
+        return (
+            <View style={{ flex: 1 }}>
+                <FlatList style={{ flex: 1, elevation: 10, rowGap: 42 }} ref={scroller} data={lyrics.Content} renderItem={({ item, index }) => {
+                    if (item.Type === 'Interlude') {
+                        if (index !== activeIndex) return null;
+
+                        return <InterludeView metadata={item} />
+                    }
+
+                    return (
+                        <Pressable style={({ pressed }) => [
+                            styles.lyricsLine,
+                            item.OppositeAligned ? styles.oppositeAlignedLine : styles.defaultAlignedLine,
+                            pressed && styles.lyricsPressed
+                        ]} onPress={() => SpotifyPlus.Player.seek(item.StartTime * 1000)}>
+                            <LineView key={index} line={item} style={{ paddingVertical: 2 }} />
+                        </Pressable>
+                    )
+                }} />
+            </View>
         )
     }
 
@@ -116,12 +141,19 @@ const LyricsView = ({ lyrics }: Props) => {
     }
 }
 
-function getLineRange(item: SyllableSyncedLyrics['Content'][number]) {
+function getLineRange(item: LineSyncedLyrics['Content'][number] | SyllableSyncedLyrics['Content'][number]) {
     if (item.Type !== 'Vocal') {
         return {
             start: item.StartTime,
             end: item.EndTime
         }
+    }
+
+    if ('StartTime' in item) {
+        return {
+            start: item.StartTime,
+            end: item.EndTime
+        };
     }
 
     const starts = [
@@ -146,6 +178,15 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         padding: 6,
         borderRadius: 22
+    },
+    defaultAlignedLine: {
+        paddingLeft: 25,
+        paddingRight: 35
+    },
+    oppositeAlignedLine: {
+        paddingRight: 25,
+        paddingLeft: 35,
+        alignItems: 'flex-end'
     },
     lyricsPressed: {
         backgroundColor: '#29FFFFFF'
