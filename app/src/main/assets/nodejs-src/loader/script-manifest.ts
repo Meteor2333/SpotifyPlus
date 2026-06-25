@@ -7,7 +7,7 @@ export interface ScriptManifest {
     author?: string;
     permissions: string[];
     api: number;
-    native: NativeObject;
+    native?: NativeObject;
 }
 
 interface NativeObject {
@@ -32,8 +32,8 @@ export function parseManifest(raw: unknown): ScriptManifest {
     return { id, name, version, main, description, author, permissions, api, native };
 }
 
-function parseNativeObject(raw: unknown, fieldName: string): NativeObject {
-    if (!raw || typeof raw !== 'object') throw new Error(`${fieldName} must be an object`);
+function parseNativeObject(raw: unknown, fieldName: string): NativeObject | undefined {
+    if (!raw || typeof raw !== 'object') return undefined;
     const native = raw as Record<string, unknown>;
 
     const dex = ensureString(native.dex, `${fieldName}.dex`);

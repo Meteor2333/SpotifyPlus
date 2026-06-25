@@ -1,6 +1,5 @@
-import { SpotifyPlus } from "spotifyplus";
-import React from "react";
-import App from "./app";
+import { SpotifyPlus } from 'spotifyplus';
+import App from './app';
 
 SpotifyPlus.log('This script is running!');
 

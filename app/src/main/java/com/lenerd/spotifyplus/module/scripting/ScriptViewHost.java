@@ -70,17 +70,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.URL;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.WeakHashMap;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -3518,13 +3508,111 @@ public class ScriptViewHost {
 
     public Integer parseColor(Object value) {
         try {
-            if (value == null || value == JSONObject.NULL) return null;
-            if (value instanceof Number number) return number.intValue();
-            return Color.parseColor(String.valueOf(value));
-        } catch (Exception e) {
+            if(value == null || value == JSONObject.NULL) return null;
+            if(value instanceof Number number) return number.intValue();
+
+            String color = String.valueOf(value).trim();
+            if(color.isEmpty()) return null;
+
+            String lower = color.toLowerCase(Locale.US);
+
+            if(lower.equals("transparent")) return Color.TRANSPARENT;
+
+            if(lower.startsWith("rgb(") || lower.startsWith("rgba(")) {
+                return parseRgbColor(lower);
+            }
+
+            if(lower.startsWith("hsl(") || lower.startsWith("hsla(")) {
+                return parseHslColor(lower);
+            }
+
+            if(lower.matches("^#[0-9a-f]{3}$")) {
+                char r = lower.charAt(1), g = lower.charAt(2), b = lower.charAt(3);
+                return Color.parseColor("#" + r + r + g + g + b + b);
+            }
+
+            if(lower.matches("^#[0-9a-f]{4}$")) {
+                char r = lower.charAt(1), g = lower.charAt(2), b = lower.charAt(3), a = lower.charAt(4);
+                return Color.parseColor("#" + a + a + r + r + g + g + b + b);
+            }
+
+            return Color.parseColor(color);
+        } catch(Exception e) {
             Log.w(TAG, "Failed to parse color " + value);
             return null;
         }
+    }
+
+    private Integer parseRgbColor(String color) {
+        String inside = color.substring(color.indexOf('(') + 1, color.lastIndexOf(')')).trim();
+        String[] parts = inside.split("\\s*,\\s*");
+        if(parts.length < 3) return null;
+
+        int r = parseRgbChannel(parts[0]);
+        int g = parseRgbChannel(parts[1]);
+        int b = parseRgbChannel(parts[2]);
+        int a = parts.length >= 4 ? parseAlpha(parts[3]) : 255;
+
+        return Color.argb(a, r, g, b);
+    }
+
+    private Integer parseHslColor(String color) {
+        String inside = color.substring(color.indexOf('(') + 1, color.lastIndexOf(')')).trim();
+        String[] parts = inside.split("\\s*,\\s*");
+        if(parts.length < 3) return null;
+
+        float h = Float.parseFloat(parts[0].replace("deg", "").trim());
+        float s = parsePercent(parts[1]);
+        float l = parsePercent(parts[2]);
+        int a = parts.length >= 4 ? parseAlpha(parts[3]) : 255;
+
+        h = ((h % 360) + 360) % 360;
+        float c = (1 - Math.abs(2 * l - 1)) * s;
+        float x = c * (1 - Math.abs((h / 60f) % 2 - 1));
+        float m = l - c / 2f;
+
+        float r1, g1, b1;
+        if(h < 60) { r1 = c; g1 = x; b1 = 0; }
+        else if(h < 120) { r1 = x; g1 = c; b1 = 0; }
+        else if(h < 180) { r1 = 0; g1 = c; b1 = x; }
+        else if(h < 240) { r1 = 0; g1 = x; b1 = c; }
+        else if(h < 300) { r1 = x; g1 = 0; b1 = c; }
+        else { r1 = c; g1 = 0; b1 = x; }
+
+        int r = clamp(Math.round((r1 + m) * 255), 0, 255);
+        int g = clamp(Math.round((g1 + m) * 255), 0, 255);
+        int b = clamp(Math.round((b1 + m) * 255), 0, 255);
+
+        return Color.argb(a, r, g, b);
+    }
+
+    private int parseRgbChannel(String value) {
+        value = value.trim();
+        if(value.endsWith("%")) return clamp(Math.round(parsePercent(value) * 255), 0, 255);
+        return clamp(Math.round(Float.parseFloat(value)), 0, 255);
+    }
+
+    private int parseAlpha(String value) {
+        value = value.trim();
+        if(value.endsWith("%")) return clamp(Math.round(parsePercent(value) * 255), 0, 255);
+
+        float alpha = Float.parseFloat(value);
+        if(alpha <= 1f) return clamp(Math.round(alpha * 255), 0, 255);
+        return clamp(Math.round(alpha), 0, 255);
+    }
+
+    private float parsePercent(String value) {
+        value = value.trim();
+        if(value.endsWith("%")) return clampFloat(Float.parseFloat(value.substring(0, value.length() - 1)) / 100f, 0f, 1f);
+        return clampFloat(Float.parseFloat(value), 0f, 1f);
+    }
+
+    private int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private float clampFloat(float value, float min, float max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     private int parseVisibility(Object value) {

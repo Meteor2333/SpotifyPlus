@@ -129,10 +129,8 @@ function toUint8Array(value) {
 }
 function toBase64(value) {
     const bytes = toUint8Array(value);
-    // @ts-ignore
     return Buffer.from(bytes).toString('base64');
 }
 function fromBase64(value) {
-    // @ts-ignore
     return Uint8Array.from(Buffer.from(value, 'base64'));
 }

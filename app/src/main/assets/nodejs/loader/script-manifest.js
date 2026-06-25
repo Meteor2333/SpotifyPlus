@@ -18,7 +18,7 @@ function parseManifest(raw) {
 }
 function parseNativeObject(raw, fieldName) {
     if (!raw || typeof raw !== 'object')
-        throw new Error(`${fieldName} must be an object`);
+        return undefined;
     const native = raw;
     const dex = ensureString(native.dex, `${fieldName}.dex`);
     const pluginClass = ensureString(native.pluginClass, `${fieldName}.pluginClass`);

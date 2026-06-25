@@ -82,11 +82,17 @@ class ScriptRegistry {
         return this.sideDrawerItems;
     }
     emitSideDrawerPress(scriptId, id) {
+        console.log('Made it here!');
         const item = this.sideDrawerItems.get(id);
+        console.log(`Item Found: ${item?.item.name}`);
         const result = item?.item.onClick();
+        console.log('Called result!');
         if (result && react_1.default.isValidElement(result)) {
+            console.log('Item is valid react element');
             this.mountSurface(scriptId, { id: 'sideDrawer', type: 'sideDrawer' }, result);
+            return true;
         }
+        return false;
     }
     registerSurfaceRenderer(scriptId, surfaceType, renderer) {
         const existing = this.renderers.get(surfaceType) ?? [];

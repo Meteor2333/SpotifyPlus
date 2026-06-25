@@ -1,0 +1,23 @@
+{
+  "name": "marketplace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "build": "esbuild src/index.tsx --bundle --platform=node --format=cjs --jsx=automatic --external:spotifyplus --external:spotifyplus/react --external:react --outfile=E:\\Projects\\SpotifyPlus\\app\\src\\main\\assets\\nodejs\\scriptss\\marketplace\\index.js"
+  },
+  "dependencies": {
+    "spotifyplus": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "node": ">=18.17.0",
+    "react": "latest",
+    "@types/react": "latest",
+    "typescript": "latest"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  }
+}

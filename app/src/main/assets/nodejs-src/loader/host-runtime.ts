@@ -178,7 +178,14 @@ export class HostRuntime {
                 return;
             }
 
-            this.registry.emitSideDrawerPress(data.scriptId, data.id);
+            this.bridge.registerSurface('sideDrawer');
+            try {
+                const mounted = this.registry.emitSideDrawerPress(data.scriptId, data.id);
+                if (!mounted) this.bridge.unregisterSurface('sideDrawer');
+            } catch (error) {
+                this.bridge.unregisterSurface('sideDrawer');
+                throw error;
+            }
         });
 
         this.bridge.on('side.close', payload => {
@@ -262,6 +269,7 @@ export class HostRuntime {
 
                     const result = item?.item.onClick();
                     if (result && React.isValidElement(result)) {
+                        this.bridge.registerSurface('sideDrawer');
                         setCommitListener('sideDrawer', ops => {
                             this.sendCommand('react.commit', { surfaceId: 'sideDrawer', ops });
                         });
@@ -273,6 +281,7 @@ export class HostRuntime {
                     const payload = packet.payload as { scriptId: string; id: string };
                     this.registry.unmountSurface(payload.scriptId, 'sideDrawer');
                     clearCommitListener('sideDrawer');
+                    this.bridge.unregisterSurface('sideDrawer');
                 }
                 if (packet.name === 'react.surfaceEvent') {
                     const payload = packet.payload as Surface;

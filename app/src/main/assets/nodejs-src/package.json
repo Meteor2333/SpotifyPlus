@@ -1,29 +1,103 @@
 {
     "name": "spotifyplus",
     "version": "0.10.0.0",
-    "type": "module",
-    "main": "./../nodejs/sdk/index.js",
-    "types": "./../nodejs/sdk/index.d.ts",
+    "type": "commonjs",
+    "main": "./dist/index.cjs",
+    "types": "./dist/index.d.ts",
     "exports": {
         ".": {
-            "types": "./../nodejs/sdk/index.d.ts",
-            "default": "./../nodejs/sdk/index.js"
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.cjs"
         },
         "./react": {
-            "types": "./../nodejs/ui/components.d.ts",
-            "default": "./../nodejs/ui/components.js"
+            "types": "./dist/components.d.ts",
+            "default": "./dist/components.js"
         },
         "./react/Animated": {
-            "types": "./../nodejs/sdk/animated.d.ts",
-            "default": "./../nodejs/sdk/animated.js"
+            "types": "./dist/animated.d.ts",
+            "default": "./dist/animated.js"
+        },
+        "./react/Animated/core": {
+            "types": "./dist/internal/native-animation-core.d.ts",
+            "default": "./dist/animated.js"
+        },
+        "./entities": {
+            "types": "./dist/entities.d.ts",
+            "default": "./dist/entities.js"
+        },
+        "./animated": {
+            "types": "./dist/animated.d.ts",
+            "default": "./dist/animated.js"
+        },
+        "./internal/components": {
+            "types": "./dist/internal/components.d.ts",
+            "default": "./dist/components.js"
+        },
+        "./internal/legacy-animated": {
+            "types": "./dist/internal/legacy-animated.d.ts",
+            "default": "./dist/components.js"
+        },
+        "./internal/native-animation": {
+            "types": "./dist/internal/native-animation.d.ts",
+            "default": "./dist/animated.js"
+        },
+        "./internal/renderer": {
+            "types": "./dist/internal/renderer.d.ts",
+            "default": "./dist/components.js"
+        },
+        "./internal/script-api": {
+            "types": "./dist/internal/script-api.d.ts",
+            "default": "./dist/index.cjs"
+        },
+        "./internal/script-registry": {
+            "types": "./dist/internal/script-registry.d.ts",
+            "default": "./dist/index.cjs"
         }
     },
     "files": [
-        "./../nodejs/sdk"
+        "dist"
     ],
+    "typesVersions": {
+        "*": {
+            "react": [
+                "dist/components.d.ts"
+            ],
+            "react/Animated": [
+                "dist/animated.d.ts"
+            ],
+            "react/Animated/core": [
+                "dist/internal/native-animation-core.d.ts"
+            ],
+            "entities": [
+                "dist/entities.d.ts"
+            ],
+            "animated": [
+                "dist/animated.d.ts"
+            ],
+            "internal/components": [
+                "dist/internal/components.d.ts"
+            ],
+            "internal/legacy-animated": [
+                "dist/internal/legacy-animated.d.ts"
+            ],
+            "internal/native-animation": [
+                "dist/internal/native-animation.d.ts"
+            ],
+            "internal/renderer": [
+                "dist/internal/renderer.d.ts"
+            ],
+            "internal/script-api": [
+                "dist/internal/script-api.d.ts"
+            ],
+            "internal/script-registry": [
+                "dist/internal/script-registry.d.ts"
+            ]
+        }
+    },
     "scripts": {
         "generate:sdk-react": "node tools/generate-react-sdk.mjs",
-        "build": "tsc -p tsconfig.json"
+        "build:sdk-package": "node tools/build-sdk-package.mjs",
+        "build": "npm run generate:sdk-react && tsc -p tsconfig.json && npm run build:sdk-package"
     },
     "devDependencies": {
         "@types/node": "^22.19.17",
