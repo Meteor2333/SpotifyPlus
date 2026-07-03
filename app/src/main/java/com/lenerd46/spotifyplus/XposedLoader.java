@@ -43,15 +43,12 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
     private DexKitBridge bridge;
     private String modulePath = null;
-<<<<<<< Updated upstream
-    private static final String MODULE_VERSION = "0.6.2";
-=======
     private static final String MODULE_VERSION = "0.6.7";
->>>>>>> Stashed changes
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
-        if (!lpparam.packageName.equals("com.spotify.music")) return;
+        if (!lpparam.packageName.equals("com.spotify.music"))
+            return;
         XposedBridge.log("[SpotifyPlus] Loading SpotifyPlus v" + MODULE_VERSION);
 
         if (bridge == null) {
@@ -70,22 +67,25 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
             }
         });
 
-        XposedHelpers.findAndHookMethod(Activity.class, "onActivityResult", int.class, int.class, Intent.class, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                int requestCode = (int) param.args[0];
-                Intent data = (Intent) param.args[2];
+        XposedHelpers.findAndHookMethod(Activity.class, "onActivityResult", int.class, int.class, Intent.class,
+                new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        int requestCode = (int) param.args[0];
+                        Intent data = (Intent) param.args[2];
 
-                if (requestCode == 9072022 && data != null) {
-                    Uri tree = data.getData();
-                    ContentResolver content = ((Activity) param.thisObject).getContentResolver();
-                    content.takePersistableUriPermission(tree, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                        if (requestCode == 9072022 && data != null) {
+                            Uri tree = data.getData();
+                            ContentResolver content = ((Activity) param.thisObject).getContentResolver();
+                            content.takePersistableUriPermission(tree,
+                                    Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 
-                    SharedPreferences prefs = ((Activity) param.thisObject).getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
-                    prefs.edit().putString("scripts_directory", tree.toString()).apply();
-                }
-            }
-        });
+                            SharedPreferences prefs = ((Activity) param.thisObject).getSharedPreferences("SpotifyPlus",
+                                    Context.MODE_PRIVATE);
+                            prefs.edit().putString("scripts_directory", tree.toString()).apply();
+                        }
+                    }
+                });
 
         XposedHelpers.findAndHookMethod(Activity.class, "onCreate", Bundle.class, new XC_MethodHook() {
             @Override
@@ -93,11 +93,13 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                 Activity activity = (Activity) param.thisObject;
                 Typeface beautifulFont = References.beautifulFont.get();
 
-                if (beautifulFont != null) return;
+                if (beautifulFont != null)
+                    return;
 
                 try {
                     Resources resources = XModuleResources.createInstance(modulePath, null);
-//                    beautifulFont = Typeface.createFromAsset(resources.getAssets(), "fonts/lyrics_medium.ttf");
+                    // beautifulFont = Typeface.createFromAsset(resources.getAssets(),
+                    // "fonts/lyrics_medium.ttf");
                     beautifulFont = Typeface.createFromAsset(resources.getAssets(), "fonts/sf-pro-display-bold.ttf");
 
                     XposedBridge.log("[SpotifyPlus] Successfully loaded font!");
@@ -110,7 +112,7 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                     References.beautifulFont = new WeakReference<>(beautifulFont);
                 }
 
-//                MlKit.initialize(activity);
+                // MlKit.initialize(activity);
 
                 navigateToStartupPage(activity);
 
@@ -126,7 +128,7 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                 Context context = (Context) param.args[0];
                 cleanUpCache(context);
 
-//                new ScriptManager().init(context, lpparam.classLoader);
+                // new ScriptManager().init(context, lpparam.classLoader);
                 ScriptManager.getInstance().init(context, lpparam.classLoader);
                 new BeautifulLyricsHook().init(lpparam, bridge);
                 new RemoveCreateButtonHook(context).init(lpparam, bridge);
@@ -137,15 +139,12 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                 new AnimatedAlbumArtwork().init(lpparam, bridge);
                 new TestingHook().init(lpparam, bridge);
                 new NewContextMenuHook().init(lpparam, bridge);
-<<<<<<< Updated upstream
-=======
                 new SleepTimerHook(context).init(lpparam, bridge);
-//                new PrivateSessionHook().init(lpparam, bridge);
->>>>>>> Stashed changes
-//                new ThemeHook().init(lpparam, bridge);
-//                new ThemeTest().init(lpparam, bridge);
-                //                new LikedSongHook().init(lpparam, bridge);
-//                new KaraokeHook().init(lpparam, bridge);
+                // new PrivateSessionHook().init(lpparam, bridge);
+                // new ThemeHook().init(lpparam, bridge);
+                // new ThemeTest().init(lpparam, bridge);
+                // new LikedSongHook().init(lpparam, bridge);
+                // new KaraokeHook().init(lpparam, bridge);
             }
         });
     }
@@ -218,7 +217,8 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
                 String content = thisContent;
                 handler.post(() -> {
-                    if(content.isEmpty()) return;
+                    if (content.isEmpty())
+                        return;
 
                     JsonObject json = new JsonParser().parseString(content).getAsJsonObject();
                     String latest = json.get("tag_name").getAsString().replace("v", "");
@@ -227,19 +227,28 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                         // New update available!
 
                         ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
-                        if(root == null) return;
+                        if (root == null)
+                            return;
 
                         XModuleResources modResources = References.modResources;
                         int themeOverlayLast = R.style.Theme_SpotifyPlus;
-                        Context themedCtx = new ModuleContextWrapper(activity.getApplicationContext(), themeOverlayLast, modResources, ModuleContextWrapper.class.getClassLoader());
-                        LayoutInflater inflater = LayoutInflater.from(activity.getApplicationContext()).cloneInContext(themedCtx);
-                        View updateWindow = inflater.inflate(modResources.getIdentifier("update_view", "layout", "com.lenerd46.spotifyplus"), root, false);
+                        Context themedCtx = new ModuleContextWrapper(activity.getApplicationContext(), themeOverlayLast,
+                                modResources, ModuleContextWrapper.class.getClassLoader());
+                        LayoutInflater inflater = LayoutInflater.from(activity.getApplicationContext())
+                                .cloneInContext(themedCtx);
+                        View updateWindow = inflater.inflate(
+                                modResources.getIdentifier("update_view", "layout", "com.lenerd46.spotifyplus"), root,
+                                false);
                         root.addView(updateWindow);
 
-                        FrameLayout background = updateWindow.findViewById(modResources.getIdentifier("update_popup_root", "id", "com.lenerd46.spotifyplus"));
-                        TextView versionText = updateWindow.findViewById(modResources.getIdentifier("update_popup_version", "id", "com.lenerd46.spotifyplus"));
-                        MaterialButton updateButton = updateWindow.findViewById(modResources.getIdentifier("btn_download_update", "id", "com.lenerd46.spotifyplus"));
-                        MaterialButton dismissButton = updateWindow.findViewById(modResources.getIdentifier("btn_dismiss_update", "id", "com.lenerd46.spotifyplus"));
+                        FrameLayout background = updateWindow.findViewById(
+                                modResources.getIdentifier("update_popup_root", "id", "com.lenerd46.spotifyplus"));
+                        TextView versionText = updateWindow.findViewById(
+                                modResources.getIdentifier("update_popup_version", "id", "com.lenerd46.spotifyplus"));
+                        MaterialButton updateButton = updateWindow.findViewById(
+                                modResources.getIdentifier("btn_download_update", "id", "com.lenerd46.spotifyplus"));
+                        MaterialButton dismissButton = updateWindow.findViewById(
+                                modResources.getIdentifier("btn_dismiss_update", "id", "com.lenerd46.spotifyplus"));
 
                         versionText.setText("Current: v" + MODULE_VERSION + "  •  Latest: v" + latest);
 
@@ -250,37 +259,46 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                         updateButton.setOnClickListener(v -> {
                             root.removeView(updateWindow);
 
-                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeNerd46/SpotifyPlus/releases"));
+                            Intent intent = new Intent(Intent.ACTION_VIEW,
+                                    Uri.parse("https://github.com/LeNerd46/SpotifyPlus/releases"));
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             activity.startActivity(intent);
                         });
 
                         dismissButton.setOnClickListener(v -> root.removeView(updateWindow));
 
-//                        LayoutInflater inflater = LayoutInflater.from(activity);
-//                        View dialogueView = inflater.inflate(modResources.getLayout(R.layout.dialogue_update), (ViewGroup) activity.getWindow().getDecorView(), false);
-//
-//                        Button download = dialogueView.findViewById(modResources.getIdentifier("download_button", "id", "com.lenerd46.spotifyplus"));
-//                        Button later = dialogueView.findViewById(modResources.getIdentifier("later_button", "id", "com.lenerd46.spotifyplus"));
-//
-//                        AlertDialog dialogue = new AlertDialog.Builder(activity).setView(dialogueView).create();
-//
-//                        later.setOnClickListener(v -> dialogue.dismiss());
-//
-//                        download.setOnClickListener(v -> {
-//                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeNerd46/SpotifyPlus/releases"));
-//                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-//                            activity.startActivity(intent);
-//                            dialogue.dismiss();
-//                        });
-//
-//                        dialogue.show();
-//
-//                        Window dialogueWindow = dialogue.getWindow();
-//                        if (dialogueWindow != null) {
-//                            int width = activity.getResources().getDisplayMetrics().widthPixels;
-//                            dialogueWindow.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
-//                        }
+                        // LayoutInflater inflater = LayoutInflater.from(activity);
+                        // View dialogueView =
+                        // inflater.inflate(modResources.getLayout(R.layout.dialogue_update),
+                        // (ViewGroup) activity.getWindow().getDecorView(), false);
+                        //
+                        // Button download =
+                        // dialogueView.findViewById(modResources.getIdentifier("download_button", "id",
+                        // "com.lenerd46.spotifyplus"));
+                        // Button later =
+                        // dialogueView.findViewById(modResources.getIdentifier("later_button", "id",
+                        // "com.lenerd46.spotifyplus"));
+                        //
+                        // AlertDialog dialogue = new
+                        // AlertDialog.Builder(activity).setView(dialogueView).create();
+                        //
+                        // later.setOnClickListener(v -> dialogue.dismiss());
+                        //
+                        // download.setOnClickListener(v -> {
+                        // Intent intent = new Intent(Intent.ACTION_VIEW,
+                        // Uri.parse("https://github.com/LeNerd46/SpotifyPlus/releases"));
+                        // intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        // activity.startActivity(intent);
+                        // dialogue.dismiss();
+                        // });
+                        //
+                        // dialogue.show();
+                        //
+                        // Window dialogueWindow = dialogue.getWindow();
+                        // if (dialogueWindow != null) {
+                        // int width = activity.getResources().getDisplayMetrics().widthPixels;
+                        // dialogueWindow.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
+                        // }
                     }
                 });
             });
@@ -290,7 +308,8 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
     private final Pattern LEADING_NUMBER = Pattern.compile("^(\\d+)");
 
     public boolean isVersionGreater(String latest, String current) {
-        if (latest == null || current == null) return false;
+        if (latest == null || current == null)
+            return false;
 
         String l = normalize(latest);
         String c = normalize(current);
@@ -302,8 +321,10 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
         for (int i = 0; i < len; i++) {
             long lv = i < la.length ? parseSegment(la[i]) : 0L;
             long cv = i < ca.length ? parseSegment(ca[i]) : 0L;
-            if (lv > cv) return true;
-            if (lv < cv) return false;
+            if (lv > cv)
+                return true;
+            if (lv < cv)
+                return false;
         }
         // equal
         return false;
@@ -311,7 +332,8 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
     private String normalize(String s) {
         s = s.trim();
-        if (s.startsWith("v") || s.startsWith("V")) s = s.substring(1);
+        if (s.startsWith("v") || s.startsWith("V"))
+            s = s.substring(1);
         // drop pre-release / build metadata (e.g. -beta, +build)
         s = s.split("[-+]")[0];
         return s;
@@ -331,19 +353,22 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
         return 0L;
     }
 
-
     public boolean hasInternet(Context ctx) {
         try {
-            android.net.ConnectivityManager cm =
-                    (android.net.ConnectivityManager) ctx.getSystemService(Context.CONNECTIVITY_SERVICE);
-            if (cm == null) return false;
+            android.net.ConnectivityManager cm = (android.net.ConnectivityManager) ctx
+                    .getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm == null)
+                return false;
 
             if (android.os.Build.VERSION.SDK_INT >= 23) {
                 android.net.Network nw = cm.getActiveNetwork();
-                if (nw == null) return false;
+                if (nw == null)
+                    return false;
                 android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(nw);
-                if (caps == null) return false;
-                // INTERNET = can reach the internet, VALIDATED = actually has connectivity (not just a Wi‑Fi w/o backhaul)
+                if (caps == null)
+                    return false;
+                // INTERNET = can reach the internet, VALIDATED = actually has connectivity (not
+                // just a Wi‑Fi w/o backhaul)
                 return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
                         && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED);
             } else {
@@ -370,13 +395,14 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
         }
     }
 
-    private static final int COLOR_BACKGROUND_PRIMARY   = 0xFF000000;
+    private static final int COLOR_BACKGROUND_PRIMARY = 0xFF000000;
     private static final int COLOR_BACKGROUND_SECONDARY = 0xFF121212;
-    private static final int COLOR_ACCENT               = 0xFF1ED760;
-    private static final int COLOR_ACCENT_PRESSED       = 0xFF1ABC54;
+    private static final int COLOR_ACCENT = 0xFF1ED760;
+    private static final int COLOR_ACCENT_PRESSED = 0xFF1ABC54;
 
     @Override
-    public void handleInitPackageResources(XC_InitPackageResources.InitPackageResourcesParam resparam) throws Throwable {
+    public void handleInitPackageResources(XC_InitPackageResources.InitPackageResourcesParam resparam)
+            throws Throwable {
         if (!"com.spotify.music".equals(resparam.packageName)) {
             return;
         }
@@ -384,48 +410,51 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
         References.modResources = XModuleResources.createInstance(modulePath, resparam.res);
         References.xresources = resparam.res;
 
-//        final int primaryBackground = 0xFF000000;   // AMOLED black
-//        final int secondaryBackground = 0xFF121212; // elevated cards / surfaces
-//        final int accentColor = 0xFF1ED760;         // Spotify green
-//        final int accentPressed = 0xFF1ABC54;       // darker pressed green
-//
-//        final boolean overridePlayerGradientColor = true;
-//
-//        // Main background color
-//        replaceColor(resparam, "gray_7", primaryBackground);
-//        replaceColor(resparam, "gray_10", primaryBackground);
-//        replaceColor(resparam, "dark_base_background_base", primaryBackground);
-//        replaceColor(resparam, "dark_base_background_elevated_base", primaryBackground);
-//        replaceColor(resparam, "sthlm_blk", primaryBackground);
-//        replaceColor(resparam, "sthlm_blk_grad_start", primaryBackground);
-//        replaceColor(resparam, "image_placeholder_color", primaryBackground);
-//
-//        // Player gradient:
-//        // ReVanced skips bg_gradient_start_color unless overridePlayerGradientColor is enabled,
-//        // but always themes the end color.
-//        if (overridePlayerGradientColor) {
-//            replaceColor(resparam, "bg_gradient_start_color", primaryBackground);
-//        }
-//        replaceColor(resparam, "bg_gradient_end_color", primaryBackground);
-//
-//        // Secondary background color
-//        replaceColor(resparam, "gray_15", secondaryBackground);
-//        replaceColor(resparam, "track_credits_card_bg", secondaryBackground);
-//        replaceColor(resparam, "benefit_list_default_color", secondaryBackground);
-//        replaceColor(resparam, "merch_card_background", secondaryBackground);
-//        replaceColor(resparam, "opacity_white_10", secondaryBackground);
-//        replaceColor(resparam, "dark_base_background_tinted_highlight", secondaryBackground);
-//
-//        // Accent color
-//        replaceColor(resparam, "dark_brightaccent_background_base", accentColor);
-//        replaceColor(resparam, "dark_base_text_brightaccent", accentColor);
-//        replaceColor(resparam, "green_light", accentColor);
-//        replaceColor(resparam, "spotify_green_157", accentColor);
-//
-//        // Pressed accent color
-//        replaceColor(resparam, "dark_brightaccent_background_press", accentPressed);
-//
-//        XposedBridge.log("[SpotifyPlus] Custom theme resources applied");
+        // final int primaryBackground = 0xFF000000; // AMOLED black
+        // final int secondaryBackground = 0xFF121212; // elevated cards / surfaces
+        // final int accentColor = 0xFF1ED760; // Spotify green
+        // final int accentPressed = 0xFF1ABC54; // darker pressed green
+        //
+        // final boolean overridePlayerGradientColor = true;
+        //
+        // // Main background color
+        // replaceColor(resparam, "gray_7", primaryBackground);
+        // replaceColor(resparam, "gray_10", primaryBackground);
+        // replaceColor(resparam, "dark_base_background_base", primaryBackground);
+        // replaceColor(resparam, "dark_base_background_elevated_base",
+        // primaryBackground);
+        // replaceColor(resparam, "sthlm_blk", primaryBackground);
+        // replaceColor(resparam, "sthlm_blk_grad_start", primaryBackground);
+        // replaceColor(resparam, "image_placeholder_color", primaryBackground);
+        //
+        // // Player gradient:
+        // // ReVanced skips bg_gradient_start_color unless overridePlayerGradientColor
+        // is enabled,
+        // // but always themes the end color.
+        // if (overridePlayerGradientColor) {
+        // replaceColor(resparam, "bg_gradient_start_color", primaryBackground);
+        // }
+        // replaceColor(resparam, "bg_gradient_end_color", primaryBackground);
+        //
+        // // Secondary background color
+        // replaceColor(resparam, "gray_15", secondaryBackground);
+        // replaceColor(resparam, "track_credits_card_bg", secondaryBackground);
+        // replaceColor(resparam, "benefit_list_default_color", secondaryBackground);
+        // replaceColor(resparam, "merch_card_background", secondaryBackground);
+        // replaceColor(resparam, "opacity_white_10", secondaryBackground);
+        // replaceColor(resparam, "dark_base_background_tinted_highlight",
+        // secondaryBackground);
+        //
+        // // Accent color
+        // replaceColor(resparam, "dark_brightaccent_background_base", accentColor);
+        // replaceColor(resparam, "dark_base_text_brightaccent", accentColor);
+        // replaceColor(resparam, "green_light", accentColor);
+        // replaceColor(resparam, "spotify_green_157", accentColor);
+        //
+        // // Pressed accent color
+        // replaceColor(resparam, "dark_brightaccent_background_press", accentPressed);
+        //
+        // XposedBridge.log("[SpotifyPlus] Custom theme resources applied");
     }
 
     private void replaceColor(XC_InitPackageResources.InitPackageResourcesParam resparam, String name, int color) {

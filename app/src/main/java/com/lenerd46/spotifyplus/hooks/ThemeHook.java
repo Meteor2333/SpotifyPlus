@@ -1,10 +1,5 @@
 package com.lenerd46.spotifyplus.hooks;
 
-<<<<<<< Updated upstream
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-=======
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
@@ -14,155 +9,12 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 
 import java.util.Locale;
->>>>>>> Stashed changes
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
 public class ThemeHook extends SpotifyHook {
-<<<<<<< Updated upstream
-
-    private static final String TAG = "[SpotifyPlus][ComposePaletteOverride]";
-
-    // AMOLED-ish replacements
-    private static final int COLOR_BLACK = 0xFF000000;
-    private static final int COLOR_NEAR_BLACK = 0xFF000000;
-
-    @Override
-    protected void hook() {
-        try {
-            Class<?> rjoClass = XposedHelpers.findClass("p.rjo", lpparm.classLoader);
-
-            int hooked = 0;
-            for (Method method : rjoClass.getDeclaredMethods()) {
-                if (!method.getName().equals("a")) continue;
-                if (!Modifier.isStatic(method.getModifiers())) continue;
-                if (method.getParameterTypes().length != 1) continue;
-
-                XposedBridge.hookMethod(method, new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        try {
-                            if (param.hasThrowable()) return;
-
-                            Object paletteRoot = param.getResult();
-                            if (paletteRoot == null) return;
-
-                            applyPaletteOverrides(paletteRoot);
-                        } catch (Throwable t) {
-                            XposedBridge.log(TAG + " Error overriding palette: " + t);
-                        }
-                    }
-                });
-
-                hooked++;
-                XposedBridge.log(TAG + " Hooked p.rjo.a overload: " + method);
-            }
-
-            XposedBridge.log(TAG + " Total hooked rjo.a overloads: " + hooked);
-        } catch (Throwable t) {
-            XposedBridge.log(TAG + " Failed to hook rjo.a: " + t);
-        }
-    }
-
-    private void applyPaletteOverrides(Object bno) {
-        if (bno == null) return;
-
-        /*
-         * From your logs:
-         *
-         * p.bno
-         *   .a = p.vko
-         *      .a = p.j1o  -> dark surface group
-         *      .b = p.j1o  -> white alpha ramp, leave alone
-         *      .c = #121212
-         *      .d = #1F1F1F
-         *      .e = #000000
-         *   .d = p.qoo
-         *      .b = #292929
-         *
-         * We only touch the dark neutral colors for now.
-         */
-
-        Object vko = getFieldValue(bno, "a");
-        if (vko != null) {
-            // Direct dark neutral fields on p.vko
-            replacePackedColorField(vko, "c", 0xFF121212, COLOR_BLACK);
-            replacePackedColorField(vko, "d", 0xFF1F1F1F, COLOR_BLACK);
-            replacePackedColorField(vko, "e", 0xFF000000, COLOR_BLACK);
-
-            // Nested p.j1o dark ramp inside p.vko.a
-            Object darkRamp = getFieldValue(vko, "a");
-            if (darkRamp != null) {
-                replacePackedColorField(darkRamp, "a", 0xFF1F1F1F, COLOR_BLACK);
-                replacePackedColorField(darkRamp, "b", 0xFF2A2A2A, COLOR_NEAR_BLACK);
-                replacePackedColorField(darkRamp, "c", 0xFF191919, COLOR_BLACK);
-            }
-        }
-
-        Object qoo = getFieldValue(bno, "d");
-        if (qoo != null) {
-            replacePackedColorField(qoo, "b", 0xFF292929, COLOR_NEAR_BLACK);
-        }
-    }
-
-    private void replacePackedColorField(Object target, String fieldName, int fromArgb, int toArgb) {
-        try {
-            Field field = findField(target.getClass(), fieldName);
-            if (field == null) {
-                XposedBridge.log(TAG + " Missing field " + target.getClass().getName() + "." + fieldName);
-                return;
-            }
-
-            field.setAccessible(true);
-
-            if (field.getType() != long.class && field.getType() != Long.TYPE) {
-                XposedBridge.log(TAG + " Field is not long: " + target.getClass().getName() + "." + fieldName
-                        + " type=" + field.getType().getName());
-                return;
-            }
-
-            long currentPacked = field.getLong(target);
-            int currentArgb = packedToArgb(currentPacked);
-
-            if (currentArgb != fromArgb) {
-                return;
-            }
-
-            long newPacked = argbToPacked(toArgb);
-            if (currentPacked == newPacked) {
-                return;
-            }
-
-            field.setLong(target, newPacked);
-
-            XposedBridge.log(
-                    TAG + " Replaced "
-                            + target.getClass().getName() + "." + fieldName
-                            + " " + toHexArgb(currentArgb)
-                            + " -> " + toHexArgb(toArgb)
-            );
-        } catch (Throwable t) {
-            XposedBridge.log(TAG + " Failed replacing field "
-                    + target.getClass().getName() + "." + fieldName + ": " + t);
-        }
-    }
-
-    private Object getFieldValue(Object target, String fieldName) {
-        try {
-            Field field = findField(target.getClass(), fieldName);
-            if (field == null) {
-                XposedBridge.log(TAG + " Missing field " + target.getClass().getName() + "." + fieldName);
-                return null;
-            }
-
-            field.setAccessible(true);
-            return field.get(target);
-        } catch (Throwable t) {
-            XposedBridge.log(TAG + " Failed reading field "
-                    + target.getClass().getName() + "." + fieldName + ": " + t);
-=======
     private static final int BG = Color.rgb(214, 240, 251);
     private static final int SURFACE = Color.rgb(235, 248, 254);
     private static final int SURFACE_2 = Color.rgb(196, 231, 246);
@@ -191,17 +43,21 @@ public class ThemeHook extends SpotifyHook {
             Class<?> c7z0 = XposedHelpers.findClass("p.c7z0", cl);
 
             XposedHelpers.findAndHookMethod(c7z0, "k", Context.class, int.class, int.class, new XC_MethodHook() {
-                @Override protected void afterHookedMethod(MethodHookParam param) {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
                     Integer color = colorForAttr((Context) param.args[0], (int) param.args[1]);
-                    if (color != null) param.setResult(color);
+                    if (color != null)
+                        param.setResult(color);
                 }
             });
 
             XposedHelpers.findAndHookMethod(c7z0, "l", View.class, int.class, new XC_MethodHook() {
-                @Override protected void afterHookedMethod(MethodHookParam param) {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
                     View view = (View) param.args[0];
                     Integer color = colorForAttr(view.getContext(), (int) param.args[1]);
-                    if (color != null) param.setResult(color);
+                    if (color != null)
+                        param.setResult(color);
                 }
             });
         } catch (Throwable t) {
@@ -216,78 +72,62 @@ public class ThemeHook extends SpotifyHook {
 
     private void hookResourceColors() {
         XC_MethodHook resColorHook = new XC_MethodHook() {
-            @Override protected void afterHookedMethod(MethodHookParam param) {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) {
                 Resources res = (Resources) param.thisObject;
                 Integer color = colorForResource(res, (int) param.args[0]);
-                if (color != null) param.setResult(color);
+                if (color != null)
+                    param.setResult(color);
             }
         };
 
         XC_MethodHook ctxColorHook = new XC_MethodHook() {
-            @Override protected void afterHookedMethod(MethodHookParam param) {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) {
                 Context ctx = (Context) param.thisObject;
                 Integer color = colorForResource(ctx.getResources(), (int) param.args[0]);
-                if (color != null) param.setResult(color);
+                if (color != null)
+                    param.setResult(color);
             }
         };
 
         XC_MethodHook stateListHook = new XC_MethodHook() {
-            @Override protected void afterHookedMethod(MethodHookParam param) {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) {
                 Resources res = (Resources) param.thisObject;
                 Integer color = colorForResource(res, (int) param.args[0]);
-                if (color != null) param.setResult(ColorStateList.valueOf(color));
+                if (color != null)
+                    param.setResult(ColorStateList.valueOf(color));
             }
         };
 
-        safeHook(Resources.class, "getColor", new Object[]{int.class, resColorHook});
-        safeHook(Resources.class, "getColor", new Object[]{int.class, Resources.Theme.class, resColorHook});
-        safeHook(Context.class, "getColor", new Object[]{int.class, ctxColorHook});
-        safeHook(Resources.class, "getColorStateList", new Object[]{int.class, stateListHook});
-        safeHook(Resources.class, "getColorStateList", new Object[]{int.class, Resources.Theme.class, stateListHook});
+        safeHook(Resources.class, "getColor", new Object[] { int.class, resColorHook });
+        safeHook(Resources.class, "getColor", new Object[] { int.class, Resources.Theme.class, resColorHook });
+        safeHook(Context.class, "getColor", new Object[] { int.class, ctxColorHook });
+        safeHook(Resources.class, "getColorStateList", new Object[] { int.class, stateListHook });
+        safeHook(Resources.class, "getColorStateList",
+                new Object[] { int.class, Resources.Theme.class, stateListHook });
     }
 
     private static void safeHook(Class<?> cls, String method, Object[] args) {
         try {
             XposedHelpers.findAndHookMethod(cls, method, args);
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
     }
 
     private Integer colorForAttr(Context ctx, int attrId) {
         try {
             return colorForName(ctx.getResources().getResourceEntryName(attrId));
         } catch (Throwable ignored) {
->>>>>>> Stashed changes
             return null;
         }
     }
 
-<<<<<<< Updated upstream
-    private Field findField(Class<?> cls, String name) {
-        Class<?> current = cls;
-        while (current != null) {
-            try {
-                return current.getDeclaredField(name);
-            } catch (NoSuchFieldException ignored) {
-                current = current.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    private int packedToArgb(long packed) {
-        return (int) (packed >>> 32);
-    }
-
-    private long argbToPacked(int argb) {
-        return ((long) argb) << 32;
-    }
-
-    private String toHexArgb(int color) {
-        return String.format("0x%08X", color);
-=======
     private Integer colorForResource(Resources res, int resId) {
         try {
-            if (!"color".equals(res.getResourceTypeName(resId))) return null;
+            if (!"color".equals(res.getResourceTypeName(resId)))
+                return null;
             return colorForName(res.getResourceEntryName(resId));
         } catch (Throwable ignored) {
             return null;
@@ -297,47 +137,62 @@ public class ThemeHook extends SpotifyHook {
     private static Integer colorForName(String rawName) {
         String n = rawName.toLowerCase(Locale.US);
 
-        if (n.contains("spotify_green") || n.equals("green") || n.equals("accent")) return ACCENT;
-        if (n.contains("green_light") || n.contains("brightaccentbackgroundhighlight")) return ACCENT_HOVER;
-        if (n.contains("green_dark") || n.contains("brightaccentbackgroundpress")) return ACCENT_PRESS;
+        if (n.contains("spotify_green") || n.equals("green") || n.equals("accent"))
+            return ACCENT;
+        if (n.contains("green_light") || n.contains("brightaccentbackgroundhighlight"))
+            return ACCENT_HOVER;
+        if (n.contains("green_dark") || n.contains("brightaccentbackgroundpress"))
+            return ACCENT_PRESS;
 
         if (n.contains("brightaccent") || n.contains("essentialbrightaccent") ||
                 n.contains("textbrightaccent") || n.contains("colorprimary") ||
                 n.contains("colorsecondary") || n.contains("colortertiary") ||
                 n.contains("positive")) {
-            if (n.contains("textbase") || n.contains("decorativebase")) return ON_ACCENT;
+            if (n.contains("textbase") || n.contains("decorativebase"))
+                return ON_ACCENT;
             return ACCENT;
         }
 
-        if (n.contains("overmedia") && n.contains("textsubdued")) return TEXT_SUBDUED;
-        if (n.contains("overmedia") && n.contains("text")) return TEXT;
-        if (n.contains("overmedia") && n.contains("background")) return OVER_MEDIA;
+        if (n.contains("overmedia") && n.contains("textsubdued"))
+            return TEXT_SUBDUED;
+        if (n.contains("overmedia") && n.contains("text"))
+            return TEXT;
+        if (n.contains("overmedia") && n.contains("background"))
+            return OVER_MEDIA;
 
         if (n.equals("gray_24") || n.equals("gray_30") || n.equals("gray_35") ||
-                n.contains("default_card_background")) return SURFACE;
+                n.contains("default_card_background"))
+            return SURFACE;
 
         if (n.contains("backgroundelevated") || n.contains("background_elevated") ||
                 n.contains("cardbackground") || n.contains("default_card_background") ||
-                n.equals("gray_background")) return SURFACE;
+                n.equals("gray_background"))
+            return SURFACE;
 
-        if (n.contains("backgroundhighlight") || n.contains("background_highlight")) return SURFACE_HOVER;
-        if (n.contains("backgroundpress") || n.contains("background_press")) return SURFACE_PRESS;
+        if (n.contains("backgroundhighlight") || n.contains("background_highlight"))
+            return SURFACE_HOVER;
+        if (n.contains("backgroundpress") || n.contains("background_press"))
+            return SURFACE_PRESS;
 
         if (n.contains("basebackground") || n.contains("base_background") ||
                 n.equals("backgroundbase") || n.equals("colorsurface") ||
-                n.equals("colorbackground")) return BG;
+                n.equals("colorbackground"))
+            return BG;
 
         if (n.contains("textsubdued") || n.contains("text_subdued") ||
-                n.contains("essentialsubdued") || n.contains("coloronsurfacevariant")) return TEXT_SUBDUED;
+                n.contains("essentialsubdued") || n.contains("coloronsurfacevariant"))
+            return TEXT_SUBDUED;
 
         if (n.contains("textbase") || n.contains("text_base") ||
                 n.contains("essentialbase") || n.contains("decorativebase") ||
-                n.equals("coloronbackground") || n.equals("coloronsurface")) return TEXT;
+                n.equals("coloronbackground") || n.equals("coloronsurface"))
+            return TEXT;
 
         if (n.equals("spotify_black_7") || n.equals("spotify_black") || n.equals("black") ||
                 n.equals("gray_7") || n.equals("gray_10") || n.equals("gray_15") ||
                 n.equals("gray_20") || n.equals("sidedrawer_background") ||
-                n.equals("local_files_background")) return BG;
+                n.equals("local_files_background"))
+            return BG;
 
         return null;
     }
@@ -352,17 +207,21 @@ public class ThemeHook extends SpotifyHook {
 
             Class<?> rjo = XposedHelpers.findClass("p.rjo", cl);
             XposedHelpers.findAndHookMethod(rjo, "a", qud, new XC_MethodHook() {
-                @Override protected void afterHookedMethod(MethodHookParam param) {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
                     Object themed = themedBno(cl);
-                    if (themed != null) param.setResult(themed);
+                    if (themed != null)
+                        param.setResult(themed);
                 }
             });
 
             Class<?> hno = XposedHelpers.findClass("p.hno", cl);
             XC_MethodHook replaceBnoArg = new XC_MethodHook() {
-                @Override protected void beforeHookedMethod(MethodHookParam param) {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
                     Object themed = themedBno(cl);
-                    if (themed != null) param.args[0] = themed;
+                    if (themed != null)
+                        param.args[0] = themed;
                 }
             };
 
@@ -377,10 +236,12 @@ public class ThemeHook extends SpotifyHook {
 
     private Object themedBno(ClassLoader cl) {
         Object cached = themedComposeBno;
-        if (cached != null) return cached;
+        if (cached != null)
+            return cached;
 
         synchronized (this) {
-            if (themedComposeBno != null) return themedComposeBno;
+            if (themedComposeBno != null)
+                return themedComposeBno;
 
             try {
                 Class<?> yoo = XposedHelpers.findClass("p.yoo", cl);
@@ -393,8 +254,7 @@ public class ThemeHook extends SpotifyHook {
                         composeColor(SURFACE),
                         composeColor(TEXT),
                         composeColor(TEXT_SUBDUED),
-                        composeColor(ACCENT)
-                );
+                        composeColor(ACCENT));
                 return themedComposeBno;
             } catch (Throwable t) {
                 XposedBridge.log("SpotifyPlus ThemeHook: failed to build Compose bno: " + t);
@@ -410,14 +270,16 @@ public class ThemeHook extends SpotifyHook {
 
             Class<?> qpe = XposedHelpers.findClass("p.qpe", cl);
             XposedHelpers.findAndHookMethod(qpe, "n", modifier, long.class, shape, new XC_MethodHook() {
-                @Override protected void beforeHookedMethod(MethodHookParam param) {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
                     param.args[1] = remapComposeBackground((Long) param.args[1]);
                 }
             });
 
             Class<?> e101 = XposedHelpers.findClass("p.e101", cl);
             XposedHelpers.findAndHookMethod(e101, "F", float.class, long.class, modifier, shape, new XC_MethodHook() {
-                @Override protected void beforeHookedMethod(MethodHookParam param) {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
                     param.args[1] = remapComposeBackground((Long) param.args[1]);
                 }
             });
@@ -429,11 +291,13 @@ public class ThemeHook extends SpotifyHook {
     }
 
     private static long remapComposeBackground(long color) {
-        if (color == 0L || color == 16L) return color;
+        if (color == 0L || color == 16L)
+            return color;
 
         int argb = (int) (color >>> 32);
         int alpha = Color.alpha(argb);
-        if (alpha < 240) return color;
+        if (alpha < 240)
+            return color;
 
         int r = Color.red(argb);
         int g = Color.green(argb);
@@ -470,7 +334,8 @@ public class ThemeHook extends SpotifyHook {
             final Class<?> p4q0 = XposedHelpers.findClass("p.p4q0", cl);
 
             XposedHelpers.findAndHookConstructor(mj6, long.class, nc8, can0, int.class, new XC_MethodHook() {
-                @Override protected void beforeHookedMethod(MethodHookParam param) {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
                     int mask = (Integer) param.args[3];
                     if ((mask & 1) == 0) {
                         param.args[0] = remapComposeBackground((Long) param.args[0]);
@@ -479,7 +344,8 @@ public class ThemeHook extends SpotifyHook {
             });
 
             XposedHelpers.findAndHookMethod(zj6, "f", rze, new XC_MethodHook() {
-                @Override protected void beforeHookedMethod(MethodHookParam param) {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
                     Object node = param.thisObject;
 
                     long color = XposedHelpers.getLongField(node, "L0");
@@ -528,8 +394,7 @@ public class ThemeHook extends SpotifyHook {
                                         + " "
                                         + colorHex(oldColor)
                                         + " -> "
-                                        + colorHex(newColor)
-                        );
+                                        + colorHex(newColor));
                     }
                 }
             }
@@ -543,7 +408,8 @@ public class ThemeHook extends SpotifyHook {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         int[] colors = (int[]) param.args[1];
-                        if (colors == null) return;
+                        if (colors == null)
+                            return;
 
                         int[] mapped = colors.clone();
                         boolean changed = false;
@@ -556,10 +422,10 @@ public class ThemeHook extends SpotifyHook {
                             }
                         }
 
-                        if (changed) param.args[1] = mapped;
+                        if (changed)
+                            param.args[1] = mapped;
                     }
-                }
-        );
+                });
 
         XposedHelpers.findAndHookConstructor(ColorDrawable.class, int.class, new XC_MethodHook() {
             @Override
@@ -589,7 +455,8 @@ public class ThemeHook extends SpotifyHook {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 int[] colors = (int[]) param.args[0];
-                if (colors == null) return;
+                if (colors == null)
+                    return;
 
                 int[] mapped = colors.clone();
                 boolean changed = false;
@@ -611,7 +478,8 @@ public class ThemeHook extends SpotifyHook {
 
     private static int remapDarkBackground(int color) {
         int alpha = Color.alpha(color);
-        if (alpha == 0) return color;
+        if (alpha == 0)
+            return color;
 
         int r = Color.red(color);
         int g = Color.green(color);
@@ -624,15 +492,20 @@ public class ThemeHook extends SpotifyHook {
 
         if (alpha >= 240) {
             if (neutral) {
-                if (max <= 24) return BG;
-                if (max <= 56) return SURFACE;
-                if (max <= 92) return SURFACE_2;
+                if (max <= 24)
+                    return BG;
+                if (max <= 56)
+                    return SURFACE;
+                if (max <= 92)
+                    return SURFACE_2;
             }
 
             // Spotify often uses album-art extracted colors for the mini-player/cards.
             // Keep those themed instead of letting red/brown/purple clash with the blue UI.
-            if (luma <= 72) return MEDIA_SURFACE;
-            if (luma <= 104 && max - min > 28) return MEDIA_SURFACE_2;
+            if (luma <= 72)
+                return MEDIA_SURFACE;
+            if (luma <= 104 && max - min > 28)
+                return MEDIA_SURFACE_2;
         }
 
         if (alpha >= 120 && neutral && max <= 24) {
@@ -697,10 +570,12 @@ public class ThemeHook extends SpotifyHook {
     }
 
     private static int remapHubsBackground(int color) {
-        if (color == 0) return SURFACE_2;
+        if (color == 0)
+            return SURFACE_2;
 
         int alpha = Color.alpha(color);
-        if (alpha == 0) return color;
+        if (alpha == 0)
+            return color;
 
         int r = Color.red(color);
         int g = Color.green(color);
@@ -711,13 +586,14 @@ public class ThemeHook extends SpotifyHook {
         int luma = (r * 299 + g * 587 + b * 114) / 1000;
 
         if (alpha >= 220) {
-            if (max - min <= 20 && max <= 100) return SURFACE_2;
+            if (max - min <= 20 && max <= 100)
+                return SURFACE_2;
 
             // Server/album-derived preview backgrounds: black, red, purple, brown, etc.
-            if (luma <= 130) return MEDIA_SURFACE;
+            if (luma <= 130)
+                return MEDIA_SURFACE;
         }
 
         return color;
->>>>>>> Stashed changes
     }
 }

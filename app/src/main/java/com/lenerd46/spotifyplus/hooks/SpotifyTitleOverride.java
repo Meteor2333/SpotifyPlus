@@ -20,12 +20,8 @@ public class SpotifyTitleOverride {
             final String entry = res.getResourceEntryName(resId);
 
             References.xresources.setReplacement("com.spotify.music", "string", entry, newValue);
-        } catch(Throwable t) {
-<<<<<<< Updated upstream
-            XposedBridge.log(t);
-=======
-//            XposedBridge.log(t);
->>>>>>> Stashed changes
+        } catch (Throwable t) {
+            // XposedBridge.log(t);
         }
     }
 
@@ -42,23 +38,27 @@ public class SpotifyTitleOverride {
     }
 
     public static synchronized void install() {
-        if(installed) return;
+        if (installed)
+            return;
         installed = true;
 
         XposedBridge.hookAllMethods(Resources.class, "getString", new XC_MethodHook() {
             @java.lang.Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 
-                if(param.args.length < 1 || !(param.args[0] instanceof Integer)) return;
+                if (param.args.length < 1 || !(param.args[0] instanceof Integer))
+                    return;
 
                 Override ov = tl.get();
-                if(ov == null) return;
+                if (ov == null)
+                    return;
 
                 final int id = (Integer) param.args[0];
                 XposedBridge.log("[SpotifyPlus] LOOK A THING: " + id);
-                if(!idMatchesPackage(param, id, ov.targetPkg)) return;
+                if (!idMatchesPackage(param, id, ov.targetPkg))
+                    return;
 
-                if(id == ov.resId) {
+                if (id == ov.resId) {
                     param.setResult(ov.title);
                 }
             }
@@ -67,15 +67,18 @@ public class SpotifyTitleOverride {
         XposedBridge.hookAllMethods(Resources.class, "getText", new XC_MethodHook() {
             @java.lang.Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                if(param.args.length < 1 || !(param.args[0] instanceof Integer)) return;
+                if (param.args.length < 1 || !(param.args[0] instanceof Integer))
+                    return;
 
                 Override ov = tl.get();
-                if(ov == null) return;
+                if (ov == null)
+                    return;
 
                 final int id = (Integer) param.args[0];
-                if(!idMatchesPackage(param, id, ov.targetPkg)) return;
+                if (!idMatchesPackage(param, id, ov.targetPkg))
+                    return;
 
-                if(id == ov.resId) {
+                if (id == ov.resId) {
                     param.setResult(ov.title);
                 }
             }
@@ -87,7 +90,7 @@ public class SpotifyTitleOverride {
 
         try {
             return action.call();
-        } catch(Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
             tl.remove();
@@ -110,9 +113,9 @@ public class SpotifyTitleOverride {
             String pkg = res.getResourcePackageName(id);
 
             return targetPkg.equals(pkg);
-        } catch(Resources.NotFoundException e) {
+        } catch (Resources.NotFoundException e) {
             return false;
-        } catch(Throwable t) {
+        } catch (Throwable t) {
             XposedBridge.log(t);
             return false;
         }

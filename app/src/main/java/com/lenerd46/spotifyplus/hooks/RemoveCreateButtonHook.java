@@ -5,13 +5,9 @@ import android.app.AlertDialog;
 import android.content.*;
 import android.content.res.Resources;
 import android.content.res.XModuleResources;
-<<<<<<< Updated upstream
-import android.graphics.Typeface;
-=======
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
->>>>>>> Stashed changes
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -22,10 +18,6 @@ import android.util.Pair;
 import android.util.TypedValue;
 import android.view.*;
 import android.widget.*;
-<<<<<<< Updated upstream
-import androidx.appcompat.widget.AppCompatTextView;
-import androidx.documentfile.provider.DocumentFile;
-=======
 import android.window.OnBackInvokedDispatcher;
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.AppCompatTextView;
@@ -33,7 +25,6 @@ import androidx.documentfile.provider.DocumentFile;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
->>>>>>> Stashed changes
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
@@ -45,11 +36,8 @@ import com.lenerd46.spotifyplus.*;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
-<<<<<<< Updated upstream
-=======
 import org.json.JSONArray;
 import org.json.JSONObject;
->>>>>>> Stashed changes
 import org.luckypray.dexkit.query.FindClass;
 import org.luckypray.dexkit.query.FindField;
 import org.luckypray.dexkit.query.FindMethod;
@@ -84,7 +72,8 @@ public class RemoveCreateButtonHook extends SpotifyHook {
     private Class<?> wwk;
     private final static ConcurrentHashMap<Pair<Integer, String>, List<SettingItem.SettingSection>> scriptSettings = new ConcurrentHashMap<>();
     private final static ConcurrentHashMap<Pair<Integer, String>, Runnable> scriptSideButtons = new ConcurrentHashMap<>();
-    private static final java.util.concurrent.atomic.AtomicBoolean overlayShown = new java.util.concurrent.atomic.AtomicBoolean(false);
+    private static final java.util.concurrent.atomic.AtomicBoolean overlayShown = new java.util.concurrent.atomic.AtomicBoolean(
+            false);
 
     public RemoveCreateButtonHook(final Context context) {
         this.context = context;
@@ -97,55 +86,70 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                 prefs = context.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
             }
 
-//            var clazz = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("tracks_section", "footer_section", "location").fieldCount(3).methodCount(2))).get(0).getInstance(lpparm.classLoader).getInterfaces()[0];
-//
-//            var testThing = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().interfaceCount(0).modifiers(Modifier.PUBLIC | Modifier.FINAL).superClass(ClassMatcher.create()).methods(MethodsMatcher.create().count(3)
-//                    .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(boolean.class).params(ParametersMatcher.create().add(Object.class)).name("equals"))
-//                    .add(MethodMatcher.create().name("hashCode").returnType(int.class).paramCount(0).usingNumbers(31, 0))
-//                    .add(MethodMatcher.create().name("<init>").paramCount(3))
-//            ).fields(FieldsMatcher.create().count(3)
-//                    .add(FieldMatcher.create().type(Object.class))
-//                    .add(FieldMatcher.create().type(clazz))
-//            )));
-//
-//            XposedBridge.log("[SpotifyPlus] Test Thing Count: " + testThing.toArray().length);
-//            testThing.forEach(x -> XposedBridge.log("[SpotifyPlus] " + x.getName()));
+            // var clazz =
+            // bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("tracks_section",
+            // "footer_section",
+            // "location").fieldCount(3).methodCount(2))).get(0).getInstance(lpparm.classLoader).getInterfaces()[0];
+            //
+            // var testThing =
+            // bridge.findClass(FindClass.create().matcher(ClassMatcher.create().interfaceCount(0).modifiers(Modifier.PUBLIC
+            // |
+            // Modifier.FINAL).superClass(ClassMatcher.create()).methods(MethodsMatcher.create().count(3)
+            // .add(MethodMatcher.create().modifiers(Modifier.PUBLIC |
+            // Modifier.FINAL).returnType(boolean.class).params(ParametersMatcher.create().add(Object.class)).name("equals"))
+            // .add(MethodMatcher.create().name("hashCode").returnType(int.class).paramCount(0).usingNumbers(31,
+            // 0))
+            // .add(MethodMatcher.create().name("<init>").paramCount(3))
+            // ).fields(FieldsMatcher.create().count(3)
+            // .add(FieldMatcher.create().type(Object.class))
+            // .add(FieldMatcher.create().type(clazz))
+            // )));
+            //
+            // XposedBridge.log("[SpotifyPlus] Test Thing Count: " +
+            // testThing.toArray().length);
+            // testThing.forEach(x -> XposedBridge.log("[SpotifyPlus] " + x.getName()));
 
-            var constructorClassList = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("NavigationBarItemSet(item1=")));
-            var parameterClassList = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("NavigationBarItem(icon=").methodCount(4).fieldCount(5, 6)));
+            var constructorClassList = bridge.findClass(
+                    FindClass.create().matcher(ClassMatcher.create().usingStrings("NavigationBarItemSet(item1=")));
+            var parameterClassList = bridge.findClass(FindClass.create().matcher(
+                    ClassMatcher.create().usingStrings("NavigationBarItem(icon=").methodCount(4).fieldCount(5, 6)));
             if (constructorClassList.isEmpty() || parameterClassList.isEmpty()) {
                 XposedBridge.log("[SpotifyPlus] Constructor class not found");
             } else {
                 var constructorClass = constructorClassList.get(0).getInstance(lpparm.classLoader);
                 var parameterClass = parameterClassList.get(0).getInstance(lpparm.classLoader);
 
-                XposedHelpers.findAndHookConstructor(constructorClass, parameterClass, parameterClass, parameterClass, parameterClass, parameterClass, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        if (prefs.getBoolean("remove_create", false)) {
-                            for (int i = 0; i < 5; i++) {
-                                var item = param.args[i];
+                XposedHelpers.findAndHookConstructor(constructorClass, parameterClass, parameterClass, parameterClass,
+                        parameterClass, parameterClass, new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                                if (prefs.getBoolean("remove_create", false)) {
+                                    for (int i = 0; i < 5; i++) {
+                                        var item = param.args[i];
 
-                                if (item == null) {
-                                    continue;
-                                }
+                                        if (item == null) {
+                                            continue;
+                                        }
 
-                                String content = item.toString().toLowerCase();
+                                        String content = item.toString().toLowerCase();
 
-                                if (content.contains("create") || content.contains("premium")) {
-                                    XposedBridge.log("[SpotifyPlus] Removing navbar item: " + content);
-                                    param.args[i] = null;
+                                        if (content.contains("create") || content.contains("premium")) {
+                                            XposedBridge.log("[SpotifyPlus] Removing navbar item: " + content);
+                                            param.args[i] = null;
+                                        }
+                                    }
                                 }
                             }
-                        }
-                    }
-                });
+                        });
             }
 
             SpotifyTitleOverride.install();
 
-//            var list = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("spotify:artist:", "Failed requirement.", "spotify:concept:", "spotify:list:", "podcast-chapters", "spotify:show:")));
-//            Class<?> clazz = list.get(0).getInstance(lpparm.classLoader);
+            // var list =
+            // bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("spotify:artist:",
+            // "Failed requirement.", "spotify:concept:", "spotify:list:",
+            // "podcast-chapters", "spotify:show:")));
+            // Class<?> clazz = list.get(0).getInstance(lpparm.classLoader);
 
             Class<?> id30 = XposedHelpers.findClass("p.id30", lpparm.classLoader);
             XposedBridge.hookAllMethods(id30, "a", new XC_MethodHook() {
@@ -200,13 +204,15 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     android.app.Activity act = (android.app.Activity) param.thisObject;
                     Intent it = (Intent) param.args[0];
-                    if (it != null && it.getStringExtra("spx") != null && it.getStringExtra("spx").startsWith("spotifyplus:")) {
+                    if (it != null && it.getStringExtra("spx") != null
+                            && it.getStringExtra("spx").startsWith("spotifyplus:")) {
                         act.runOnUiThread(() -> {
                         });
                     } else {
                         act.runOnUiThread(() -> {
                             android.view.View v = act.getWindow().getDecorView().findViewById(SETTINGS_OVERLAY_ID);
-                            android.view.View detailed = act.getWindow().getDecorView().findViewById(DETAILED_SETTINGS_OVERLAY_ID);
+                            android.view.View detailed = act.getWindow().getDecorView()
+                                    .findViewById(DETAILED_SETTINGS_OVERLAY_ID);
 
                             if (detailed != null) {
                                 ((android.view.ViewGroup) v.getParent()).removeView(detailed);
@@ -227,99 +233,161 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                 }
             });
 
-            var modifyDataListClass = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).interfaceCount(1).methodCount(3).fields(FieldsMatcher.create()
-                    .count(4)
-                    .add(FieldMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).type(int.class))
-                    .add(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(int.class))
-                    .add(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(Object[].class))
-            )));
+            var modifyDataListClass = bridge.findClass(FindClass.create().matcher(ClassMatcher.create()
+                    .modifiers(Modifier.PUBLIC | Modifier.FINAL).interfaceCount(1).methodCount(3)
+                    .fields(FieldsMatcher.create()
+                            .count(4)
+                            .add(FieldMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).type(int.class))
+                            .add(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(int.class))
+                            .add(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(Object[].class)))));
 
-//            var things = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).interfaceCount(1).methodCount(3).fields(FieldsMatcher.create()
-//                    .count(4)
-//                    .add(FieldMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).type(int.class))
-//                    .add(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(int.class))
-//                    .add(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(Object[].class))
-//            )));
+            // var things =
+            // bridge.findClass(FindClass.create().matcher(ClassMatcher.create().modifiers(Modifier.PUBLIC
+            // |
+            // Modifier.FINAL).interfaceCount(1).methodCount(3).fields(FieldsMatcher.create()
+            // .count(4)
+            // .add(FieldMatcher.create().modifiers(Modifier.PUBLIC |
+            // Modifier.FINAL).type(int.class))
+            // .add(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(int.class))
+            // .add(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(Object[].class))
+            // )));
 
-//            var things = bridge.findMethod(FindMethod.create().searchInClass(modifyDataListClass).matcher(MethodMatcher.create().returnType(Object.class).modifiers(Modifier.PUBLIC | Modifier.FINAL).paramCount(1).paramTypes(Object.class)));
-//            XposedBridge.log("[SpotifyPlus] Test Thing Count: " + things.toArray().length);
-//            things.forEach(x -> XposedBridge.log("[SpotifyPlus] " + x.getDeclaredClassName()));
+            // var things =
+            // bridge.findMethod(FindMethod.create().searchInClass(modifyDataListClass).matcher(MethodMatcher.create().returnType(Object.class).modifiers(Modifier.PUBLIC
+            // | Modifier.FINAL).paramCount(1).paramTypes(Object.class)));
+            // XposedBridge.log("[SpotifyPlus] Test Thing Count: " +
+            // things.toArray().length);
+            // things.forEach(x -> XposedBridge.log("[SpotifyPlus] " +
+            // x.getDeclaredClassName()));
 
-            var methodsThing = bridge.findMethod(FindMethod.create().searchInClass(modifyDataListClass).matcher(MethodMatcher.create().returnType(Object.class).modifiers(Modifier.PUBLIC | Modifier.FINAL).paramCount(1).paramTypes(Object.class)));
-            Method invokeSuspend = methodsThing.get(methodsThing.toArray().length - 1).getMethodInstance(lpparm.classLoader);
+            var methodsThing = bridge.findMethod(FindMethod.create().searchInClass(modifyDataListClass)
+                    .matcher(MethodMatcher.create().returnType(Object.class).modifiers(Modifier.PUBLIC | Modifier.FINAL)
+                            .paramCount(1).paramTypes(Object.class)));
+            Method invokeSuspend = methodsThing.get(methodsThing.toArray().length - 1)
+                    .getMethodInstance(lpparm.classLoader);
             Class<?> correctClass = invokeSuspend.getDeclaringClass();
             XposedBridge.log("[SpotifyPlus] " + correctClass);
 
-            var whateverInterfaceList = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("quick_add_to_playlist_item")));
-            var iconInterfaceList = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("getState(Lcom/spotify/alignedcuration/firstsave/page/contents/DefaultSaveDestinationElement$Props;)Lkotlinx/coroutines/flow/Flow;")));
-            var wwkList = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("Encore.Vector.CopyAlt16")));
-            dwd0Classes = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("SideDrawerListItem(element=")));
+            var whateverInterfaceList = bridge.findClass(
+                    FindClass.create().matcher(ClassMatcher.create().usingStrings("quick_add_to_playlist_item")));
+            var iconInterfaceList = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings(
+                    "getState(Lcom/spotify/alignedcuration/firstsave/page/contents/DefaultSaveDestinationElement$Props;)Lkotlinx/coroutines/flow/Flow;")));
+            var wwkList = bridge.findClass(
+                    FindClass.create().matcher(ClassMatcher.create().usingStrings("Encore.Vector.CopyAlt16")));
+            dwd0Classes = bridge.findClass(
+                    FindClass.create().matcher(ClassMatcher.create().usingStrings("SideDrawerListItem(element=")));
             if (dwd0Classes.isEmpty())
-                dwd0Classes = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("SideDrawerListItem(content=")));
+                dwd0Classes = bridge.findClass(
+                        FindClass.create().matcher(ClassMatcher.create().usingStrings("SideDrawerListItem(content=")));
             if (dwd0Classes.isEmpty()) {
-                // They removed all of the toString() methods in later versions??? This makes it extremely hard to track down
-                dwd0Classes = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().interfaceCount(0).modifiers(Modifier.PUBLIC | Modifier.FINAL).superClass(ClassMatcher.create()).methods(MethodsMatcher.create()
-                        .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(boolean.class).params(ParametersMatcher.create().add(Object.class)).name("equals"))
-                        .add(MethodMatcher.create().name("hashCode").returnType(int.class).paramCount(0))
-                        .add(MethodMatcher.create().name("<init>").paramCount(1))
-                        .add(MethodMatcher.create().name("<init>").paramCount(1))
-                        .add(MethodMatcher.create().name("<init>").paramCount(7))
-                ).fieldCount(1)));
+                // They removed all of the toString() methods in later versions??? This makes it
+                // extremely hard to track down
+                dwd0Classes = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().interfaceCount(0)
+                        .modifiers(Modifier.PUBLIC | Modifier.FINAL).superClass(ClassMatcher.create())
+                        .methods(MethodsMatcher.create()
+                                .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL)
+                                        .returnType(boolean.class).params(ParametersMatcher.create().add(Object.class))
+                                        .name("equals"))
+                                .add(MethodMatcher.create().name("hashCode").returnType(int.class).paramCount(0))
+                                .add(MethodMatcher.create().name("<init>").paramCount(1))
+                                .add(MethodMatcher.create().name("<init>").paramCount(1))
+                                .add(MethodMatcher.create().name("<init>").paramCount(7)))
+                        .fieldCount(1)));
             }
 
-            fwd0Classes = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().interfaceCount(0).modifiers(Modifier.PUBLIC | Modifier.FINAL).fields(FieldsMatcher.create().count(2).add(FieldMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).type(int.class))).usingStrings("ListItem(id=")));
+            fwd0Classes = bridge.findClass(FindClass.create()
+                    .matcher(ClassMatcher.create().interfaceCount(0).modifiers(Modifier.PUBLIC | Modifier.FINAL)
+                            .fields(FieldsMatcher.create().count(2).add(
+                                    FieldMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).type(int.class)))
+                            .usingStrings("ListItem(id=")));
             if (fwd0Classes.isEmpty()) {
-                // They removed all of the toString() methods in later versions??? This makes it extremely hard to track down
-                fwd0Classes = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().interfaceCount(0).modifiers(Modifier.PUBLIC | Modifier.FINAL).superClass(ClassMatcher.create()).methods(MethodsMatcher.create().count(3)
-                        .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(boolean.class).params(ParametersMatcher.create().add(Object.class)).name("equals"))
-                        .add(MethodMatcher.create().name("hashCode").returnType(int.class).paramCount(0).usingNumbers(31))
-                        .add(MethodMatcher.create().name("<init>").paramCount(2))
-                ).fields(FieldsMatcher.create().count(2)
-                        .add(FieldMatcher.create().type(int.class))
-                        .add(FieldMatcher.create().type(dwd0Classes.get(0).getInstance(lpparm.classLoader)))
-                )));
+                // They removed all of the toString() methods in later versions??? This makes it
+                // extremely hard to track down
+                fwd0Classes = bridge.findClass(FindClass.create()
+                        .matcher(ClassMatcher.create().interfaceCount(0).modifiers(Modifier.PUBLIC | Modifier.FINAL)
+                                .superClass(ClassMatcher.create()).methods(MethodsMatcher.create().count(3)
+                                        .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL)
+                                                .returnType(boolean.class)
+                                                .params(ParametersMatcher.create().add(Object.class)).name("equals"))
+                                        .add(MethodMatcher.create().name("hashCode").returnType(int.class).paramCount(0)
+                                                .usingNumbers(31))
+                                        .add(MethodMatcher.create().name("<init>").paramCount(2)))
+                                .fields(FieldsMatcher.create().count(2)
+                                        .add(FieldMatcher.create().type(int.class))
+                                        .add(FieldMatcher.create()
+                                                .type(dwd0Classes.get(0).getInstance(lpparm.classLoader))))));
             }
 
-            propertiesClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("Props(icon=", ", title=", ", titleRes=", ", uriToNavigate=", ", isNew=", ", instrumentation=", ", hasNotification=")));
+            propertiesClasses = bridge.findClass(FindClass.create()
+                    .matcher(ClassMatcher.create().usingStrings("Props(icon=", ", title=", ", titleRes=",
+                            ", uriToNavigate=", ", isNew=", ", instrumentation=", ", hasNotification=")));
             if (propertiesClasses.isEmpty())
-                propertiesClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("Navigation(icon=", "title=null", "uriToNavigate=", "isNew=", "instrumentation=")));
+                propertiesClasses = bridge
+                        .findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("Navigation(icon=",
+                                "title=null", "uriToNavigate=", "isNew=", "instrumentation=")));
             if (propertiesClasses.isEmpty()) {
-                // They removed all of the toString() methods in later versions??? This makes it extremely hard to track down
-                propertiesClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().interfaceCount(1).methods(MethodsMatcher.create()
-                        .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(boolean.class).params(ParametersMatcher.create().add(Object.class)).name("equals"))
-                        .add(MethodMatcher.create().name("hashCode").returnType(int.class).paramCount(0).usingNumbers(961, 1231, 1237))
-                ).fields(FieldsMatcher.create().count(6)
-                        .add(FieldMatcher.create().type(Integer.class).modifiers(Modifier.PUBLIC | Modifier.FINAL))
-                        .add(FieldMatcher.create().type(String.class).modifiers(Modifier.PUBLIC | Modifier.FINAL))
-                        .add(FieldMatcher.create().type(boolean.class).modifiers(Modifier.PUBLIC | Modifier.FINAL))
-                )));
+                // They removed all of the toString() methods in later versions??? This makes it
+                // extremely hard to track down
+                propertiesClasses = bridge
+                        .findClass(FindClass.create().matcher(ClassMatcher
+                                .create().interfaceCount(1).methods(MethodsMatcher.create()
+                                        .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL)
+                                                .returnType(boolean.class)
+                                                .params(ParametersMatcher.create().add(Object.class)).name("equals"))
+                                        .add(MethodMatcher.create().name("hashCode").returnType(int.class).paramCount(
+                                                0).usingNumbers(961, 1231, 1237)))
+                                .fields(FieldsMatcher.create().count(6)
+                                        .add(FieldMatcher.create().type(Integer.class)
+                                                .modifiers(Modifier.PUBLIC | Modifier.FINAL))
+                                        .add(FieldMatcher.create().type(String.class)
+                                                .modifiers(Modifier.PUBLIC | Modifier.FINAL))
+                                        .add(FieldMatcher.create().type(boolean.class)
+                                                .modifiers(Modifier.PUBLIC | Modifier.FINAL)))));
             }
 
-            onClickClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("Instrumentation(node=", ", onClick=", ", onImpression=").fieldCount(3)));
+            onClickClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create()
+                    .usingStrings("Instrumentation(node=", ", onClick=", ", onImpression=").fieldCount(3)));
             if (onClickClasses.isEmpty()) {
-                // They removed all of the toString() methods in later versions??? This makes it extremely hard to track down
-                Class<?> interfaceToUse = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("tracks_section", "footer_section", "location").fieldCount(3).methodCount(2))).get(0).getInstance(lpparm.classLoader).getInterfaces()[0];
+                // They removed all of the toString() methods in later versions??? This makes it
+                // extremely hard to track down
+                Class<?> interfaceToUse = bridge.findClass(FindClass.create()
+                        .matcher(ClassMatcher.create().usingStrings("tracks_section", "footer_section", "location")
+                                .fieldCount(3).methodCount(2)))
+                        .get(0).getInstance(lpparm.classLoader).getInterfaces()[0];
 
-                onClickClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().interfaceCount(0).modifiers(Modifier.PUBLIC | Modifier.FINAL).superClass(ClassMatcher.create()).methods(MethodsMatcher.create().count(3)
-                        .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(boolean.class).params(ParametersMatcher.create().add(Object.class)).name("equals"))
-                        .add(MethodMatcher.create().name("hashCode").returnType(int.class).paramCount(0).usingNumbers(31, 0))
-                        .add(MethodMatcher.create().name("<init>").paramCount(3))
-                ).fields(FieldsMatcher.create().count(3)
-                        .add(FieldMatcher.create().type(Object.class))
-                        .add(FieldMatcher.create().type(interfaceToUse))
-                )));
+                onClickClasses = bridge.findClass(FindClass.create()
+                        .matcher(ClassMatcher.create().interfaceCount(0).modifiers(Modifier.PUBLIC | Modifier.FINAL)
+                                .superClass(ClassMatcher.create()).methods(MethodsMatcher.create().count(3)
+                                        .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL)
+                                                .returnType(boolean.class)
+                                                .params(ParametersMatcher.create().add(Object.class)).name("equals"))
+                                        .add(MethodMatcher.create().name("hashCode").returnType(int.class).paramCount(0)
+                                                .usingNumbers(31, 0))
+                                        .add(MethodMatcher.create().name("<init>").paramCount(3)))
+                                .fields(FieldsMatcher.create().count(3)
+                                        .add(FieldMatcher.create().type(Object.class))
+                                        .add(FieldMatcher.create().type(interfaceToUse)))));
             }
 
-            var qbpInterfaceList = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().modifiers(Modifier.FINAL, MatchType.Equals).interfaceCount(1).fields(FieldsMatcher.create().add(FieldMatcher.create().type(int.class)).count(2)).methods(MethodsMatcher.create()
-                    .count(4)
-                    .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(Object.class).name("invoke").paramTypes(Object.class, Object.class))
-                    .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).returnType(Object.class).name("invokeSuspend").paramTypes(Object.class))
-            )));
+            var qbpInterfaceList = bridge.findClass(FindClass.create().matcher(ClassMatcher.create()
+                    .modifiers(Modifier.FINAL, MatchType.Equals).interfaceCount(1)
+                    .fields(FieldsMatcher.create().add(FieldMatcher.create().type(int.class)).count(2))
+                    .methods(MethodsMatcher.create()
+                            .count(4)
+                            .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL)
+                                    .returnType(Object.class).name("invoke").paramTypes(Object.class, Object.class))
+                            .add(MethodMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL)
+                                    .returnType(Object.class).name("invokeSuspend").paramTypes(Object.class)))));
 
-            var zpj0InterfaceList = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("premium_row")));
-            var cbpInterfaceList = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("video_surface_view_seek_frame_tag")));
+            var zpj0InterfaceList = bridge
+                    .findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("premium_row")));
+            var cbpInterfaceList = bridge.findClass(FindClass.create()
+                    .matcher(ClassMatcher.create().usingStrings("video_surface_view_seek_frame_tag")));
 
-            if (whateverInterfaceList.isEmpty() || iconInterfaceList.isEmpty() || wwkList.isEmpty() || fwd0Classes.isEmpty() || dwd0Classes.isEmpty() || propertiesClasses.isEmpty() || onClickClasses.isEmpty() || qbpInterfaceList.isEmpty() || zpj0InterfaceList.isEmpty() || cbpInterfaceList.isEmpty()) {
+            if (whateverInterfaceList.isEmpty() || iconInterfaceList.isEmpty() || wwkList.isEmpty()
+                    || fwd0Classes.isEmpty() || dwd0Classes.isEmpty() || propertiesClasses.isEmpty()
+                    || onClickClasses.isEmpty() || qbpInterfaceList.isEmpty() || zpj0InterfaceList.isEmpty()
+                    || cbpInterfaceList.isEmpty()) {
                 XposedBridge.log("[SpotifyPlus] whatever interface: " + whateverInterfaceList.size());
                 XposedBridge.log("[SpotifyPlus] icon interface: " + iconInterfaceList.size());
                 XposedBridge.log("[SpotifyPlus] wwk: " + wwkList.size());
@@ -349,854 +417,959 @@ public class RemoveCreateButtonHook extends SpotifyHook {
             Class<?> qbpInterface = qbpInterfaceList.get(0).getInstance(lpparm.classLoader).getInterfaces()[0];
             Class<?> zpj0Interface = zpj0InterfaceList.get(0).getInstance(lpparm.classLoader).getInterfaces()[0];
 
-            Class<?> cbpInterface = cbpInterfaceList.get(0).getInstance(lpparm.classLoader).getMethod("getOnScrubEnd").getReturnType();
+            Class<?> cbpInterface = cbpInterfaceList.get(0).getInstance(lpparm.classLoader).getMethod("getOnScrubEnd")
+                    .getReturnType();
 
-//            Class<?> cbpInterface = .get(0).getInstance(lpparm.classLoader).getInterfaces()[0];
+            // Class<?> cbpInterface =
+            // .get(0).getInstance(lpparm.classLoader).getInterfaces()[0];
 
-//            for(var interlace : modifyDataListClass) {
-//                XposedBridge.log("[SpotifyPlus] Found Class: " + interlace);
-//            }
+            // for(var interlace : modifyDataListClass) {
+            // XposedBridge.log("[SpotifyPlus] Found Class: " + interlace);
+            // }
 
             XposedBridge.hookMethod(invokeSuspend, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-//                    Field a = bridge.findField(FindField.create().searchInClass(modifyDataListClass).matcher(FieldMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).type(int.class))).get(0).getFieldInstance(lpparm.classLoader);
-                    Field d = bridge.findField(FindField.create().searchInClass(Collections.singletonList(bridge.getClassData(correctClass))).matcher(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(Object[].class))).get(0).getFieldInstance(lpparm.classLoader);
+                    // Field a =
+                    // bridge.findField(FindField.create().searchInClass(modifyDataListClass).matcher(FieldMatcher.create().modifiers(Modifier.PUBLIC
+                    // |
+                    // Modifier.FINAL).type(int.class))).get(0).getFieldInstance(lpparm.classLoader);
+                    Field d = bridge
+                            .findField(FindField.create()
+                                    .searchInClass(Collections.singletonList(bridge.getClassData(correctClass)))
+                                    .matcher(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(Object[].class)))
+                            .get(0).getFieldInstance(lpparm.classLoader);
 
-//                    int number = a.getInt(param.thisObject);
-//                    if(number != 20) return;
+                    // int number = a.getInt(param.thisObject);
+                    // if(number != 20) return;
 
                     Object[] originalItemsWithNull = (Object[]) d.get(param.thisObject);
-                    if (originalItemsWithNull == null) return;
-                    Object[] originalItems = Arrays.stream(originalItemsWithNull).filter(Objects::nonNull).toArray(Object[]::new);
+                    if (originalItemsWithNull == null)
+                        return;
+                    Object[] originalItems = Arrays.stream(originalItemsWithNull).filter(Objects::nonNull)
+                            .toArray(Object[]::new);
 
-                    // This should work in theory. Spotify seems to keep changing the amount of buttons, sooo
-                    if ((originalItems.length < 4) || originalItems[0].getClass() != buttonClass) return;
+                    // This should work in theory. Spotify seems to keep changing the amount of
+                    // buttons, sooo
+                    if ((originalItems.length < 4) || originalItems[0].getClass() != buttonClass)
+                        return;
                     isNewSideDrawer = originalItems.length >= 6 && originalItems.length != 12;
 
-                    Object newArray = Array.newInstance(buttonClass, originalItems.length + 2 + scriptSideButtons.size());
+                    Object newArray = Array.newInstance(buttonClass,
+                            originalItems.length + 2 + scriptSideButtons.size());
 
                     for (int i = 0; i < originalItems.length; i++) {
                         Array.set(newArray, i, originalItems[i]);
                     }
 
-                    Object tempalte = originalItems[isNewSideDrawer ? originalItems.length - 2 : originalItems.length - 1];
+                    Object tempalte = originalItems[isNewSideDrawer ? originalItems.length - 2
+                            : originalItems.length - 1];
                     Object tempalteLightning = originalItems[isNewSideDrawer ? 2 : 1];
 
-                    Array.set(newArray, originalItems.length, createSideDrawerButton("Spotify Plus Settings", tempalte, buttonClass, sideDrawerItem, propertiesClass, onClickClass, qbpInterface, zpj0Interface, cbpInterface, 2131957897, () -> {
-                        try {
-                            XModuleResources modResources = References.modResources;
-                            Activity activity = References.currentActivity;
-                            ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
-                            AtomicReference<View> currentDetailedSettingsPage = new AtomicReference<>();
-                            AtomicReference<View> lastfmPopup = new AtomicReference<>();
+                    Array.set(newArray, originalItems.length,
+                            createSideDrawerButton("Spotify Plus Settings", tempalte, buttonClass, sideDrawerItem,
+                                    propertiesClass, onClickClass, qbpInterface, zpj0Interface, cbpInterface,
+                                    2131957897, () -> {
+                                        try {
+                                            XModuleResources modResources = References.modResources;
+                                            Activity activity = References.currentActivity;
+                                            ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
+                                            AtomicReference<View> currentDetailedSettingsPage = new AtomicReference<>();
+                                            AtomicReference<View> lastfmPopup = new AtomicReference<>();
 
-                            int themeOverlay = R.style.Theme_SpotifyPlus;
-                            Context themedCtx = new ModuleContextWrapper(activity.getApplicationContext(), themeOverlay, modResources, ModuleContextWrapper.class.getClassLoader());
-                            LayoutInflater inflater = LayoutInflater.from(activity.getApplicationContext()).cloneInContext(themedCtx);
-                            View settingsPage = inflater.inflate(R.layout.settings_page, root, false);
-                            root.addView(settingsPage);
+                                            int themeOverlay = R.style.Theme_SpotifyPlus;
+                                            Context themedCtx = new ModuleContextWrapper(
+                                                    activity.getApplicationContext(), themeOverlay, modResources,
+                                                    ModuleContextWrapper.class.getClassLoader());
+                                            LayoutInflater inflater = LayoutInflater
+                                                    .from(activity.getApplicationContext()).cloneInContext(themedCtx);
+                                            View settingsPage = inflater.inflate(R.layout.settings_page, root, false);
+                                            root.addView(settingsPage);
 
-                            if (android.os.Build.VERSION.SDK_INT >= 33) {
-                                final android.window.OnBackInvokedDispatcher dispatcher = activity.getOnBackInvokedDispatcher();
+                                            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                                                final android.window.OnBackInvokedDispatcher dispatcher = activity
+                                                        .getOnBackInvokedDispatcher();
 
-                                final android.window.OnBackInvokedCallback callback = new android.window.OnBackInvokedCallback() {
-                                    @Override
-                                    public void onBackInvoked() {
-                                        View detailedPage = currentDetailedSettingsPage.get();
-                                        boolean homePage = detailedPage == null;
+                                                final android.window.OnBackInvokedCallback callback = new android.window.OnBackInvokedCallback() {
+                                                    @Override
+                                                    public void onBackInvoked() {
+                                                        View detailedPage = currentDetailedSettingsPage.get();
+                                                        boolean homePage = detailedPage == null;
 
-                                        if (homePage) {
-                                            dispatcher.unregisterOnBackInvokedCallback(this);
+                                                        if (homePage) {
+                                                            dispatcher.unregisterOnBackInvokedCallback(this);
 
-                                            ViewParent parent = settingsPage.getParent();
-                                            if (parent instanceof ViewGroup) {
-                                                ((ViewGroup) parent).removeView(settingsPage);
+                                                            ViewParent parent = settingsPage.getParent();
+                                                            if (parent instanceof ViewGroup) {
+                                                                ((ViewGroup) parent).removeView(settingsPage);
+                                                            }
+                                                            overlayShown.set(false);
+
+                                                            // try {
+                                                            // activity.getWindow().getDecorView().post(() -> {
+                                                            // dispatcher.registerOnBackInvokedCallback(1000001, this);
+                                                            // });
+                                                            // } catch(Throwable t) { }
+                                                        } else {
+                                                            if (lastfmPopup.get() != null) {
+                                                                root.removeView(lastfmPopup.get());
+                                                                lastfmPopup.set(null);
+                                                                return;
+                                                            }
+
+                                                            ViewParent parent = settingsPage.getParent();
+                                                            if (parent instanceof ViewGroup) {
+                                                                animatePageOut((ViewGroup) parent, () -> {
+                                                                    ((ViewGroup) parent).removeView(detailedPage);
+                                                                    currentDetailedSettingsPage.set(null);
+                                                                });
+                                                            }
+                                                        }
+                                                    }
+                                                };
+
+                                                try {
+                                                    dispatcher.registerOnBackInvokedCallback(
+                                                            OnBackInvokedDispatcher.PRIORITY_OVERLAY, callback);
+                                                } catch (Exception e) {
+                                                    XposedBridge.log(e);
+                                                }
                                             }
-                                            overlayShown.set(false);
 
-                                            //                                            try {
-//                                                activity.getWindow().getDecorView().post(() -> {
-//                                                    dispatcher.registerOnBackInvokedCallback(1000001, this);
-//                                                });
-//                                            } catch(Throwable t) { }
-                                        } else {
-                                            if (lastfmPopup.get() != null) {
-                                                root.removeView(lastfmPopup.get());
-                                                lastfmPopup.set(null);
-                                                return;
-                                            }
+                                            MaterialToolbar toolbar = settingsPage.findViewById(R.id.toolbar);
+                                            toolbar.setNavigationOnClickListener(v -> {
+                                                ViewParent parent = settingsPage.getParent();
+                                                if (parent instanceof ViewGroup) {
+                                                    animatePageOut((ViewGroup) parent, () -> {
+                                                        ((ViewGroup) parent).removeView(settingsPage);
+                                                        overlayShown.set(false);
+                                                    });
+                                                }
+                                            });
 
-                                            ViewParent parent = settingsPage.getParent();
-                                            if (parent instanceof ViewGroup) {
-                                                animatePageOut((ViewGroup) parent, () -> {
-                                                    ((ViewGroup) parent).removeView(detailedPage);
-                                                    currentDetailedSettingsPage.set(null);
+                                            View generalSettings = settingsPage.findViewById(R.id.settings_general);
+                                            View lyricsSettings = settingsPage.findViewById(R.id.settings_lyrics);
+                                            View experimentalSettings = settingsPage
+                                                    .findViewById(R.id.settings_experimental);
+                                            // View scriptingSettings =
+                                            // settingsPage.findViewById(R.id.settings_scripting);
+                                            View aboutSettings = settingsPage.findViewById(R.id.settings_about);
+
+                                            generalSettings.setOnClickListener(v -> {
+                                                View view = inflater.inflate(R.layout.general_settings_page, root,
+                                                        false);
+                                                root.addView(view);
+                                                animatePageIn(view);
+                                                currentDetailedSettingsPage.set(view);
+
+                                                MaterialToolbar detailedToolbar = view
+                                                        .findViewById(R.id.general_toolbar);
+                                                detailedToolbar.setNavigationOnClickListener(w -> {
+                                                    ViewParent parent = settingsPage.getParent();
+                                                    if (parent instanceof ViewGroup) {
+                                                        animatePageOut((ViewGroup) parent, () -> {
+                                                            ((ViewGroup) parent).removeView(view);
+                                                        });
+                                                    }
                                                 });
-                                            }
+
+                                                MaterialSwitch update = view.findViewById(R.id.switch_check_update);
+                                                MaterialSwitch create = view.findViewById(R.id.switch_remove_create);
+
+                                                update.setOnCheckedChangeListener((check, value) -> {
+                                                    prefs.edit().putBoolean("general_check_updates", value).apply();
+                                                });
+
+                                                MaterialButton lastfm = view.findViewById(R.id.btn_set_lastfm);
+                                                LinearLayout group = view
+                                                        .findViewById(R.id.current_lastfm_username_group);
+                                                TextView textView = view
+                                                        .findViewById(R.id.current_lastfm_username_text);
+
+                                                lastfm.setOnClickListener(button -> {
+                                                    try {
+                                                        int themeOverlayLast = R.style.Theme_SpotifyPlus;
+                                                        Context themedCtxLast = new ModuleContextWrapper(
+                                                                activity.getApplicationContext(), themeOverlayLast,
+                                                                modResources,
+                                                                ModuleContextWrapper.class.getClassLoader());
+                                                        LayoutInflater inflaterLast = LayoutInflater
+                                                                .from(activity.getApplicationContext())
+                                                                .cloneInContext(themedCtxLast);
+                                                        View lastfmThing = inflaterLast.inflate(
+                                                                modResources.getIdentifier("lastfm_username_view",
+                                                                        "layout", "com.lenerd46.spotifyplus"),
+                                                                root, false);
+                                                        root.addView(lastfmThing);
+                                                        lastfmPopup.set(lastfmThing);
+
+                                                        FrameLayout background = lastfmThing.findViewById(
+                                                                modResources.getIdentifier("lastfm_popup_root", "id",
+                                                                        "com.lenerd46.spotifyplus"));
+                                                        TextInputEditText input = lastfmThing.findViewById(
+                                                                modResources.getIdentifier("input_lastfm_username",
+                                                                        "id", "com.lenerd46.spotifyplus"));
+                                                        MaterialButton confirmButton = lastfmThing.findViewById(
+                                                                modResources.getIdentifier("btn_submit_lastfm", "id",
+                                                                        "com.lenerd46.spotifyplus"));
+                                                        MaterialButton clearButton = lastfmThing.findViewById(
+                                                                modResources.getIdentifier("btn_clear_lastfm", "id",
+                                                                        "com.lenerd46.spotifyplus"));
+                                                        MaterialButton closeButton = lastfmThing.findViewById(
+                                                                modResources.getIdentifier("btn_cancel_lastfm", "id",
+                                                                        "com.lenerd46.spotifyplus"));
+
+                                                        if (!prefs.getString("last_fm_username", "null")
+                                                                .equals("null")) {
+                                                            input.setText(prefs.getString("last_fm_username", "null"));
+                                                        }
+
+                                                        background.setOnClickListener(layout -> {
+                                                            lastfmPopup.set(null);
+                                                            root.removeView(lastfmThing);
+                                                        });
+
+                                                        confirmButton.setOnClickListener(confirm -> {
+                                                            if (input.getText().toString().isEmpty())
+                                                                return;
+
+                                                            prefs.edit().putString("last_fm_username",
+                                                                    input.getText().toString()).apply();
+
+                                                            group.setVisibility(LinearLayout.VISIBLE);
+                                                            textView.setText(
+                                                                    "Currently set to " + input.getText().toString());
+                                                            root.removeView(lastfmThing);
+                                                            lastfmPopup.set(null);
+                                                        });
+
+                                                        clearButton.setOnClickListener(clear -> {
+                                                            prefs.edit().putString("last_fm_username", "null").apply();
+
+                                                            group.setVisibility(LinearLayout.INVISIBLE);
+                                                            textView.setText("Currently set to ");
+                                                            root.removeView(lastfmThing);
+                                                            lastfmPopup.set(null);
+                                                        });
+
+                                                        closeButton.setOnClickListener(close -> {
+                                                            root.removeView(lastfmThing);
+                                                            lastfmPopup.set(null);
+                                                        });
+                                                    } catch (Throwable t) {
+                                                        XposedBridge.log(t);
+                                                    }
+                                                });
+
+                                                MaterialSwitch blockAds = view.findViewById(R.id.switch_block_ads);
+                                                blockAds.setOnCheckedChangeListener((check, value) -> {
+                                                    prefs.edit().putBoolean("block_ads", value).apply();
+                                                });
+
+                                                blockAds.setChecked(prefs.getBoolean("block_ads", false));
+
+                                                MaterialSwitch privateSession = view
+                                                        .findViewById(R.id.switch_private_session);
+                                                privateSession.setOnCheckedChangeListener((check, value) -> {
+                                                    prefs.edit().putBoolean("private_session", value).apply();
+                                                });
+
+                                                privateSession.setChecked(prefs.getBoolean("private_session", false));
+
+                                                create.setOnCheckedChangeListener((check, value) -> {
+                                                    prefs.edit().putBoolean("remove_create", value).apply();
+                                                });
+
+                                                MaterialButton manageSleepTimers = view
+                                                        .findViewById(R.id.btn_manage_timers);
+
+                                                manageSleepTimers.setOnClickListener(managerView -> {
+                                                    try {
+                                                        int theme = SleepTimerHook.getSpotifyStyle(lpparm.classLoader,
+                                                                "ModalBottomSheetDialog", 0);
+
+                                                        Object sheet = XposedHelpers.newInstance(
+                                                                XposedHelpers.findClass("p.p08", lpparm.classLoader),
+                                                                activity,
+                                                                theme);
+
+                                                        int themeOverlayLast = R.style.Theme_SpotifyPlus;
+                                                        Context themedCtxLast = new ModuleContextWrapper(
+                                                                activity.getApplicationContext(), themeOverlayLast,
+                                                                modResources,
+                                                                ModuleContextWrapper.class.getClassLoader());
+                                                        LayoutInflater inflaterLast = LayoutInflater
+                                                                .from(activity.getApplicationContext())
+                                                                .cloneInContext(themedCtxLast);
+
+                                                        View timerViews = inflaterLast.inflate(
+                                                                modResources.getIdentifier("manage_sleep_timers_view",
+                                                                        "layout", "com.lenerd46.spotifyplus"),
+                                                                null, false);
+                                                        // root.addView(timerViews);
+
+                                                        MaterialSwitch autoReorderSwitch = timerViews
+                                                                .findViewById(modResources.getIdentifier(
+                                                                        "switch_sleep_timer_auto_reorder", "id",
+                                                                        "com.lenerd46.spotifyplus"));
+                                                        TextView hintView = timerViews.findViewById(
+                                                                modResources.getIdentifier("sleep_timer_presets_hint",
+                                                                        "id", "com.lenerd46.spotifyplus"));
+                                                        RecyclerView recycler = timerViews.findViewById(modResources
+                                                                .getIdentifier("recycler_sleep_timer_presets", "id",
+                                                                        "com.lenerd46.spotifyplus"));
+                                                        TextView emptyView = timerViews.findViewById(
+                                                                modResources.getIdentifier("sleep_timer_presets_empty",
+                                                                        "id", "com.lenerd46.spotifyplus"));
+                                                        View saveButton = timerViews.findViewById(modResources
+                                                                .getIdentifier("btn_save_sleep_timer_presets", "id",
+                                                                        "com.lenerd46.spotifyplus"));
+                                                        View cancelButton = timerViews.findViewById(modResources
+                                                                .getIdentifier("btn_cancel_sleep_timer_presets", "id",
+                                                                        "com.lenerd46.spotifyplus"));
+
+                                                        ArrayList<SleepTimerHook.SleepTimerInfo> presets = loadSleepTimerPresets(
+                                                                prefs);
+
+                                                        boolean[] autoReorder = { prefs
+                                                                .getBoolean("custom_sleep_timers_auto_reorder", true) };
+
+                                                        if (autoReorder[0]) {
+                                                            sortSleepTimerPresets(presets);
+                                                        }
+
+                                                        autoReorderSwitch.setChecked(autoReorder[0]);
+                                                        hintView.setText(autoReorder[0]
+                                                                ? "Manual reordering is disabled while auto reorder is enabled."
+                                                                : "Hold and drag a preset to reorder it.");
+
+                                                        SleepTimerPresetAdapter adapter = new SleepTimerPresetAdapter(
+                                                                themedCtxLast, modResources, inflaterLast, presets,
+                                                                () -> {
+                                                                    boolean empty = presets.isEmpty();
+                                                                    recycler.setVisibility(
+                                                                            empty ? View.GONE : View.VISIBLE);
+                                                                    emptyView.setVisibility(
+                                                                            empty ? View.VISIBLE : View.GONE);
+                                                                });
+
+                                                        recycler.setLayoutManager(
+                                                                new LinearLayoutManager(themedCtxLast));
+                                                        recycler.setAdapter(adapter);
+
+                                                        autoReorderSwitch
+                                                                .setOnCheckedChangeListener((button, checked) -> {
+                                                                    autoReorder[0] = checked;
+
+                                                                    if (checked) {
+                                                                        sortSleepTimerPresets(presets);
+                                                                        adapter.notifyDataSetChanged();
+                                                                    }
+
+                                                                    hintView.setText(checked
+                                                                            ? "Manual reordering is disabled while auto reorder is enabled."
+                                                                            : "Hold and drag a preset to reorder it.");
+                                                                });
+
+                                                        boolean empty = presets.isEmpty();
+                                                        recycler.setVisibility(empty ? View.GONE : View.VISIBLE);
+                                                        emptyView.setVisibility(empty ? View.VISIBLE : View.GONE);
+
+                                                        ItemTouchHelper helper = new ItemTouchHelper(
+                                                                new ItemTouchHelper.SimpleCallback(
+                                                                        ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
+                                                                    @Override
+                                                                    public boolean onMove(
+                                                                            @NonNull RecyclerView recyclerView,
+                                                                            @NonNull RecyclerView.ViewHolder from,
+                                                                            @NonNull RecyclerView.ViewHolder to) {
+                                                                        if (autoReorder[0])
+                                                                            return false;
+
+                                                                        int fromPos = from.getBindingAdapterPosition();
+                                                                        int toPos = to.getBindingAdapterPosition();
+
+                                                                        if (fromPos == RecyclerView.NO_POSITION
+                                                                                || toPos == RecyclerView.NO_POSITION)
+                                                                            return false;
+
+                                                                        Collections.swap(presets, fromPos, toPos);
+                                                                        adapter.notifyItemMoved(fromPos, toPos);
+                                                                        return true;
+                                                                    }
+
+                                                                    @Override
+                                                                    public void onSwiped(
+                                                                            @NonNull RecyclerView.ViewHolder viewHolder,
+                                                                            int direction) {
+                                                                    }
+
+                                                                    @Override
+                                                                    public boolean isLongPressDragEnabled() {
+                                                                        return !autoReorder[0];
+                                                                    }
+                                                                });
+
+                                                        helper.attachToRecyclerView(recycler);
+
+                                                        saveButton.setOnClickListener(save -> {
+                                                            if (autoReorder[0]) {
+                                                                sortSleepTimerPresets(presets);
+                                                            }
+
+                                                            prefs.edit().putBoolean("custom_sleep_timers_auto_reorder",
+                                                                    autoReorder[0]).apply();
+                                                            saveSleepTimerPresets(prefs, presets);
+                                                            XposedHelpers.callMethod(sheet, "dismiss");
+                                                        });
+
+                                                        cancelButton.setOnClickListener(
+                                                                cancel -> XposedHelpers.callMethod(sheet, "dismiss"));
+
+                                                        timerViews.setOnClickListener(
+                                                                timer -> XposedHelpers.callMethod(sheet, "dismiss"));
+
+                                                        // View sheet =
+                                                        // timerViews.findViewById(modResources.getIdentifier("sleep_timer_presets_sheet",
+                                                        // "id", "com.lenerd46.spotifyplus"));
+                                                        // if(sheet != null) sheet.setOnClickListener(sheetThing -> {
+                                                        // });
+
+                                                        XposedHelpers.callMethod(sheet, "setContentView", timerViews);
+                                                        XposedHelpers.callMethod(sheet, "show");
+
+                                                        Window window = (Window) XposedHelpers.callMethod(sheet,
+                                                                "getWindow");
+                                                        if (window != null) {
+                                                            window.setBackgroundDrawable(
+                                                                    new ColorDrawable(Color.TRANSPARENT));
+                                                        }
+
+                                                        try {
+                                                            View bottomSheet = (View) XposedHelpers
+                                                                    .getObjectField(sheet, "i"); // p08.design_bottom_sheet
+                                                            bottomSheet.setBackgroundColor(Color.TRANSPARENT);
+                                                            bottomSheet.setBackground(null);
+                                                        } catch (Throwable ignored) {
+                                                        }
+
+                                                        try {
+                                                            View outer = (View) XposedHelpers.getObjectField(sheet,
+                                                                    "g"); // p08 root container
+                                                            outer.setBackgroundColor(Color.TRANSPARENT);
+                                                        } catch (Throwable ignored) {
+                                                        }
+                                                    } catch (Throwable t) {
+                                                        XposedBridge.log(t);
+                                                    }
+                                                });
+
+                                                MaterialRadioButton home = view.findViewById(R.id.rb_home);
+                                                MaterialRadioButton search = view.findViewById(R.id.rb_search);
+                                                MaterialRadioButton explore = view.findViewById(R.id.rb_explore);
+                                                MaterialRadioButton library = view.findViewById(R.id.rb_library);
+
+                                                home.setOnClickListener(c -> {
+                                                    prefs.edit().putString("startup_page", "HOME").apply();
+
+                                                    home.setChecked(true);
+                                                    search.setChecked(false);
+                                                    explore.setChecked(false);
+                                                    library.setChecked(false);
+                                                });
+
+                                                search.setOnClickListener(c -> {
+                                                    prefs.edit().putString("startup_page", "SEARCH").apply();
+
+                                                    home.setChecked(false);
+                                                    search.setChecked(true);
+                                                    explore.setChecked(false);
+                                                    library.setChecked(false);
+                                                });
+
+                                                explore.setOnClickListener(c -> {
+                                                    prefs.edit().putString("startup_page", "EXPLORE").apply();
+
+                                                    home.setChecked(false);
+                                                    search.setChecked(false);
+                                                    explore.setChecked(true);
+                                                    library.setChecked(false);
+                                                });
+
+                                                library.setOnClickListener(c -> {
+                                                    prefs.edit().putString("startup_page", "LIBRARY").apply();
+
+                                                    home.setChecked(false);
+                                                    search.setChecked(false);
+                                                    explore.setChecked(false);
+                                                    library.setChecked(true);
+                                                });
+
+                                                update.setChecked(prefs.getBoolean("general_check_updates", true));
+                                                group.setVisibility(
+                                                        prefs.getString("last_fm_username", "null").equals("null")
+                                                                ? LinearLayout.INVISIBLE
+                                                                : LinearLayout.VISIBLE);
+                                                textView.setText(
+                                                        prefs.getString("last_fm_username", "null").equals("null") ? ""
+                                                                : "Currently set to "
+                                                                        + prefs.getString("last_fm_username", "null"));
+                                                create.setChecked(prefs.getBoolean("remove_create", false));
+
+                                                String page = prefs.getString("startup_page", "HOME");
+                                                home.setChecked(page.equals("HOME"));
+                                                search.setChecked(page.equals("SEARCH"));
+                                                explore.setChecked(page.equals("EXPLORE"));
+                                                library.setChecked(page.equals("LIBRARY"));
+                                            });
+
+                                            lyricsSettings.setOnClickListener(v -> {
+                                                View view = inflater.inflate(R.layout.beautiful_lyrics_settings_page,
+                                                        root, false);
+                                                root.addView(view);
+                                                animatePageIn(view);
+                                                currentDetailedSettingsPage.set(view);
+
+                                                MaterialToolbar detailedToolbar = view
+                                                        .findViewById(R.id.lyrics_toolbar);
+                                                detailedToolbar.setNavigationOnClickListener(w -> {
+                                                    ViewParent parent = settingsPage.getParent();
+                                                    if (parent instanceof ViewGroup) {
+                                                        animatePageOut((ViewGroup) parent, () -> {
+                                                            ((ViewGroup) parent).removeView(view);
+                                                        });
+                                                    }
+                                                });
+
+                                                MaterialRadioButton visualBeautiful = view
+                                                        .findViewById(R.id.rb_beautiful_lyrics_anim);
+                                                MaterialRadioButton visualApple = view
+                                                        .findViewById(R.id.rb_apple_music_anim);
+
+                                                visualBeautiful.setOnClickListener(c -> {
+                                                    prefs.edit().putString("lyric_animation_style", "Beautiful Lyrics")
+                                                            .apply();
+
+                                                    visualBeautiful.setChecked(true);
+                                                    visualApple.setChecked(false);
+                                                });
+
+                                                visualApple.setOnClickListener(c -> {
+                                                    prefs.edit().putString("lyric_animation_style", "Apple Music")
+                                                            .apply();
+
+                                                    visualBeautiful.setChecked(false);
+                                                    visualApple.setChecked(true);
+                                                });
+
+                                                MaterialRadioButton fontSpotify = view.findViewById(R.id.font_spotify);
+                                                MaterialRadioButton fontBeautifulLyrics = view
+                                                        .findViewById(R.id.font_beautiful_lyrics);
+                                                MaterialRadioButton fontApple = view
+                                                        .findViewById(R.id.font_apple_music);
+
+                                                fontSpotify.setOnClickListener(c -> {
+                                                    References.beautifulFont = new WeakReference<>(
+                                                            Typeface.createFromAsset(modResources.getAssets(),
+                                                                    "fonts/spotifymix-medium.ttf"));
+                                                    prefs.edit().putString("lyrics_font", "spotify").apply();
+
+                                                    fontSpotify.setChecked(true);
+                                                    fontBeautifulLyrics.setChecked(false);
+                                                    fontApple.setChecked(false);
+                                                });
+
+                                                fontBeautifulLyrics.setOnClickListener(c -> {
+                                                    References.beautifulFont = new WeakReference<>(
+                                                            Typeface.createFromAsset(modResources.getAssets(),
+                                                                    "fonts/lyrics_medium.ttf"));
+                                                    prefs.edit().putString("lyrics_font", "default").apply();
+
+                                                    fontSpotify.setChecked(false);
+                                                    fontBeautifulLyrics.setChecked(true);
+                                                    fontApple.setChecked(false);
+                                                });
+
+                                                fontApple.setOnClickListener(c -> {
+                                                    References.beautifulFont = new WeakReference<>(
+                                                            Typeface.createFromAsset(modResources.getAssets(),
+                                                                    "fonts/sf-pro-display-bold.ttf"));
+                                                    prefs.edit().putString("lyrics_font", "apple").apply();
+
+                                                    fontSpotify.setChecked(false);
+                                                    fontBeautifulLyrics.setChecked(false);
+                                                    fontApple.setChecked(true);
+                                                });
+
+                                                MaterialRadioButton interludeBeautiful = view
+                                                        .findViewById(R.id.rb_beautiful_lyrics_interlude);
+                                                MaterialRadioButton interludeSpicy = view
+                                                        .findViewById(R.id.rb_spicy_lyrics_interlude);
+                                                MaterialRadioButton interludeSpotifyPlus = view
+                                                        .findViewById(R.id.rb_spotify_plus_interlude);
+                                                MaterialRadioButton interludeApple = view
+                                                        .findViewById(R.id.rb_apple_music_interlude);
+
+                                                interludeBeautiful.setOnClickListener(c -> {
+                                                    prefs.edit()
+                                                            .putString("lyric_interlude_duration", "Beautiful Lyrics")
+                                                            .apply();
+
+                                                    interludeBeautiful.setChecked(true);
+                                                    interludeSpicy.setChecked(false);
+                                                    interludeSpotifyPlus.setChecked(false);
+                                                    interludeApple.setChecked(false);
+                                                });
+
+                                                interludeSpicy.setOnClickListener(c -> {
+                                                    prefs.edit().putString("lyric_interlude_duration", "Spicy Lyrics")
+                                                            .apply();
+
+                                                    interludeBeautiful.setChecked(false);
+                                                    interludeSpicy.setChecked(true);
+                                                    interludeSpotifyPlus.setChecked(false);
+                                                    interludeApple.setChecked(false);
+                                                });
+
+                                                interludeSpotifyPlus.setOnClickListener(c -> {
+                                                    prefs.edit().putString("lyric_interlude_duration", "Spotify Plus")
+                                                            .apply();
+
+                                                    interludeBeautiful.setChecked(false);
+                                                    interludeSpicy.setChecked(false);
+                                                    interludeSpotifyPlus.setChecked(true);
+                                                    interludeApple.setChecked(false);
+                                                });
+
+                                                interludeApple.setOnClickListener(c -> {
+                                                    prefs.edit().putString("lyric_interlude_duration", "Apple Music")
+                                                            .apply();
+
+                                                    interludeBeautiful.setChecked(false);
+                                                    interludeSpicy.setChecked(false);
+                                                    interludeSpotifyPlus.setChecked(false);
+                                                    interludeApple.setChecked(true);
+                                                });
+
+                                                Slider slider = view.findViewById(R.id.line_spacing_slider);
+                                                TextView valueLabel = view.findViewById(R.id.line_spacing_value_label);
+                                                FrameLayout sliderContainer = view
+                                                        .findViewById(R.id.line_spacing_slider_container);
+
+                                                slider.setThumbRadius(dpToPx(8));
+                                                slider.setHaloRadius(0);
+
+                                                slider.addOnChangeListener((s, value, fromUser) -> {
+                                                    String text;
+                                                    switch (Math.round(value)) {
+                                                        case 0:
+                                                            text = "Compact";
+                                                            prefs.edit().putString("line_spacing", "compact").apply();
+                                                            break;
+                                                        case 1:
+                                                            text = "Default";
+                                                            prefs.edit().putString("line_spacing", "default").apply();
+                                                            break;
+                                                        case 2:
+                                                            text = "Spacious";
+                                                            prefs.edit().putString("line_spacing", "spacious").apply();
+                                                            break;
+                                                        case 3:
+                                                            text = "More Spacious";
+                                                            prefs.edit().putString("line_spacing", "more").apply();
+                                                            break;
+                                                        case 4:
+                                                            text = "Max";
+                                                            prefs.edit().putString("line_spacing", "max").apply();
+                                                            break;
+                                                        default:
+                                                            text = "";
+                                                            break;
+                                                    }
+
+                                                    valueLabel.setText(text);
+
+                                                    slider.post(() -> {
+                                                        float fraction = (value - slider.getValueFrom())
+                                                                / (slider.getValueTo() - slider.getValueFrom());
+                                                        int sliderWidth = slider.getWidth();
+                                                        int thumbX = (int) (fraction * sliderWidth);
+
+                                                        valueLabel.measure(View.MeasureSpec.UNSPECIFIED,
+                                                                View.MeasureSpec.UNSPECIFIED);
+
+                                                        int labelWidth = valueLabel.getMeasuredWidth();
+                                                        float x = thumbX - (labelWidth / 2f);
+
+                                                        x = Math.max(0, Math.min(x, sliderWidth - labelWidth));
+
+                                                        valueLabel.setX(x);
+                                                        valueLabel.setY(dpToPx(-12));
+                                                    });
+                                                });
+
+                                                slider.addOnSliderTouchListener(new Slider.OnSliderTouchListener() {
+                                                    @Override
+                                                    public void onStartTrackingTouch(Slider slider) {
+                                                        valueLabel.setVisibility(View.VISIBLE);
+                                                    }
+
+                                                    @Override
+                                                    public void onStopTrackingTouch(Slider slider) {
+                                                        valueLabel.setVisibility(View.GONE);
+                                                    }
+                                                });
+
+                                                String sliderValueThing = prefs.getString("line_spacing", "default");
+                                                switch (sliderValueThing) {
+                                                    case "compact":
+                                                        slider.setValue(0);
+                                                    case "default":
+                                                        slider.setValue(1);
+                                                    case "spacious":
+                                                        slider.setValue(2);
+                                                    case "more":
+                                                        slider.setValue(3);
+                                                    case "max":
+                                                        slider.setValue(4);
+                                                    default:
+                                                        slider.setValue(1);
+                                                }
+
+                                                MaterialSwitch background = view
+                                                        .findViewById(R.id.switch_enable_background);
+                                                MaterialSwitch lineGradient = view
+                                                        .findViewById(R.id.switch_enable_line_gradient);
+
+                                                MaterialRadioButton high = view.findViewById(R.id.rb_background_high);
+                                                MaterialRadioButton mid = view.findViewById(R.id.rb_background_mid);
+                                                MaterialRadioButton low = view.findViewById(R.id.rb_background_low);
+                                                MaterialRadioButton superLow = view
+                                                        .findViewById(R.id.rb_background_superlow);
+
+                                                high.setOnClickListener(c -> {
+                                                    prefs.edit().putString("lyric_background_quality", "high").apply();
+
+                                                    high.setChecked(true);
+                                                    mid.setChecked(false);
+                                                    low.setChecked(false);
+                                                    superLow.setChecked(false);
+                                                });
+
+                                                mid.setOnClickListener(c -> {
+                                                    prefs.edit().putString("lyric_background_quality", "mid").apply();
+
+                                                    high.setChecked(false);
+                                                    mid.setChecked(true);
+                                                    low.setChecked(false);
+                                                    superLow.setChecked(false);
+                                                });
+
+                                                low.setOnClickListener(c -> {
+                                                    prefs.edit().putString("lyric_background_quality", "low").apply();
+
+                                                    high.setChecked(false);
+                                                    mid.setChecked(false);
+                                                    low.setChecked(true);
+                                                    superLow.setChecked(false);
+                                                });
+
+                                                superLow.setOnClickListener(c -> {
+                                                    prefs.edit().putString("lyric_background_quality", "superLow")
+                                                            .apply();
+
+                                                    high.setChecked(false);
+                                                    mid.setChecked(false);
+                                                    low.setChecked(false);
+                                                    superLow.setChecked(true);
+                                                });
+
+                                                MaterialSwitch sendToken = view.findViewById(R.id.switch_send_token);
+
+                                                background.setOnCheckedChangeListener((button, value) -> {
+                                                    prefs.edit().putBoolean("lyric_enable_background", value).apply();
+                                                });
+
+                                                lineGradient.setOnCheckedChangeListener((button, value) -> {
+                                                    prefs.edit().putBoolean("lyric_enable_line_gradient", value)
+                                                            .apply();
+                                                });
+
+                                                sendToken.setOnCheckedChangeListener((button, value) -> {
+                                                    prefs.edit().putBoolean("lyrics_send_token", value).apply();
+                                                });
+
+                                                String style = prefs.getString("lyric_animation_style",
+                                                        "Beautiful Lyrics");
+                                                visualBeautiful.setChecked(style.equals("Beautiful Lyrics"));
+                                                visualApple.setChecked(style.equals("Apple Music"));
+
+                                                String font = prefs.getString("lyrics_font", "default");
+                                                fontSpotify.setChecked(font.equals("spotify"));
+                                                fontBeautifulLyrics.setChecked(font.equals("default"));
+                                                fontApple.setChecked(font.equals("apple"));
+
+                                                String interludeDuration = prefs.getString("lyric_interlude_duration",
+                                                        "Spotify Plus");
+                                                interludeBeautiful
+                                                        .setChecked(interludeDuration.equals("Beautiful Lyrics"));
+                                                interludeSpicy.setChecked(interludeDuration.equals("Spicy Lyrics"));
+                                                interludeSpotifyPlus
+                                                        .setChecked(interludeDuration.equals("Spotify Plus"));
+                                                interludeApple.setChecked(interludeDuration.equals("Apple Music"));
+
+                                                background
+                                                        .setChecked(prefs.getBoolean("lyric_enable_background", true));
+                                                lineGradient.setChecked(
+                                                        prefs.getBoolean("lyric_enable_line_gradient", true));
+
+                                                String quality = prefs.getString("lyric_background_quality", "high");
+                                                high.setChecked(quality.equals("high"));
+                                                mid.setChecked(quality.equals("mid"));
+                                                low.setChecked(quality.equals("low"));
+                                                superLow.setChecked(quality.equals("superLow"));
+
+                                                sendToken.setChecked(prefs.getBoolean("lyrics_send_token", true));
+                                            });
+
+                                            experimentalSettings.setOnClickListener(v -> {
+                                                View view = inflater.inflate(R.layout.experimental_settings_page, root,
+                                                        false);
+                                                root.addView(view);
+                                                animatePageIn(view);
+                                                currentDetailedSettingsPage.set(view);
+
+                                                MaterialToolbar detailedToolbar = view
+                                                        .findViewById(R.id.experimental_toolbar);
+                                                detailedToolbar.setNavigationOnClickListener(w -> {
+                                                    ViewParent parent = settingsPage.getParent();
+                                                    if (parent instanceof ViewGroup) {
+                                                        animatePageOut((ViewGroup) parent, () -> {
+                                                            ((ViewGroup) parent).removeView(view);
+                                                        });
+                                                    }
+                                                });
+
+                                                MaterialSwitch scrollingAnimation = view
+                                                        .findViewById(R.id.switch_new_scroller);
+
+                                                scrollingAnimation.setOnCheckedChangeListener((button, value) -> {
+                                                    prefs.edit().putBoolean("experiment_scroll", value).apply();
+                                                });
+
+                                                scrollingAnimation
+                                                        .setChecked(prefs.getBoolean("experiment_scroll", false));
+
+                                                MaterialSwitch newBackground = view
+                                                        .findViewById(R.id.switch_animated_art);
+
+                                                newBackground.setOnCheckedChangeListener((button, value) -> {
+                                                    prefs.edit().putBoolean("experiment_animated_art", value).apply();
+                                                });
+
+                                                newBackground
+                                                        .setChecked(prefs.getBoolean("experiment_animated_art", true));
+                                            });
+
+                                            // scriptingSettings.setOnClickListener(v -> {
+                                            // View view = inflater.inflate(R.layout.scripting_settings_page, root,
+                                            // false);
+                                            // root.addView(view);
+                                            // animatePageIn(view);
+                                            // currentDetailedSettingsPage.set(view);
+                                            //
+                                            // MaterialToolbar detailedToolbar =
+                                            // view.findViewById(R.id.scripting_toolbar);
+                                            // detailedToolbar.setNavigationOnClickListener(w -> {
+                                            // ViewParent parent = settingsPage.getParent();
+                                            // if (parent instanceof ViewGroup) {
+                                            // animatePageOut((ViewGroup) parent, () -> {
+                                            // ((ViewGroup) parent).removeView(view);
+                                            // });
+                                            // }
+                                            // });
+                                            //
+                                            // MaterialButton selectDirectory =
+                                            // view.findViewById(R.id.btn_select_directory);
+                                            //
+                                            // selectDirectory.setOnClickListener(button -> {
+                                            // if (activity != null && !activity.isFinishing()) {
+                                            // Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+                                            // intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                                            // Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
+                                            // Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
+                                            // Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+                                            // activity.startActivityForResult(intent, 9072022);
+                                            // }
+                                            // });
+                                            // });
+
+                                            aboutSettings.setOnClickListener(v -> {
+                                                View view = inflater.inflate(R.layout.about_settings_page, root, false);
+                                                root.addView(view);
+                                                animatePageIn(view);
+                                                currentDetailedSettingsPage.set(view);
+
+                                                MaterialToolbar detailedToolbar = view.findViewById(R.id.about_toolbar);
+                                                detailedToolbar.setNavigationOnClickListener(w -> {
+                                                    ViewParent parent = settingsPage.getParent();
+                                                    if (parent instanceof ViewGroup) {
+                                                        animatePageOut((ViewGroup) parent, () -> {
+                                                            ((ViewGroup) parent).removeView(view);
+                                                        });
+                                                    }
+                                                });
+
+                                                View github = view.findViewById(R.id.open_github);
+
+                                                github.setOnClickListener(button -> {
+                                                    Intent browserIntent = new Intent(Intent.ACTION_VIEW,
+                                                            Uri.parse("https://github.com/LeNerd46/SpotifyPlus"));
+                                                    activity.startActivity(browserIntent);
+                                                });
+
+                                                View telegram = view.findViewById(R.id.open_telegram);
+
+                                                telegram.setOnClickListener(button -> {
+                                                    Intent browserIntent = new Intent(Intent.ACTION_VIEW,
+                                                            Uri.parse("https://t.me/spotifypluscool"));
+                                                    activity.startActivity(browserIntent);
+                                                });
+
+                                                // TextView text = view.findViewById(R.id.translate_text);
+                                                // MaterialButton button = view.findViewById(R.id.translate_button);
+                                                //
+                                                // button.setOnClickListener(button1 -> {
+                                                // try {
+                                                // final String originalText = text.getText().toString();
+                                                // text.setText("Translating...");
+                                                //
+                                                //
+                                                // } catch (Exception e) {
+                                                // XposedBridge.log("[SpotifyPlus] " + e);
+                                                // }
+                                                // });
+                                            });
+                                        } catch (Exception e) {
+                                            XposedBridge
+                                                    .log("[SpotifyPlus] Could not inflate layout: " + e.getMessage());
+                                            XposedBridge.log(e);
                                         }
-                                    }
-                                };
-
-<<<<<<< Updated upstream
-                                dispatcher.registerOnBackInvokedCallback(1000001, callback);
-=======
-                                try {
-                                    dispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_OVERLAY, callback);
-                                } catch (Exception e) {
-                                    XposedBridge.log(e);
-                                }
->>>>>>> Stashed changes
-                            }
-
-                            MaterialToolbar toolbar = settingsPage.findViewById(R.id.toolbar);
-                            toolbar.setNavigationOnClickListener(v -> {
-                                ViewParent parent = settingsPage.getParent();
-                                if (parent instanceof ViewGroup) {
-                                    animatePageOut((ViewGroup) parent, () -> {
-                                        ((ViewGroup) parent).removeView(settingsPage);
-                                        overlayShown.set(false);
-                                    });
-                                }
-                            });
-
-                            View generalSettings = settingsPage.findViewById(R.id.settings_general);
-                            View lyricsSettings = settingsPage.findViewById(R.id.settings_lyrics);
-                            View experimentalSettings = settingsPage.findViewById(R.id.settings_experimental);
-//                            View scriptingSettings = settingsPage.findViewById(R.id.settings_scripting);
-                            View aboutSettings = settingsPage.findViewById(R.id.settings_about);
-
-                            generalSettings.setOnClickListener(v -> {
-                                View view = inflater.inflate(R.layout.general_settings_page, root, false);
-                                root.addView(view);
-                                animatePageIn(view);
-                                currentDetailedSettingsPage.set(view);
-
-                                MaterialToolbar detailedToolbar = view.findViewById(R.id.general_toolbar);
-                                detailedToolbar.setNavigationOnClickListener(w -> {
-                                    ViewParent parent = settingsPage.getParent();
-                                    if (parent instanceof ViewGroup) {
-                                        animatePageOut((ViewGroup) parent, () -> {
-                                            ((ViewGroup) parent).removeView(view);
-                                        });
-                                    }
-                                });
-
-                                MaterialSwitch update = view.findViewById(R.id.switch_check_update);
-                                MaterialSwitch create = view.findViewById(R.id.switch_remove_create);
-
-                                update.setOnCheckedChangeListener((check, value) -> {
-                                    prefs.edit().putBoolean("general_check_updates", value).apply();
-                                });
-
-                                MaterialButton lastfm = view.findViewById(R.id.btn_set_lastfm);
-                                LinearLayout group = view.findViewById(R.id.current_lastfm_username_group);
-                                TextView textView = view.findViewById(R.id.current_lastfm_username_text);
-
-                                lastfm.setOnClickListener(button -> {
-                                    try {
-                                        int themeOverlayLast = R.style.Theme_SpotifyPlus;
-                                        Context themedCtxLast = new ModuleContextWrapper(activity.getApplicationContext(), themeOverlayLast, modResources, ModuleContextWrapper.class.getClassLoader());
-                                        LayoutInflater inflaterLast = LayoutInflater.from(activity.getApplicationContext()).cloneInContext(themedCtxLast);
-                                        View lastfmThing = inflaterLast.inflate(modResources.getIdentifier("lastfm_username_view", "layout", "com.lenerd46.spotifyplus"), root, false);
-                                        root.addView(lastfmThing);
-                                        lastfmPopup.set(lastfmThing);
-
-                                        FrameLayout background = lastfmThing.findViewById(modResources.getIdentifier("lastfm_popup_root", "id", "com.lenerd46.spotifyplus"));
-                                        TextInputEditText input = lastfmThing.findViewById(modResources.getIdentifier("input_lastfm_username", "id", "com.lenerd46.spotifyplus"));
-                                        MaterialButton confirmButton = lastfmThing.findViewById(modResources.getIdentifier("btn_submit_lastfm", "id", "com.lenerd46.spotifyplus"));
-                                        MaterialButton clearButton = lastfmThing.findViewById(modResources.getIdentifier("btn_clear_lastfm", "id", "com.lenerd46.spotifyplus"));
-                                        MaterialButton closeButton = lastfmThing.findViewById(modResources.getIdentifier("btn_cancel_lastfm", "id", "com.lenerd46.spotifyplus"));
-
-                                        if (!prefs.getString("last_fm_username", "null").equals("null")) {
-                                            input.setText(prefs.getString("last_fm_username", "null"));
-                                        }
-
-                                        background.setOnClickListener(layout -> {
-                                            lastfmPopup.set(null);
-                                            root.removeView(lastfmThing);
-                                        });
-
-                                        confirmButton.setOnClickListener(confirm -> {
-                                            if (input.getText().toString().isEmpty()) return;
-
-                                            prefs.edit().putString("last_fm_username", input.getText().toString()).apply();
-
-                                            group.setVisibility(LinearLayout.VISIBLE);
-                                            textView.setText("Currently set to " + input.getText().toString());
-                                            root.removeView(lastfmThing);
-                                            lastfmPopup.set(null);
-                                        });
-
-                                        clearButton.setOnClickListener(clear -> {
-                                            prefs.edit().putString("last_fm_username", "null").apply();
-
-                                            group.setVisibility(LinearLayout.INVISIBLE);
-                                            textView.setText("Currently set to ");
-                                            root.removeView(lastfmThing);
-                                            lastfmPopup.set(null);
-                                        });
-
-                                        closeButton.setOnClickListener(close -> {
-                                            root.removeView(lastfmThing);
-                                            lastfmPopup.set(null);
-                                        });
-<<<<<<< Updated upstream
-
-//                                        EditText input = lastfmThing.findViewById(modResources.getIdentifier("last_fm_input", "id", "com.lenerd46.spotifyplus"));
-//                                        Button confirmButton = lastfmThing.findViewById(modResources.getIdentifier("btn_lastfm_confirm", "id", "com.lenerd46.spotifyplus"));
-//                                        Button removeButton = lastfmThing.findViewById(modResources.getIdentifier("btn_lastfm_remove", "id", "com.lenerd46.spotifyplus"));
-//
-//                                        AlertDialog dialog = new AlertDialog.Builder(activity).setView(lastfmThing).create();
-//
-//                                        confirmButton.setOnClickListener(confirm -> {
-//                                            if (input.getText().toString().isEmpty()) return;
-//
-//                                            prefs.edit().putString("last_fm_username", input.getText().toString()).apply();
-//
-//                                            group.setVisibility(LinearLayout.VISIBLE);
-//                                            textView.setText("Currently set to " + input.getText().toString());
-//                                            dialog.dismiss();
-//                                        });
-//
-//                                        removeButton.setOnClickListener(remove -> {
-//                                            prefs.edit().putString("last_fm_username", "null").apply();
-//
-//                                            group.setVisibility(LinearLayout.INVISIBLE);
-//                                            textView.setText("Currently set to ");
-//
-//                                            dialog.dismiss();
-//                                        });
-//
-//                                        dialog.show();
-=======
->>>>>>> Stashed changes
-                                    } catch (Throwable t) {
-                                        XposedBridge.log(t);
-                                    }
-                                });
-
-                                MaterialSwitch blockAds = view.findViewById(R.id.switch_block_ads);
-                                blockAds.setOnCheckedChangeListener((check, value) -> {
-                                    prefs.edit().putBoolean("block_ads", value).apply();
-                                });
-
-                                blockAds.setChecked(prefs.getBoolean("block_ads", false));
-
-<<<<<<< Updated upstream
-=======
-                                MaterialSwitch privateSession = view.findViewById(R.id.switch_private_session);
-                                privateSession.setOnCheckedChangeListener((check, value) -> {
-                                    prefs.edit().putBoolean("private_session", value).apply();
-                                });
-
-                                privateSession.setChecked(prefs.getBoolean("private_session", false));
-
->>>>>>> Stashed changes
-                                create.setOnCheckedChangeListener((check, value) -> {
-                                    prefs.edit().putBoolean("remove_create", value).apply();
-                                });
-
-<<<<<<< Updated upstream
-=======
-                                MaterialButton manageSleepTimers = view.findViewById(R.id.btn_manage_timers);
-
-                                manageSleepTimers.setOnClickListener(managerView -> {
-                                    try {
-                                        int theme = SleepTimerHook.getSpotifyStyle(lpparm.classLoader, "ModalBottomSheetDialog", 0);
-
-                                        Object sheet = XposedHelpers.newInstance(
-                                                XposedHelpers.findClass("p.p08", lpparm.classLoader),
-                                                activity,
-                                                theme
-                                        );
-
-                                        int themeOverlayLast = R.style.Theme_SpotifyPlus;
-                                        Context themedCtxLast = new ModuleContextWrapper(activity.getApplicationContext(), themeOverlayLast, modResources, ModuleContextWrapper.class.getClassLoader());
-                                        LayoutInflater inflaterLast = LayoutInflater.from(activity.getApplicationContext()).cloneInContext(themedCtxLast);
-
-                                        View timerViews = inflaterLast.inflate(modResources.getIdentifier("manage_sleep_timers_view", "layout", "com.lenerd46.spotifyplus"), null, false);
-//                                        root.addView(timerViews);
-
-                                        MaterialSwitch autoReorderSwitch = timerViews.findViewById(modResources.getIdentifier("switch_sleep_timer_auto_reorder", "id", "com.lenerd46.spotifyplus"));
-                                        TextView hintView = timerViews.findViewById(modResources.getIdentifier("sleep_timer_presets_hint", "id", "com.lenerd46.spotifyplus"));
-                                        RecyclerView recycler = timerViews.findViewById(modResources.getIdentifier("recycler_sleep_timer_presets", "id", "com.lenerd46.spotifyplus"));
-                                        TextView emptyView = timerViews.findViewById(modResources.getIdentifier("sleep_timer_presets_empty", "id", "com.lenerd46.spotifyplus"));
-                                        View saveButton = timerViews.findViewById(modResources.getIdentifier("btn_save_sleep_timer_presets", "id", "com.lenerd46.spotifyplus"));
-                                        View cancelButton = timerViews.findViewById(modResources.getIdentifier("btn_cancel_sleep_timer_presets", "id", "com.lenerd46.spotifyplus"));
-
-                                        ArrayList<SleepTimerHook.SleepTimerInfo> presets = loadSleepTimerPresets(prefs);
-
-                                        boolean[] autoReorder = { prefs.getBoolean("custom_sleep_timers_auto_reorder", true) };
-
-                                        if(autoReorder[0]) {
-                                            sortSleepTimerPresets(presets);
-                                        }
-
-                                        autoReorderSwitch.setChecked(autoReorder[0]);
-                                        hintView.setText(autoReorder[0] ? "Manual reordering is disabled while auto reorder is enabled." : "Hold and drag a preset to reorder it.");
-
-                                        SleepTimerPresetAdapter adapter = new SleepTimerPresetAdapter(themedCtxLast, modResources, inflaterLast, presets, () -> {
-                                            boolean empty = presets.isEmpty();
-                                            recycler.setVisibility(empty ? View.GONE : View.VISIBLE);
-                                            emptyView.setVisibility(empty ? View.VISIBLE : View.GONE);
-                                        });
-
-                                        recycler.setLayoutManager(new LinearLayoutManager(themedCtxLast));
-                                        recycler.setAdapter(adapter);
-
-                                        autoReorderSwitch.setOnCheckedChangeListener((button, checked) -> {
-                                            autoReorder[0] = checked;
-
-                                            if(checked) {
-                                                sortSleepTimerPresets(presets);
-                                                adapter.notifyDataSetChanged();
-                                            }
-
-                                            hintView.setText(checked ? "Manual reordering is disabled while auto reorder is enabled." : "Hold and drag a preset to reorder it.");
-                                        });
-
-                                        boolean empty = presets.isEmpty();
-                                        recycler.setVisibility(empty ? View.GONE : View.VISIBLE);
-                                        emptyView.setVisibility(empty ? View.VISIBLE : View.GONE);
-
-                                        ItemTouchHelper helper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
-                                            @Override
-                                            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder from, @NonNull RecyclerView.ViewHolder to) {
-                                                if(autoReorder[0]) return false;
-
-                                                int fromPos = from.getBindingAdapterPosition();
-                                                int toPos = to.getBindingAdapterPosition();
-
-                                                if(fromPos == RecyclerView.NO_POSITION || toPos == RecyclerView.NO_POSITION) return false;
-
-                                                Collections.swap(presets, fromPos, toPos);
-                                                adapter.notifyItemMoved(fromPos, toPos);
-                                                return true;
-                                            }
-
-                                            @Override
-                                            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) { }
-
-                                            @Override
-                                            public boolean isLongPressDragEnabled() {
-                                                return !autoReorder[0];
-                                            }
-                                        });
-
-                                        helper.attachToRecyclerView(recycler);
-
-                                        saveButton.setOnClickListener(save -> {
-                                            if(autoReorder[0]) {
-                                                sortSleepTimerPresets(presets);
-                                            }
-
-                                            prefs.edit().putBoolean("custom_sleep_timers_auto_reorder", autoReorder[0]).apply();
-                                            saveSleepTimerPresets(prefs, presets);
-                                            XposedHelpers.callMethod(sheet, "dismiss");
-                                        });
-
-                                        cancelButton.setOnClickListener(cancel -> XposedHelpers.callMethod(sheet, "dismiss"));
-
-                                        timerViews.setOnClickListener(timer -> XposedHelpers.callMethod(sheet, "dismiss"));
-
-//                                        View sheet = timerViews.findViewById(modResources.getIdentifier("sleep_timer_presets_sheet", "id", "com.lenerd46.spotifyplus"));
-//                                        if(sheet != null) sheet.setOnClickListener(sheetThing -> { });
-
-                                        XposedHelpers.callMethod(sheet, "setContentView", timerViews);
-                                        XposedHelpers.callMethod(sheet, "show");
-
-                                        Window window = (Window) XposedHelpers.callMethod(sheet, "getWindow");
-                                        if (window != null) {
-                                            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-                                        }
-
-                                        try {
-                                            View bottomSheet = (View) XposedHelpers.getObjectField(sheet, "i"); // p08.design_bottom_sheet
-                                            bottomSheet.setBackgroundColor(Color.TRANSPARENT);
-                                            bottomSheet.setBackground(null);
-                                        } catch (Throwable ignored) {
-                                        }
-
-                                        try {
-                                            View outer = (View) XposedHelpers.getObjectField(sheet, "g"); // p08 root container
-                                            outer.setBackgroundColor(Color.TRANSPARENT);
-                                        } catch (Throwable ignored) {
-                                        }
-                                    } catch (Throwable t) {
-                                        XposedBridge.log(t);
-                                    }
-                                });
-
->>>>>>> Stashed changes
-                                MaterialRadioButton home = view.findViewById(R.id.rb_home);
-                                MaterialRadioButton search = view.findViewById(R.id.rb_search);
-                                MaterialRadioButton explore = view.findViewById(R.id.rb_explore);
-                                MaterialRadioButton library = view.findViewById(R.id.rb_library);
-
-                                home.setOnClickListener(c -> {
-                                    prefs.edit().putString("startup_page", "HOME").apply();
-
-                                    home.setChecked(true);
-                                    search.setChecked(false);
-                                    explore.setChecked(false);
-                                    library.setChecked(false);
-                                });
-
-                                search.setOnClickListener(c -> {
-                                    prefs.edit().putString("startup_page", "SEARCH").apply();
-
-                                    home.setChecked(false);
-                                    search.setChecked(true);
-                                    explore.setChecked(false);
-                                    library.setChecked(false);
-                                });
-
-                                explore.setOnClickListener(c -> {
-                                    prefs.edit().putString("startup_page", "EXPLORE").apply();
-
-                                    home.setChecked(false);
-                                    search.setChecked(false);
-                                    explore.setChecked(true);
-                                    library.setChecked(false);
-                                });
-
-                                library.setOnClickListener(c -> {
-                                    prefs.edit().putString("startup_page", "LIBRARY").apply();
-
-                                    home.setChecked(false);
-                                    search.setChecked(false);
-                                    explore.setChecked(false);
-                                    library.setChecked(true);
-                                });
-
-                                update.setChecked(prefs.getBoolean("general_check_updates", true));
-                                group.setVisibility(prefs.getString("last_fm_username", "null").equals("null") ? LinearLayout.INVISIBLE : LinearLayout.VISIBLE);
-                                textView.setText(prefs.getString("last_fm_username", "null").equals("null") ? "" : "Currently set to " + prefs.getString("last_fm_username", "null"));
-                                create.setChecked(prefs.getBoolean("remove_create", false));
-
-                                String page = prefs.getString("startup_page", "HOME");
-                                home.setChecked(page.equals("HOME"));
-                                search.setChecked(page.equals("SEARCH"));
-                                explore.setChecked(page.equals("EXPLORE"));
-                                library.setChecked(page.equals("LIBRARY"));
-                            });
-
-                            lyricsSettings.setOnClickListener(v -> {
-                                View view = inflater.inflate(R.layout.beautiful_lyrics_settings_page, root, false);
-                                root.addView(view);
-                                animatePageIn(view);
-                                currentDetailedSettingsPage.set(view);
-
-                                MaterialToolbar detailedToolbar = view.findViewById(R.id.lyrics_toolbar);
-                                detailedToolbar.setNavigationOnClickListener(w -> {
-                                    ViewParent parent = settingsPage.getParent();
-                                    if (parent instanceof ViewGroup) {
-                                        animatePageOut((ViewGroup) parent, () -> {
-                                            ((ViewGroup) parent).removeView(view);
-                                        });
-                                    }
-                                });
-
-                                MaterialRadioButton visualBeautiful = view.findViewById(R.id.rb_beautiful_lyrics_anim);
-                                MaterialRadioButton visualApple = view.findViewById(R.id.rb_apple_music_anim);
-
-
-                                visualBeautiful.setOnClickListener(c -> {
-                                    prefs.edit().putString("lyric_animation_style", "Beautiful Lyrics").apply();
-
-                                    visualBeautiful.setChecked(true);
-                                    visualApple.setChecked(false);
-                                });
-
-                                visualApple.setOnClickListener(c -> {
-                                    prefs.edit().putString("lyric_animation_style", "Apple Music").apply();
-
-                                    visualBeautiful.setChecked(false);
-                                    visualApple.setChecked(true);
-                                });
-
-                                MaterialRadioButton fontSpotify = view.findViewById(R.id.font_spotify);
-                                MaterialRadioButton fontBeautifulLyrics = view.findViewById(R.id.font_beautiful_lyrics);
-                                MaterialRadioButton fontApple = view.findViewById(R.id.font_apple_music);
-
-                                fontSpotify.setOnClickListener(c -> {
-                                    References.beautifulFont = new WeakReference<>(Typeface.createFromAsset(modResources.getAssets(), "fonts/spotifymix-medium.ttf"));
-                                    prefs.edit().putString("lyrics_font", "spotify").apply();
-
-                                    fontSpotify.setChecked(true);
-                                    fontBeautifulLyrics.setChecked(false);
-                                    fontApple.setChecked(false);
-                                });
-
-                                fontBeautifulLyrics.setOnClickListener(c -> {
-                                    References.beautifulFont = new WeakReference<>(Typeface.createFromAsset(modResources.getAssets(), "fonts/lyrics_medium.ttf"));
-                                    prefs.edit().putString("lyrics_font", "default").apply();
-
-                                    fontSpotify.setChecked(false);
-                                    fontBeautifulLyrics.setChecked(true);
-                                    fontApple.setChecked(false);
-                                });
-
-                                fontApple.setOnClickListener(c -> {
-                                    References.beautifulFont = new WeakReference<>(Typeface.createFromAsset(modResources.getAssets(), "fonts/sf-pro-display-bold.ttf"));
-                                    prefs.edit().putString("lyrics_font", "apple").apply();
-
-                                    fontSpotify.setChecked(false);
-                                    fontBeautifulLyrics.setChecked(false);
-                                    fontApple.setChecked(true);
-                                });
-
-                                MaterialRadioButton interludeBeautiful = view.findViewById(R.id.rb_beautiful_lyrics_interlude);
-                                MaterialRadioButton interludeSpicy = view.findViewById(R.id.rb_spicy_lyrics_interlude);
-                                MaterialRadioButton interludeSpotifyPlus = view.findViewById(R.id.rb_spotify_plus_interlude);
-                                MaterialRadioButton interludeApple = view.findViewById(R.id.rb_apple_music_interlude);
-
-                                interludeBeautiful.setOnClickListener(c -> {
-                                    prefs.edit().putString("lyric_interlude_duration", "Beautiful Lyrics").apply();
-
-                                    interludeBeautiful.setChecked(true);
-                                    interludeSpicy.setChecked(false);
-                                    interludeSpotifyPlus.setChecked(false);
-                                    interludeApple.setChecked(false);
-                                });
-
-                                interludeSpicy.setOnClickListener(c -> {
-                                    prefs.edit().putString("lyric_interlude_duration", "Spicy Lyrics").apply();
-
-                                    interludeBeautiful.setChecked(false);
-                                    interludeSpicy.setChecked(true);
-                                    interludeSpotifyPlus.setChecked(false);
-                                    interludeApple.setChecked(false);
-                                });
-
-                                interludeSpotifyPlus.setOnClickListener(c -> {
-                                    prefs.edit().putString("lyric_interlude_duration", "Spotify Plus").apply();
-
-                                    interludeBeautiful.setChecked(false);
-                                    interludeSpicy.setChecked(false);
-                                    interludeSpotifyPlus.setChecked(true);
-                                    interludeApple.setChecked(false);
-                                });
-
-                                interludeApple.setOnClickListener(c -> {
-                                    prefs.edit().putString("lyric_interlude_duration", "Apple Music").apply();
-
-                                    interludeBeautiful.setChecked(false);
-                                    interludeSpicy.setChecked(false);
-                                    interludeSpotifyPlus.setChecked(false);
-                                    interludeApple.setChecked(true);
-                                });
-
-                                Slider slider = view.findViewById(R.id.line_spacing_slider);
-                                TextView valueLabel = view.findViewById(R.id.line_spacing_value_label);
-                                FrameLayout sliderContainer = view.findViewById(R.id.line_spacing_slider_container);
-
-                                slider.setThumbRadius(dpToPx(8));
-                                slider.setHaloRadius(0);
-
-                                slider.addOnChangeListener((s, value, fromUser) -> {
-                                    String text;
-                                    switch (Math.round(value)) {
-                                        case 0:
-                                            text = "Compact";
-                                            prefs.edit().putString("line_spacing", "compact").apply();
-                                            break;
-                                        case 1:
-                                            text = "Default";
-                                            prefs.edit().putString("line_spacing", "default").apply();
-                                            break;
-                                        case 2:
-                                            text = "Spacious";
-                                            prefs.edit().putString("line_spacing", "spacious").apply();
-                                            break;
-                                        case 3:
-                                            text = "More Spacious";
-                                            prefs.edit().putString("line_spacing", "more").apply();
-                                            break;
-                                        case 4:
-                                            text = "Max";
-                                            prefs.edit().putString("line_spacing", "max").apply();
-                                            break;
-                                        default:
-                                            text = "";
-                                            break;
-                                    }
-
-                                    valueLabel.setText(text);
-
-                                    slider.post(() -> {
-                                        float fraction = (value - slider.getValueFrom()) / (slider.getValueTo() - slider.getValueFrom());
-                                        int sliderWidth = slider.getWidth();
-                                        int thumbX = (int) (fraction * sliderWidth);
-
-                                        valueLabel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-
-                                        int labelWidth = valueLabel.getMeasuredWidth();
-                                        float x = thumbX - (labelWidth / 2f);
-
-                                        x = Math.max(0, Math.min(x, sliderWidth - labelWidth));
-
-                                        valueLabel.setX(x);
-                                        valueLabel.setY(dpToPx(-12));
-                                    });
-                                });
-
-                                slider.addOnSliderTouchListener(new Slider.OnSliderTouchListener() {
-                                    @Override
-                                    public void onStartTrackingTouch(Slider slider) {
-                                        valueLabel.setVisibility(View.VISIBLE);
-                                    }
-
-                                    @Override
-                                    public void onStopTrackingTouch(Slider slider) {
-                                        valueLabel.setVisibility(View.GONE);
-                                    }
-                                });
-
-                                String sliderValueThing = prefs.getString("line_spacing", "default");
-<<<<<<< Updated upstream
-                                switch(sliderValueThing) {
-                                    case "compact": slider.setValue(0);
-                                    case "default": slider.setValue(1);
-                                    case "spacious": slider.setValue(2);
-                                    case "more": slider.setValue(3);
-                                    case "max": slider.setValue(4);
-                                    default: slider.setValue(1);
-=======
-                                switch (sliderValueThing) {
-                                    case "compact":
-                                        slider.setValue(0);
-                                    case "default":
-                                        slider.setValue(1);
-                                    case "spacious":
-                                        slider.setValue(2);
-                                    case "more":
-                                        slider.setValue(3);
-                                    case "max":
-                                        slider.setValue(4);
-                                    default:
-                                        slider.setValue(1);
->>>>>>> Stashed changes
-                                }
-
-                                MaterialSwitch background = view.findViewById(R.id.switch_enable_background);
-                                MaterialSwitch lineGradient = view.findViewById(R.id.switch_enable_line_gradient);
-
-                                MaterialRadioButton high = view.findViewById(R.id.rb_background_high);
-                                MaterialRadioButton mid = view.findViewById(R.id.rb_background_mid);
-                                MaterialRadioButton low = view.findViewById(R.id.rb_background_low);
-                                MaterialRadioButton superLow = view.findViewById(R.id.rb_background_superlow);
-
-                                high.setOnClickListener(c -> {
-                                    prefs.edit().putString("lyric_background_quality", "high").apply();
-
-                                    high.setChecked(true);
-                                    mid.setChecked(false);
-                                    low.setChecked(false);
-                                    superLow.setChecked(false);
-                                });
-
-                                mid.setOnClickListener(c -> {
-                                    prefs.edit().putString("lyric_background_quality", "mid").apply();
-
-                                    high.setChecked(false);
-                                    mid.setChecked(true);
-                                    low.setChecked(false);
-                                    superLow.setChecked(false);
-                                });
-
-                                low.setOnClickListener(c -> {
-                                    prefs.edit().putString("lyric_background_quality", "low").apply();
-
-                                    high.setChecked(false);
-                                    mid.setChecked(false);
-                                    low.setChecked(true);
-                                    superLow.setChecked(false);
-                                });
-
-                                superLow.setOnClickListener(c -> {
-                                    prefs.edit().putString("lyric_background_quality", "superLow").apply();
-
-                                    high.setChecked(false);
-                                    mid.setChecked(false);
-                                    low.setChecked(false);
-                                    superLow.setChecked(true);
-                                });
-
-                                MaterialSwitch sendToken = view.findViewById(R.id.switch_send_token);
-<<<<<<< Updated upstream
-                                MaterialSwitch userLyrics = view.findViewById(R.id.switch_check_user_lyrics);
-=======
->>>>>>> Stashed changes
-
-                                background.setOnCheckedChangeListener((button, value) -> {
-                                    prefs.edit().putBoolean("lyric_enable_background", value).apply();
-                                });
-
-                                lineGradient.setOnCheckedChangeListener((button, value) -> {
-                                    prefs.edit().putBoolean("lyric_enable_line_gradient", value).apply();
-                                });
-
-                                sendToken.setOnCheckedChangeListener((button, value) -> {
-                                    prefs.edit().putBoolean("lyrics_send_token", value).apply();
-                                });
-
-<<<<<<< Updated upstream
-                                userLyrics.setOnCheckedChangeListener((button, value) -> {
-                                    prefs.edit().putBoolean("lyrics_check_custom", value).apply();
-                                });
-
-=======
->>>>>>> Stashed changes
-                                String style = prefs.getString("lyric_animation_style", "Beautiful Lyrics");
-                                visualBeautiful.setChecked(style.equals("Beautiful Lyrics"));
-                                visualApple.setChecked(style.equals("Apple Music"));
-
-                                String font = prefs.getString("lyrics_font", "default");
-                                fontSpotify.setChecked(font.equals("spotify"));
-                                fontBeautifulLyrics.setChecked(font.equals("default"));
-                                fontApple.setChecked(font.equals("apple"));
-
-                                String interludeDuration = prefs.getString("lyric_interlude_duration", "Spotify Plus");
-                                interludeBeautiful.setChecked(interludeDuration.equals("Beautiful Lyrics"));
-                                interludeSpicy.setChecked(interludeDuration.equals("Spicy Lyrics"));
-                                interludeSpotifyPlus.setChecked(interludeDuration.equals("Spotify Plus"));
-                                interludeApple.setChecked(interludeDuration.equals("Apple Music"));
-
-                                background.setChecked(prefs.getBoolean("lyric_enable_background", true));
-                                lineGradient.setChecked(prefs.getBoolean("lyric_enable_line_gradient", true));
-
-                                String quality = prefs.getString("lyric_background_quality", "high");
-                                high.setChecked(quality.equals("high"));
-                                mid.setChecked(quality.equals("mid"));
-                                low.setChecked(quality.equals("low"));
-                                superLow.setChecked(quality.equals("superLow"));
-
-                                sendToken.setChecked(prefs.getBoolean("lyrics_send_token", true));
-<<<<<<< Updated upstream
-                                userLyrics.setChecked(prefs.getBoolean("lyrics_check_custom", false));
-=======
->>>>>>> Stashed changes
-                            });
-
-                            experimentalSettings.setOnClickListener(v -> {
-                                View view = inflater.inflate(R.layout.experimental_settings_page, root, false);
-                                root.addView(view);
-                                animatePageIn(view);
-                                currentDetailedSettingsPage.set(view);
-
-                                MaterialToolbar detailedToolbar = view.findViewById(R.id.experimental_toolbar);
-                                detailedToolbar.setNavigationOnClickListener(w -> {
-                                    ViewParent parent = settingsPage.getParent();
-                                    if (parent instanceof ViewGroup) {
-                                        animatePageOut((ViewGroup) parent, () -> {
-                                            ((ViewGroup) parent).removeView(view);
-                                        });
-                                    }
-                                });
-
-                                MaterialSwitch scrollingAnimation = view.findViewById(R.id.switch_new_scroller);
-
-                                scrollingAnimation.setOnCheckedChangeListener((button, value) -> {
-                                    prefs.edit().putBoolean("experiment_scroll", value).apply();
-                                });
-
-                                scrollingAnimation.setChecked(prefs.getBoolean("experiment_scroll", false));
-
-                                MaterialSwitch newBackground = view.findViewById(R.id.switch_animated_art);
-
-                                newBackground.setOnCheckedChangeListener((button, value) -> {
-                                    prefs.edit().putBoolean("experiment_animated_art", value).apply();
-                                });
-
-                                newBackground.setChecked(prefs.getBoolean("experiment_animated_art", true));
-                            });
-
-//                            scriptingSettings.setOnClickListener(v -> {
-//                                View view = inflater.inflate(R.layout.scripting_settings_page, root, false);
-//                                root.addView(view);
-//                                animatePageIn(view);
-//                                currentDetailedSettingsPage.set(view);
-//
-//                                MaterialToolbar detailedToolbar = view.findViewById(R.id.scripting_toolbar);
-//                                detailedToolbar.setNavigationOnClickListener(w -> {
-//                                    ViewParent parent = settingsPage.getParent();
-//                                    if (parent instanceof ViewGroup) {
-//                                        animatePageOut((ViewGroup) parent, () -> {
-//                                            ((ViewGroup) parent).removeView(view);
-//                                        });
-//                                    }
-//                                });
-//
-//                                MaterialButton selectDirectory = view.findViewById(R.id.btn_select_directory);
-//
-//                                selectDirectory.setOnClickListener(button -> {
-//                                    if (activity != null && !activity.isFinishing()) {
-//                                        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-//                                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
-//                                        activity.startActivityForResult(intent, 9072022);
-//                                    }
-//                                });
-//                            });
-
-                            aboutSettings.setOnClickListener(v -> {
-                                View view = inflater.inflate(R.layout.about_settings_page, root, false);
-                                root.addView(view);
-                                animatePageIn(view);
-                                currentDetailedSettingsPage.set(view);
-
-                                MaterialToolbar detailedToolbar = view.findViewById(R.id.about_toolbar);
-                                detailedToolbar.setNavigationOnClickListener(w -> {
-                                    ViewParent parent = settingsPage.getParent();
-                                    if (parent instanceof ViewGroup) {
-                                        animatePageOut((ViewGroup) parent, () -> {
-                                            ((ViewGroup) parent).removeView(view);
-                                        });
-                                    }
-                                });
-
-                                View github = view.findViewById(R.id.open_github);
-
-                                github.setOnClickListener(button -> {
-                                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LeNerd46/SpotifyPlus"));
-                                    activity.startActivity(browserIntent);
-                                });
-
-                                View telegram = view.findViewById(R.id.open_telegram);
-
-                                telegram.setOnClickListener(button -> {
-                                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/spotifypluscool"));
-                                    activity.startActivity(browserIntent);
-                                });
-
-//                                TextView text = view.findViewById(R.id.translate_text);
-//                                MaterialButton button = view.findViewById(R.id.translate_button);
-//
-//                                button.setOnClickListener(button1 -> {
-//                                    try {
-//                                        final String originalText = text.getText().toString();
-//                                        text.setText("Translating...");
-//
-//
-//                                    } catch (Exception e) {
-//                                        XposedBridge.log("[SpotifyPlus] " + e);
-//                                    }
-//                                });
-                            });
-                        } catch (Exception e) {
-                            XposedBridge.log("[SpotifyPlus] Could not inflate layout: " + e.getMessage());
-                            XposedBridge.log(e);
-                        }
-                    }));
-
-//                    Array.set(newArray, originalItems.length + 1, createSideDrawerButton("Marketplace", tempalteLightning, buttonClass, sideDrawerItem, propertiesClass, onClickClass, qbpInterface, zpj0Interface, cbpInterface, 2131957896, () -> XposedBridge.log("[SpotifyPlus] Hello!")));
+                                    }));
+
+                    // Array.set(newArray, originalItems.length + 1,
+                    // createSideDrawerButton("Marketplace", tempalteLightning, buttonClass,
+                    // sideDrawerItem, propertiesClass, onClickClass, qbpInterface, zpj0Interface,
+                    // cbpInterface, 2131957896, () -> XposedBridge.log("[SpotifyPlus] Hello!")));
 
                     int index = originalItems.length + 2;
 
                     for (var item : scriptSideButtons.keySet()) {
                         Runnable run = scriptSideButtons.get(item);
-                        Array.set(newArray, index, createSideDrawerButton(item.second, tempalteLightning, buttonClass, sideDrawerItem, propertiesClass, onClickClass, qbpInterface, zpj0Interface, cbpInterface, resourceIdToUse, run));
+                        Array.set(newArray, index,
+                                createSideDrawerButton(item.second, tempalteLightning, buttonClass, sideDrawerItem,
+                                        propertiesClass, onClickClass, qbpInterface, zpj0Interface, cbpInterface,
+                                        resourceIdToUse, run));
                         resourceIdToUse--;
                         index++;
                     }
@@ -1210,24 +1383,36 @@ public class RemoveCreateButtonHook extends SpotifyHook {
         }
     }
 
-    private Object createSideDrawerButton(String title, Object template, Class<?> fvd0, Class<?> dwd0, Class<?> cwd0, Class<?> bwd0, Class<?> qbp, Class<?> zpj0, Class<?> cbp, int resId, Runnable onClick) {
+    private Object createSideDrawerButton(String title, Object template, Class<?> fvd0, Class<?> dwd0, Class<?> cwd0,
+            Class<?> bwd0, Class<?> qbp, Class<?> zpj0, Class<?> cbp, int resId, Runnable onClick) {
         try {
             // Don't do this every time we create a button! Just do it once!
             // Yeah I get the feeling this ain't gonna happen
-            var dwd0List = bridge.findField(FindField.create().searchInClass(fwd0Classes).matcher(FieldMatcher.create().type(dwd0)));
-            var fieldList = bridge.findField(FindField.create().searchInClass(dwd0Classes).matcher(FieldMatcher.create().type(Object.class)));
-            if (fieldList.isEmpty()) fieldList = bridge.findField(FindField.create().searchInClass(dwd0Classes));
-            var bwd0List = bridge.findField(FindField.create().searchInClass(propertiesClasses).matcher(FieldMatcher.create().type(bwd0)));
-            var nodeList = bridge.findField(FindField.create().searchInClass(onClickClasses).matcher(FieldMatcher.create().type(whateverThisInterfaceDoes)));
-            var impressionList = bridge.findField(FindField.create().searchInClass(onClickClasses).matcher(FieldMatcher.create().type(cbp)));
+            var dwd0List = bridge
+                    .findField(FindField.create().searchInClass(fwd0Classes).matcher(FieldMatcher.create().type(dwd0)));
+            var fieldList = bridge.findField(
+                    FindField.create().searchInClass(dwd0Classes).matcher(FieldMatcher.create().type(Object.class)));
+            if (fieldList.isEmpty())
+                fieldList = bridge.findField(FindField.create().searchInClass(dwd0Classes));
+            var bwd0List = bridge.findField(
+                    FindField.create().searchInClass(propertiesClasses).matcher(FieldMatcher.create().type(bwd0)));
+            var nodeList = bridge.findField(FindField.create().searchInClass(onClickClasses)
+                    .matcher(FieldMatcher.create().type(whateverThisInterfaceDoes)));
+            var impressionList = bridge.findField(
+                    FindField.create().searchInClass(onClickClasses).matcher(FieldMatcher.create().type(cbp)));
             if (impressionList.isEmpty())
-                impressionList = bridge.findField(FindField.create().searchInClass(onClickClasses).matcher(FieldMatcher.create().type(Object.class)));
-            var iconList = bridge.findField(FindField.create().searchInClass(dwd0Classes).matcher(FieldMatcher.create().type(iconInterface)));
+                impressionList = bridge.findField(FindField.create().searchInClass(onClickClasses)
+                        .matcher(FieldMatcher.create().type(Object.class)));
+            var iconList = bridge.findField(
+                    FindField.create().searchInClass(dwd0Classes).matcher(FieldMatcher.create().type(iconInterface)));
             if (iconList.isEmpty())
-                iconList = bridge.findField(FindField.create().searchInClass(propertiesClasses).matcher(FieldMatcher.create().name("a")));
-            var whateverList = bridge.findField(FindField.create().searchInClass(propertiesClasses).matcher(FieldMatcher.create().type(wwk)));
+                iconList = bridge.findField(
+                        FindField.create().searchInClass(propertiesClasses).matcher(FieldMatcher.create().name("a")));
+            var whateverList = bridge.findField(
+                    FindField.create().searchInClass(propertiesClasses).matcher(FieldMatcher.create().type(wwk)));
 
-            if (dwd0List.isEmpty() || fieldList.isEmpty() || bwd0List.isEmpty() || nodeList.isEmpty() || impressionList.isEmpty() || iconList.isEmpty() || whateverList.isEmpty()) {
+            if (dwd0List.isEmpty() || fieldList.isEmpty() || bwd0List.isEmpty() || nodeList.isEmpty()
+                    || impressionList.isEmpty() || iconList.isEmpty() || whateverList.isEmpty()) {
                 XposedBridge.log("[SpotifyPlus] dwd0: " + dwd0List.size());
                 XposedBridge.log("[SpotifyPlus] field: " + fieldList.size());
                 XposedBridge.log("[SpotifyPlus] bwd0: " + bwd0List.size());
@@ -1245,7 +1430,8 @@ public class RemoveCreateButtonHook extends SpotifyHook {
             Object originalDwd0 = dwd0List.get(0).getFieldInstance(lpparm.classLoader).get(template); // p.dwd0
             Field field = fieldList.get(0).getFieldInstance(lpparm.classLoader);
             Object originalProps = field.get(originalDwd0); // p.cwd0
-            String propName = bridge.findField(FindField.create().searchInClass(propertiesClasses).matcher(FieldMatcher.create().type(String.class))).get(0).getName();
+            String propName = bridge.findField(FindField.create().searchInClass(propertiesClasses)
+                    .matcher(FieldMatcher.create().type(String.class))).get(0).getName();
             Object originalBwd0 = bwd0List.get(0).getFieldInstance(lpparm.classLoader).get(originalProps); // p.bwd0;
             Object originalNode = nodeList.get(0).getFieldInstance(lpparm.classLoader).get(originalBwd0);
             Object originalImpression = impressionList.get(0).getFieldInstance(lpparm.classLoader).get(originalBwd0);
@@ -1255,11 +1441,15 @@ public class RemoveCreateButtonHook extends SpotifyHook {
             } catch (Exception e) {
                 originalIcon = originalProps.getClass().getFields()[0].get(originalProps);
             }
-            Object iDontEvenKnowWhatThisFieldDoes = whateverList.get(0).getFieldInstance(lpparm.classLoader).get(originalProps);
+            Object iDontEvenKnowWhatThisFieldDoes = whateverList.get(0).getFieldInstance(lpparm.classLoader)
+                    .get(originalProps);
 
             Object originalOnClick = null;
             if (isNewSideDrawer) {
-                Class<?> vjwCls = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("Could not retrieve pinned shortcuts"))).get(0).getInstance(lpparm.classLoader).getSuperclass();
+                Class<?> vjwCls = bridge
+                        .findClass(FindClass.create()
+                                .matcher(ClassMatcher.create().usingStrings("Could not retrieve pinned shortcuts")))
+                        .get(0).getInstance(lpparm.classLoader).getSuperclass();
 
                 for (Field f : originalBwd0.getClass().getDeclaredFields()) {
                     f.setAccessible(true);
@@ -1270,7 +1460,8 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                     }
                 }
 
-                if (originalOnClick == null) XposedBridge.log("[SpotifyPlus] ON CLICK IS NULL");
+                if (originalOnClick == null)
+                    XposedBridge.log("[SpotifyPlus] ON CLICK IS NULL");
 
                 final Object targetOnClick = originalOnClick;
                 XposedBridge.hookAllMethods(originalOnClick.getClass(), "invoke", new XC_MethodHook() {
@@ -1278,13 +1469,16 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        if (param.thisObject != targetOnClick) return;
+                        if (param.thisObject != targetOnClick)
+                            return;
 
                         long now = android.os.SystemClock.uptimeMillis();
-                        if (now - lastTs < 350) return;
+                        if (now - lastTs < 350)
+                            return;
                         lastTs = now;
 
-                        if (!overlayShown.compareAndSet(false, true)) return;
+                        if (!overlayShown.compareAndSet(false, true))
+                            return;
 
                         try {
                             onClick.run();
@@ -1295,15 +1489,16 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                 });
             }
 
-            Object newOnClick = Proxy.newProxyInstance(lpparm.classLoader, new Class[]{qbp}, (proxy, method, args) -> {
-                try {
-                    onClick.run();
-                } catch (Exception e) {
-                    XposedBridge.log(e);
-                }
+            Object newOnClick = Proxy.newProxyInstance(lpparm.classLoader, new Class[] { qbp },
+                    (proxy, method, args) -> {
+                        try {
+                            onClick.run();
+                        } catch (Exception e) {
+                            XposedBridge.log(e);
+                        }
 
-                return null;
-            });
+                        return null;
+                    });
 
             Constructor<?> bwd0Ctor = bwd0.getConstructor(zpj0, qbp, cbp);
             Constructor<?> propsCtor = cwd0.getConstructors()[0];
@@ -1316,7 +1511,8 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 
             Object newInstrumentation = null;
             try {
-                newInstrumentation = bwd0Ctor.newInstance(originalNode, isNewSideDrawer ? originalOnClick : newOnClick, originalImpression);
+                newInstrumentation = bwd0Ctor.newInstance(originalNode, isNewSideDrawer ? originalOnClick : newOnClick,
+                        originalImpression);
             } catch (Exception e) {
                 XposedBridge.log(e);
                 XposedBridge.log("[SpotifyPlus] Could not instantiate instrumentation: " + e.getMessage());
@@ -1326,12 +1522,15 @@ public class RemoveCreateButtonHook extends SpotifyHook {
             SpotifyTitleOverride.overrideSpotifyStringById(resId, title);
 
             try {
-                newProps = propsCtor.newInstance(iDontEvenKnowWhatThisFieldDoes, 2131957897, "spotify:null", false, newInstrumentation, false, mask);
+                newProps = propsCtor.newInstance(iDontEvenKnowWhatThisFieldDoes, 2131957897, "spotify:null", false,
+                        newInstrumentation, false, mask);
             } catch (Exception e) {
-                newProps = propsCtor.newInstance(originalProps.getClass().getFields()[0].get(originalProps), resId, "spotify:null", false, newInstrumentation, originalProps.getClass().getFields()[5].get(originalProps));
+                newProps = propsCtor.newInstance(originalProps.getClass().getFields()[0].get(originalProps), resId,
+                        "spotify:null", false, newInstrumentation,
+                        originalProps.getClass().getFields()[5].get(originalProps));
             }
 
-//            XposedHelpers.setObjectField(newProps, propName, title);
+            // XposedHelpers.setObjectField(newProps, propName, title);
             Object newDwd0 = null;
 
             if (!isNewSideDrawer) {
@@ -1380,7 +1579,8 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 
     public static void registerSideButton(String title, int id, Runnable onClick) {
         try {
-            var key = scriptSideButtons.keySet().stream().filter(entry -> entry.first.equals(id)).findFirst().orElse(null);
+            var key = scriptSideButtons.keySet().stream().filter(entry -> entry.first.equals(id)).findFirst()
+                    .orElse(null);
 
             if (key == null) {
                 scriptSideButtons.put(Pair.create(id, title), onClick);
@@ -1416,19 +1616,17 @@ public class RemoveCreateButtonHook extends SpotifyHook {
         return (int) TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP,
                 dp,
-                context.getResources().getDisplayMetrics()
-        );
+                context.getResources().getDisplayMetrics());
     }
-<<<<<<< Updated upstream
-=======
 
     private ArrayList<SleepTimerHook.SleepTimerInfo> loadSleepTimerPresets(SharedPreferences prefs) {
         ArrayList<SleepTimerHook.SleepTimerInfo> presets = new ArrayList<>();
 
         try {
-            JSONArray array = new JSONArray(prefs.getString("custom_sleep_timers", "[{\"value\":5,\"unit\":false},{\"value\":10,\"unit\":false},{\"value\":15,\"unit\":false},{\"value\":30,\"unit\":false},{\"value\":45,\"unit\":false},{\"value\":1,\"unit\":true}]"));
+            JSONArray array = new JSONArray(prefs.getString("custom_sleep_timers",
+                    "[{\"value\":5,\"unit\":false},{\"value\":10,\"unit\":false},{\"value\":15,\"unit\":false},{\"value\":30,\"unit\":false},{\"value\":45,\"unit\":false},{\"value\":1,\"unit\":true}]"));
 
-            for(int i = 0; i < array.length(); i++) {
+            for (int i = 0; i < array.length(); i++) {
                 JSONObject object = array.getJSONObject(i);
                 presets.add(new SleepTimerHook.SleepTimerInfo(object.getInt("value"), object.getBoolean("unit")));
             }
@@ -1443,7 +1641,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
         try {
             JSONArray array = new JSONArray();
 
-            for(SleepTimerHook.SleepTimerInfo preset : presets) {
+            for (SleepTimerHook.SleepTimerInfo preset : presets) {
                 JSONObject object = new JSONObject();
                 object.put("value", preset.value);
                 object.put("unit", preset.unit);
@@ -1463,7 +1661,8 @@ public class RemoveCreateButtonHook extends SpotifyHook {
         private final ArrayList<SleepTimerHook.SleepTimerInfo> presets;
         private final Runnable onChanged;
 
-        SleepTimerPresetAdapter(Context context, Resources modResources, LayoutInflater inflater, ArrayList<SleepTimerHook.SleepTimerInfo> presets, Runnable onChanged) {
+        SleepTimerPresetAdapter(Context context, Resources modResources, LayoutInflater inflater,
+                ArrayList<SleepTimerHook.SleepTimerInfo> presets, Runnable onChanged) {
             this.context = context;
             this.modResources = modResources;
             this.inflater = inflater;
@@ -1474,7 +1673,9 @@ public class RemoveCreateButtonHook extends SpotifyHook {
         @NonNull
         @Override
         public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = inflater.inflate(modResources.getIdentifier("item_custom_sleep_timer", "layout", "com.lenerd46.spotifyplus"), parent, false);
+            View view = inflater.inflate(
+                    modResources.getIdentifier("item_custom_sleep_timer", "layout", "com.lenerd46.spotifyplus"), parent,
+                    false);
             return new Holder(view, modResources);
         }
 
@@ -1486,7 +1687,8 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 
             holder.deleteButton.setOnClickListener(v -> {
                 int pos = holder.getBindingAdapterPosition();
-                if(pos == RecyclerView.NO_POSITION) return;
+                if (pos == RecyclerView.NO_POSITION)
+                    return;
 
                 presets.remove(pos);
                 notifyItemRemoved(pos);
@@ -1507,9 +1709,12 @@ public class RemoveCreateButtonHook extends SpotifyHook {
             Holder(@NonNull View itemView, Resources modResources) {
                 super(itemView);
 
-                title = itemView.findViewById(modResources.getIdentifier("sleep_timer_preset_title", "id", "com.lenerd46.spotifyplus"));
-                subtitle = itemView.findViewById(modResources.getIdentifier("sleep_timer_preset_subtitle", "id", "com.lenerd46.spotifyplus"));
-                deleteButton = itemView.findViewById(modResources.getIdentifier("btn_delete_sleep_timer_preset", "id", "com.lenerd46.spotifyplus"));
+                title = itemView.findViewById(
+                        modResources.getIdentifier("sleep_timer_preset_title", "id", "com.lenerd46.spotifyplus"));
+                subtitle = itemView.findViewById(
+                        modResources.getIdentifier("sleep_timer_preset_subtitle", "id", "com.lenerd46.spotifyplus"));
+                deleteButton = itemView.findViewById(
+                        modResources.getIdentifier("btn_delete_sleep_timer_preset", "id", "com.lenerd46.spotifyplus"));
             }
         }
     }
@@ -1519,7 +1724,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
     }
 
     private long getSleepTimerDurationMillis(SleepTimerHook.SleepTimerInfo preset) {
-        return preset.unit ? java.util.concurrent.TimeUnit.HOURS.toMillis(preset.value) : java.util.concurrent.TimeUnit.MINUTES.toMillis(preset.value);
+        return preset.unit ? java.util.concurrent.TimeUnit.HOURS.toMillis(preset.value)
+                : java.util.concurrent.TimeUnit.MINUTES.toMillis(preset.value);
     }
->>>>>>> Stashed changes
 }

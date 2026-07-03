@@ -48,7 +48,8 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
         XposedBridge.hookAllMethods(LayoutInflater.class, "inflate", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                if (!(param.args[0] instanceof Integer)) return;
+                if (!(param.args[0] instanceof Integer))
+                    return;
 
                 LayoutInflater inflater = (LayoutInflater) param.thisObject;
                 Context ctx = inflater.getContext();
@@ -61,7 +62,8 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
                     return;
                 }
 
-                if (!layoutName.endsWith("layout/square_cover_art_content")) return;
+                if (!layoutName.endsWith("layout/square_cover_art_content"))
+                    return;
 
                 if (layoutName.endsWith("layout/square_cover_art_content")) {
                     View root = (View) param.getResult();
@@ -79,12 +81,13 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
                         }
 
                         SharedPreferences prefs = References.getPreferences();
-                        if (!prefs.getBoolean("experiment_animated_art", true)) return;
+                        if (!prefs.getBoolean("experiment_animated_art", true))
+                            return;
 
                         attachOverlay((ViewGroup) image.getParent(), image);
 
-//                        View overlay = (View) image.getTag(TAG_OVERLAY);
-//                        overlay.setBackgroundColor(0x55FF0000); // translucent red
+                        // View overlay = (View) image.getTag(TAG_OVERLAY);
+                        // overlay.setBackgroundColor(0x55FF0000); // translucent red
                     });
                 }
 
@@ -93,11 +96,13 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
     }
 
     private static View findByIdName(View root, String idName) {
-        if (root == null) return null;
+        if (root == null)
+            return null;
         int id = root.getId();
         if (id != View.NO_ID) {
             try {
-                if (idName.equals(root.getContext().getResources().getResourceName(id))) return root;
+                if (idName.equals(root.getContext().getResources().getResourceName(id)))
+                    return root;
             } catch (Throwable ignored) {
             }
         }
@@ -105,7 +110,8 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
             ViewGroup vg = (ViewGroup) root;
             for (int i = 0; i < vg.getChildCount(); i++) {
                 View v = findByIdName(vg.getChildAt(i), idName);
-                if (v != null) return v;
+                if (v != null)
+                    return v;
             }
         }
         return null;
@@ -120,7 +126,8 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
         }
 
         Object existing = image.getTag(TAG_OVERLAY);
-        if (existing instanceof View) return;
+        if (existing instanceof View)
+            return;
 
         FrameLayout overlay = new FrameLayout(parent.getContext());
         overlay.setClipToPadding(false);
@@ -136,14 +143,12 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
         arf.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_ZOOM);
         arf.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
+                ViewGroup.LayoutParams.MATCH_PARENT));
 
         TextureView textureView = new TextureView(context);
         textureView.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
+                ViewGroup.LayoutParams.MATCH_PARENT));
 
         arf.addView(textureView);
         overlay.addView(arf);
@@ -157,7 +162,8 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
         Runnable sync = () -> {
             int w = image.getWidth();
             int h = image.getHeight();
-            if (w <= 0 || h <= 0) return;
+            if (w <= 0 || h <= 0)
+                return;
 
             ViewGroup.LayoutParams p = overlay.getLayoutParams();
             if (p.width != w || p.height != h) {
@@ -180,22 +186,25 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
         };
 
         image.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
-            @Override public boolean onPreDraw() {
-                if (!image.getViewTreeObserver().isAlive()) return true;
+            @Override
+            public boolean onPreDraw() {
+                if (!image.getViewTreeObserver().isAlive())
+                    return true;
                 image.getViewTreeObserver().removeOnPreDrawListener(this);
                 sync.run();
                 return true;
             }
         });
 
-        image.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,orR,ob) -> sync.run());
-        parent.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,orR,ob) -> sync.run());
+        image.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, orR, ob) -> sync.run());
+        parent.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, orR, ob) -> sync.run());
 
         image.post(() -> {
             float radius = image.getWidth() * 0.02f;
             overlay.setClipToOutline(true);
             overlay.setOutlineProvider(new ViewOutlineProvider() {
-                @Override public void getOutline(View view, Outline outline) {
+                @Override
+                public void getOutline(View view, Outline outline) {
                     outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
                 }
             });
@@ -206,7 +215,7 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
 
         Runnable tryActivate = () -> maybeActivate(image, overlay, textureView);
         image.postDelayed(tryActivate, 60);
-        image.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,orR,ob) -> image.post(tryActivate));
+        image.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, orR, ob) -> image.post(tryActivate));
 
         startHeartbeat(image, overlay, textureView);
     }
@@ -221,15 +230,20 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
                 activePlayer.setPlayWhenReady(true);
 
                 activePlayer.addListener(new Player.Listener() {
-                    @Override public void onPlayerError(PlaybackException error) {
+                    @Override
+                    public void onPlayerError(PlaybackException error) {
                         XposedBridge.log("[SpotifyPlus] ExoPlayer error: " + error);
                     }
-                    @Override public void onVideoSizeChanged(VideoSize vs) {
+
+                    @Override
+                    public void onVideoSizeChanged(VideoSize vs) {
                         FrameLayout o = activeOverlay;
-                        if (o == null || vs.height <= 0 || vs.width <= 0) return;
+                        if (o == null || vs.height <= 0 || vs.width <= 0)
+                            return;
 
                         Object tag = o.getTag(TAG_ARF);
-                        if (!(tag instanceof AspectRatioFrameLayout)) return;
+                        if (!(tag instanceof AspectRatioFrameLayout))
+                            return;
 
                         float aspect = (vs.width * vs.pixelWidthHeightRatio) / (float) vs.height;
                         ((AspectRatioFrameLayout) tag).setAspectRatio(aspect);
@@ -238,7 +252,10 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
             }
 
             if (activeTextureView != null && activeTextureView != textureView) {
-                try { activePlayer.clearVideoSurface(); } catch (Throwable ignored) {}
+                try {
+                    activePlayer.clearVideoSurface();
+                } catch (Throwable ignored) {
+                }
             }
 
             activeOverlay = overlay;
@@ -250,16 +267,20 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
     }
 
     private static boolean isCenteredAndMostlyVisible(View v) {
-        if (!v.isShown()) return false;
+        if (!v.isShown())
+            return false;
 
         Rect r = new Rect();
-        if (!v.getGlobalVisibleRect(r)) return false;
+        if (!v.getGlobalVisibleRect(r))
+            return false;
 
         int vw = v.getWidth(), vh = v.getHeight();
-        if (vw <= 0 || vh <= 0) return false;
+        if (vw <= 0 || vh <= 0)
+            return false;
 
-        float visibleArea = (r.width() * r.height()) / (float)(vw * vh);
-        if (visibleArea < 0.85f) return false; // require mostly visible
+        float visibleArea = (r.width() * r.height()) / (float) (vw * vh);
+        if (visibleArea < 0.85f)
+            return false; // require mostly visible
 
         View root = v.getRootView();
         int screenCx = root.getWidth() / 2;
@@ -269,10 +290,12 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
     }
 
     private void maybeActivate(View image, FrameLayout overlay, TextureView tv) {
-        if (!isCenteredAndMostlyVisible(image)) return;
+        if (!isCenteredAndMostlyVisible(image))
+            return;
 
         SpotifyTrack track = References.getTrackTitle(lpparm, bridge);
-        if (track == null) return;
+        if (track == null)
+            return;
 
         Object last = overlay.getTag(TAG_LAST_URI);
         String lastUri = (last instanceof String) ? (String) last : null;
@@ -292,7 +315,8 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
         try {
             p.stop();
             p.clearMediaItems();
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
 
         fetchAndPlayForActive(gen, overlay, track);
     }
@@ -301,24 +325,17 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
         OkHttpClient client = new OkHttpClient.Builder().build();
 
         final String term = track.title + " " + track.artist;
-<<<<<<< Updated upstream
         String enc = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
                 ? URLEncoder.encode(term, StandardCharsets.UTF_8)
                 : URLEncoder.encode(term);
 
         Request request = new Request.Builder()
-                .url("https://itunes.apple.com/search?country=us&media=music&limit=1&term=" + enc)
-                .get()
-                .build();
-=======
-        String enc = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) ? URLEncoder.encode(term, StandardCharsets.UTF_8) : URLEncoder.encode(term);
-
-        Request request = new Request.Builder().url("https://itunes.apple.com/search?country=us&media=music&limit=1&term=" + enc).get().build();
->>>>>>> Stashed changes
+                .url("https://itunes.apple.com/search?country=us&media=music&limit=1&term=" + enc).get().build();
 
         new Thread(() -> {
             try (Response response = client.newCall(request).execute()) {
-                if (!response.isSuccessful() || response.body() == null) return;
+                if (!response.isSuccessful() || response.body() == null)
+                    return;
 
                 String json = response.body().string();
                 JsonObject root = JsonParser.parseString(json).getAsJsonObject();
@@ -327,19 +344,24 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
 
                 Request appleMusicRequest = new Request.Builder().url(url).get().build();
                 try (Response appleResponse = client.newCall(appleMusicRequest).execute()) {
-                    if (!appleResponse.isSuccessful() || appleResponse.body() == null) return;
+                    if (!appleResponse.isSuccessful() || appleResponse.body() == null)
+                        return;
 
                     Document doc = Jsoup.parse(appleResponse.body().string());
                     Element video = doc.selectFirst("amp-ambient-video");
-                    if (video == null) return;
+                    if (video == null)
+                        return;
 
                     String src = video.attr("src");
                     new Handler(Looper.getMainLooper()).post(() -> {
                         // stale request? ignore
-                        if (GEN.get() != gen) return;
-                        if (overlay != activeOverlay) return;
+                        if (GEN.get() != gen)
+                            return;
+                        if (overlay != activeOverlay)
+                            return;
 
-                        if (activePlayer == null) return;
+                        if (activePlayer == null)
+                            return;
                         activePlayer.setMediaItem(MediaItem.fromUri(src));
                         activePlayer.prepare();
                         activePlayer.play();
@@ -353,8 +375,10 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
 
     private void startHeartbeat(View image, FrameLayout overlay, TextureView tv) {
         overlay.postOnAnimationDelayed(new Runnable() {
-            @Override public void run() {
-                if (!overlay.isAttachedToWindow()) return;
+            @Override
+            public void run() {
+                if (!overlay.isAttachedToWindow())
+                    return;
                 maybeActivate(image, overlay, tv);
                 overlay.postOnAnimationDelayed(this, 500);
             }
