@@ -31,8 +31,8 @@ public class LyricUtilities {
     };
 
     private static NaturalAlignment getNaturalAlignment(String language) {
-        for(String lang : rightToLeftLanguages) {
-            if(language.equals(lang)) {
+        for (String lang : rightToLeftLanguages) {
+            if (language.equals(lang)) {
                 return NaturalAlignment.RIGHT;
             } else {
                 return NaturalAlignment.LEFT;
@@ -60,23 +60,23 @@ public class LyricUtilities {
 
         List<TimeMetadata> vocalTimes = new ArrayList<TimeMetadata>();
 
-        if(lyrics.lyrics.staticLyrics instanceof StaticSyncedLyrics) {
+        if (lyrics.lyrics.staticLyrics instanceof StaticSyncedLyrics) {
             String textToProcess = lyrics.lyrics.staticLyrics.lines.stream().map(x -> x.text).collect(Collectors.joining("\n"));
 
             lyrics.language = getLanguage(textToProcess);
             lyrics.naturalAlignment = getNaturalAlignment(lyrics.language);
-        } else if(lyrics.lyrics.lineLyrics instanceof LineSyncedLyrics) {
+        } else if (lyrics.lyrics.lineLyrics instanceof LineSyncedLyrics) {
 
             try {
                 List<String> lines = new ArrayList<>();
                 List<LineVocal> lineVocals = new ArrayList<>();
 
-                for(Object vocalGroup : lyrics.lyrics.lineLyrics.content) {
+                for (Object vocalGroup : lyrics.lyrics.lineLyrics.content) {
                     Gson gson = new Gson();
                     JsonElement jsonElement = gson.toJsonTree(vocalGroup);
                     LineVocal vocal = gson.fromJson(jsonElement, LineVocal.class);
 
-                    if(vocal != null) {
+                    if (vocal != null) {
                         lines.add(vocal.text);
                         lineVocals.add(vocal);
 
@@ -104,7 +104,7 @@ public class LyricUtilities {
                 time.startTime = 0;
                 time.endTime = firstVocalGroup.startTime - 0.25d;
 
-                if(firstVocalGroup.startTime >= interludeDuration) {
+                if (firstVocalGroup.startTime >= interludeDuration) {
                     vocalTimes.add(0, time);
                     var newList = new ArrayList<>(lyrics.lyrics.lineLyrics.content);
 
@@ -116,11 +116,11 @@ public class LyricUtilities {
                     addedStartInterlude = true;
                 }
 
-                for(int i = vocalTimes.size() - 1; i > (addedStartInterlude ? 1 : 0); i--) {
+                for (int i = vocalTimes.size() - 1; i > (addedStartInterlude ? 1 : 0); i--) {
                     var endingVocalGroup = vocalTimes.get(i);
                     var startingvocalGroup = vocalTimes.get(i - 1);
 
-                    if(endingVocalGroup.startTime - startingvocalGroup.endTime >= interludeDuration) {
+                    if (endingVocalGroup.startTime - startingvocalGroup.endTime >= interludeDuration) {
                         vocalTimes.add(i, time);
 
                         TimeMetadata newTime = new TimeMetadata();
@@ -135,41 +135,45 @@ public class LyricUtilities {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        } else if(lyrics.lyrics.syllableLyrics instanceof SyllableSyncedLyrics) {
+        } else if (lyrics.lyrics.syllableLyrics instanceof SyllableSyncedLyrics) {
             List<String> lines = new ArrayList<>();
             List<SyllableVocalSet> vocalLines = new ArrayList<>();
 
-            for(Object vocalGroup : lyrics.lyrics.syllableLyrics.content) {
+            for (Object vocalGroup : lyrics.lyrics.syllableLyrics.content) {
                 Gson gson = new Gson();
                 JsonElement jsonElement = gson.toJsonTree(vocalGroup);
                 SyllableVocalSet vocalSet = gson.fromJson(jsonElement, SyllableVocalSet.class);
 
-                if(vocalSet != null) {
-                    String text = vocalSet.lead.syllables.get(0).text;
+                if (vocalSet != null) {
+                    try {
+                        String text = vocalSet.lead.syllables.get(0).text;
 
-                    for(int i = 1; i < vocalSet.lead.syllables.size(); i++) {
-                        var syllable = vocalSet.lead.syllables.get(i);
-                        text += (syllable.isPartOfWord ? "" : " ") + syllable.text;
-                    }
-
-                    lines.add(text);
-                    vocalLines.add(vocalSet);
-
-                    double startTime = vocalSet.lead.startTime;
-                    double endTime = vocalSet.lead.endTime;
-
-                    if(vocalSet.background != null) {
-                        for(var backgroundVocal : vocalSet.background) {
-                            startTime = Math.min(startTime, backgroundVocal.startTime);
-                            endTime = Math.max(endTime, backgroundVocal.endTime);
+                        for (int i = 1; i < vocalSet.lead.syllables.size(); i++) {
+                            var syllable = vocalSet.lead.syllables.get(i);
+                            text += (syllable.isPartOfWord ? "" : " ") + syllable.text;
                         }
+
+                        lines.add(text);
+                        vocalLines.add(vocalSet);
+
+                        double startTime = vocalSet.lead.startTime;
+                        double endTime = vocalSet.lead.endTime;
+
+                        if (vocalSet.background != null) {
+                            for (var backgroundVocal : vocalSet.background) {
+                                startTime = Math.min(startTime, backgroundVocal.startTime);
+                                endTime = Math.max(endTime, backgroundVocal.endTime);
+                            }
+                        }
+
+                        TimeMetadata time = new TimeMetadata();
+                        time.startTime = startTime;
+                        time.endTime = endTime;
+
+                        vocalTimes.add(time);
+                    } catch (Exception e) {
+                        XposedBridge.log(e);
                     }
-
-                    TimeMetadata time = new TimeMetadata();
-                    time.startTime = startTime;
-                    time.endTime = endTime;
-
-                    vocalTimes.add(time);
                 }
             }
 
@@ -189,7 +193,7 @@ public class LyricUtilities {
             time.startTime = 0;
             time.endTime = firstVocalGroup.startTime - 0.25d;
 
-            if(firstVocalGroup.startTime >= interludeDuration) {
+            if (firstVocalGroup.startTime >= interludeDuration) {
                 vocalTimes.add(0, time);
                 var newList = new ArrayList<>(lyrics.lyrics.syllableLyrics.content);
 
@@ -201,11 +205,11 @@ public class LyricUtilities {
                 addedStartInterlude = true;
             }
 
-            for(int i = vocalTimes.size() - 1; i > (addedStartInterlude ? 1 : 0); i--) {
+            for (int i = vocalTimes.size() - 1; i > (addedStartInterlude ? 1 : 0); i--) {
                 var endingVocalGroup = vocalTimes.get(i);
                 var startingvocalGroup = vocalTimes.get(i - 1);
 
-                if(endingVocalGroup.startTime - startingvocalGroup.endTime >= interludeDuration) {
+                if (endingVocalGroup.startTime - startingvocalGroup.endTime >= interludeDuration) {
                     vocalTimes.add(i, time);
 
                     TimeMetadata newTime = new TimeMetadata();

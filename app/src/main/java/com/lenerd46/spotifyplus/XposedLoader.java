@@ -43,7 +43,11 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
     private DexKitBridge bridge;
     private String modulePath = null;
+<<<<<<< Updated upstream
     private static final String MODULE_VERSION = "0.6.2";
+=======
+    private static final String MODULE_VERSION = "0.6.7";
+>>>>>>> Stashed changes
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
@@ -133,6 +137,11 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                 new AnimatedAlbumArtwork().init(lpparam, bridge);
                 new TestingHook().init(lpparam, bridge);
                 new NewContextMenuHook().init(lpparam, bridge);
+<<<<<<< Updated upstream
+=======
+                new SleepTimerHook(context).init(lpparam, bridge);
+//                new PrivateSessionHook().init(lpparam, bridge);
+>>>>>>> Stashed changes
 //                new ThemeHook().init(lpparam, bridge);
 //                new ThemeTest().init(lpparam, bridge);
                 //                new LikedSongHook().init(lpparam, bridge);

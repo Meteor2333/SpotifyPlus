@@ -301,6 +301,7 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
         OkHttpClient client = new OkHttpClient.Builder().build();
 
         final String term = track.title + " " + track.artist;
+<<<<<<< Updated upstream
         String enc = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
                 ? URLEncoder.encode(term, StandardCharsets.UTF_8)
                 : URLEncoder.encode(term);
@@ -309,6 +310,11 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
                 .url("https://itunes.apple.com/search?country=us&media=music&limit=1&term=" + enc)
                 .get()
                 .build();
+=======
+        String enc = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) ? URLEncoder.encode(term, StandardCharsets.UTF_8) : URLEncoder.encode(term);
+
+        Request request = new Request.Builder().url("https://itunes.apple.com/search?country=us&media=music&limit=1&term=" + enc).get().build();
+>>>>>>> Stashed changes
 
         new Thread(() -> {
             try (Response response = client.newCall(request).execute()) {

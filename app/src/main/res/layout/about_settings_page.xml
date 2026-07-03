@@ -52,7 +52,11 @@
                 </LinearLayout>
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+<<<<<<< Updated upstream
                           android:text="0.6.1" android:layout_marginEnd="8dp" android:layout_gravity="center_vertical"/>
+=======
+                          android:text="0.6.7" android:layout_marginEnd="8dp" android:layout_gravity="center_vertical"/>
+>>>>>>> Stashed changes
             </LinearLayout>
 
             <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:orientation="horizontal">

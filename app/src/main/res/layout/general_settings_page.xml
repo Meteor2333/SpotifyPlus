@@ -162,7 +162,11 @@
                         style="@style/TextAppearance.Material3.BodySmall"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+<<<<<<< Updated upstream
                         android:text="Blocks ads across the app. This feature is still in beta, please report any issues on the GitHub"
+=======
+                        android:text="Attempts to block ads across the app. This feature is still in beta, and is not guaranteed to work"
+>>>>>>> Stashed changes
                         android:textColor="?attr/colorOnSurfaceVariant"/>
 
                 <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" >
@@ -186,8 +190,96 @@
                     android:layout_height="wrap_content"
                     android:paddingEnd="8dp"
                     android:checked="true"
+<<<<<<< Updated upstream
                     android:contentDescription="Check for updates"/>
 
+=======
+                    android:contentDescription="Block ads"/>
+        </LinearLayout>
+
+        <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp"
+                android:clickable="true" android:focusable="true"
+                android:background="@drawable/row_click_bg">
+
+            <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Persistent Private Session"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:paddingBottom="4dp"
+                />
+
+                <TextView
+                        style="@style/TextAppearance.Material3.BodySmall"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Always keep private session enabled"
+                        android:textColor="?attr/colorOnSurfaceVariant"/>
+            </LinearLayout>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switch_private_session"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingEnd="8dp"
+                    android:checked="true"
+                    android:contentDescription="Enable private session"/>
+        </LinearLayout>
+
+        <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp"
+                android:clickable="true" android:focusable="true"
+                android:background="@drawable/row_click_bg">
+
+            <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Manage Custom Sleep Timers"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:paddingBottom="4dp"
+                />
+
+                <TextView
+                        style="@style/TextAppearance.Material3.BodySmall"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Reorder and delete the sleep timer values"
+                        android:textColor="?attr/colorOnSurfaceVariant"/>
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_manage_timers"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="8dp"
+                    android:text="Manage"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:textColor="@color/white"
+                    android:contentDescription="Manage your custom sleep timers"/>
+>>>>>>> Stashed changes
         </LinearLayout>
 
         <View
@@ -229,7 +321,11 @@
                         style="@style/TextAppearance.Material3.BodySmall"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+<<<<<<< Updated upstream
                         android:text="Removes the create button in the navbar"
+=======
+                        android:text="Removes the create button in the navbar. Does not work after v9.1.0.1187"
+>>>>>>> Stashed changes
                         android:textColor="?attr/colorOnSurfaceVariant"/>
             </LinearLayout>
 

@@ -21,7 +21,11 @@ public class SpotifyTitleOverride {
 
             References.xresources.setReplacement("com.spotify.music", "string", entry, newValue);
         } catch(Throwable t) {
+<<<<<<< Updated upstream
             XposedBridge.log(t);
+=======
+//            XposedBridge.log(t);
+>>>>>>> Stashed changes
         }
     }
 

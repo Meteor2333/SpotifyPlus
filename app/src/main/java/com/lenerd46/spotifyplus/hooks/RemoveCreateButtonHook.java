@@ -5,7 +5,13 @@ import android.app.AlertDialog;
 import android.content.*;
 import android.content.res.Resources;
 import android.content.res.XModuleResources;
+<<<<<<< Updated upstream
 import android.graphics.Typeface;
+=======
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
+>>>>>>> Stashed changes
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -16,8 +22,18 @@ import android.util.Pair;
 import android.util.TypedValue;
 import android.view.*;
 import android.widget.*;
+<<<<<<< Updated upstream
 import androidx.appcompat.widget.AppCompatTextView;
 import androidx.documentfile.provider.DocumentFile;
+=======
+import android.window.OnBackInvokedDispatcher;
+import androidx.annotation.NonNull;
+import androidx.appcompat.widget.AppCompatTextView;
+import androidx.documentfile.provider.DocumentFile;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+>>>>>>> Stashed changes
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
@@ -29,6 +45,11 @@ import com.lenerd46.spotifyplus.*;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
+<<<<<<< Updated upstream
+=======
+import org.json.JSONArray;
+import org.json.JSONObject;
+>>>>>>> Stashed changes
 import org.luckypray.dexkit.query.FindClass;
 import org.luckypray.dexkit.query.FindField;
 import org.luckypray.dexkit.query.FindMethod;
@@ -417,7 +438,15 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                     }
                                 };
 
+<<<<<<< Updated upstream
                                 dispatcher.registerOnBackInvokedCallback(1000001, callback);
+=======
+                                try {
+                                    dispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_OVERLAY, callback);
+                                } catch (Exception e) {
+                                    XposedBridge.log(e);
+                                }
+>>>>>>> Stashed changes
                             }
 
                             MaterialToolbar toolbar = settingsPage.findViewById(R.id.toolbar);
@@ -512,6 +541,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                             root.removeView(lastfmThing);
                                             lastfmPopup.set(null);
                                         });
+<<<<<<< Updated upstream
 
 //                                        EditText input = lastfmThing.findViewById(modResources.getIdentifier("last_fm_input", "id", "com.lenerd46.spotifyplus"));
 //                                        Button confirmButton = lastfmThing.findViewById(modResources.getIdentifier("btn_lastfm_confirm", "id", "com.lenerd46.spotifyplus"));
@@ -539,6 +569,8 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 //                                        });
 //
 //                                        dialog.show();
+=======
+>>>>>>> Stashed changes
                                     } catch (Throwable t) {
                                         XposedBridge.log(t);
                                     }
@@ -551,10 +583,152 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 
                                 blockAds.setChecked(prefs.getBoolean("block_ads", false));
 
+<<<<<<< Updated upstream
+=======
+                                MaterialSwitch privateSession = view.findViewById(R.id.switch_private_session);
+                                privateSession.setOnCheckedChangeListener((check, value) -> {
+                                    prefs.edit().putBoolean("private_session", value).apply();
+                                });
+
+                                privateSession.setChecked(prefs.getBoolean("private_session", false));
+
+>>>>>>> Stashed changes
                                 create.setOnCheckedChangeListener((check, value) -> {
                                     prefs.edit().putBoolean("remove_create", value).apply();
                                 });
 
+<<<<<<< Updated upstream
+=======
+                                MaterialButton manageSleepTimers = view.findViewById(R.id.btn_manage_timers);
+
+                                manageSleepTimers.setOnClickListener(managerView -> {
+                                    try {
+                                        int theme = SleepTimerHook.getSpotifyStyle(lpparm.classLoader, "ModalBottomSheetDialog", 0);
+
+                                        Object sheet = XposedHelpers.newInstance(
+                                                XposedHelpers.findClass("p.p08", lpparm.classLoader),
+                                                activity,
+                                                theme
+                                        );
+
+                                        int themeOverlayLast = R.style.Theme_SpotifyPlus;
+                                        Context themedCtxLast = new ModuleContextWrapper(activity.getApplicationContext(), themeOverlayLast, modResources, ModuleContextWrapper.class.getClassLoader());
+                                        LayoutInflater inflaterLast = LayoutInflater.from(activity.getApplicationContext()).cloneInContext(themedCtxLast);
+
+                                        View timerViews = inflaterLast.inflate(modResources.getIdentifier("manage_sleep_timers_view", "layout", "com.lenerd46.spotifyplus"), null, false);
+//                                        root.addView(timerViews);
+
+                                        MaterialSwitch autoReorderSwitch = timerViews.findViewById(modResources.getIdentifier("switch_sleep_timer_auto_reorder", "id", "com.lenerd46.spotifyplus"));
+                                        TextView hintView = timerViews.findViewById(modResources.getIdentifier("sleep_timer_presets_hint", "id", "com.lenerd46.spotifyplus"));
+                                        RecyclerView recycler = timerViews.findViewById(modResources.getIdentifier("recycler_sleep_timer_presets", "id", "com.lenerd46.spotifyplus"));
+                                        TextView emptyView = timerViews.findViewById(modResources.getIdentifier("sleep_timer_presets_empty", "id", "com.lenerd46.spotifyplus"));
+                                        View saveButton = timerViews.findViewById(modResources.getIdentifier("btn_save_sleep_timer_presets", "id", "com.lenerd46.spotifyplus"));
+                                        View cancelButton = timerViews.findViewById(modResources.getIdentifier("btn_cancel_sleep_timer_presets", "id", "com.lenerd46.spotifyplus"));
+
+                                        ArrayList<SleepTimerHook.SleepTimerInfo> presets = loadSleepTimerPresets(prefs);
+
+                                        boolean[] autoReorder = { prefs.getBoolean("custom_sleep_timers_auto_reorder", true) };
+
+                                        if(autoReorder[0]) {
+                                            sortSleepTimerPresets(presets);
+                                        }
+
+                                        autoReorderSwitch.setChecked(autoReorder[0]);
+                                        hintView.setText(autoReorder[0] ? "Manual reordering is disabled while auto reorder is enabled." : "Hold and drag a preset to reorder it.");
+
+                                        SleepTimerPresetAdapter adapter = new SleepTimerPresetAdapter(themedCtxLast, modResources, inflaterLast, presets, () -> {
+                                            boolean empty = presets.isEmpty();
+                                            recycler.setVisibility(empty ? View.GONE : View.VISIBLE);
+                                            emptyView.setVisibility(empty ? View.VISIBLE : View.GONE);
+                                        });
+
+                                        recycler.setLayoutManager(new LinearLayoutManager(themedCtxLast));
+                                        recycler.setAdapter(adapter);
+
+                                        autoReorderSwitch.setOnCheckedChangeListener((button, checked) -> {
+                                            autoReorder[0] = checked;
+
+                                            if(checked) {
+                                                sortSleepTimerPresets(presets);
+                                                adapter.notifyDataSetChanged();
+                                            }
+
+                                            hintView.setText(checked ? "Manual reordering is disabled while auto reorder is enabled." : "Hold and drag a preset to reorder it.");
+                                        });
+
+                                        boolean empty = presets.isEmpty();
+                                        recycler.setVisibility(empty ? View.GONE : View.VISIBLE);
+                                        emptyView.setVisibility(empty ? View.VISIBLE : View.GONE);
+
+                                        ItemTouchHelper helper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
+                                            @Override
+                                            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder from, @NonNull RecyclerView.ViewHolder to) {
+                                                if(autoReorder[0]) return false;
+
+                                                int fromPos = from.getBindingAdapterPosition();
+                                                int toPos = to.getBindingAdapterPosition();
+
+                                                if(fromPos == RecyclerView.NO_POSITION || toPos == RecyclerView.NO_POSITION) return false;
+
+                                                Collections.swap(presets, fromPos, toPos);
+                                                adapter.notifyItemMoved(fromPos, toPos);
+                                                return true;
+                                            }
+
+                                            @Override
+                                            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) { }
+
+                                            @Override
+                                            public boolean isLongPressDragEnabled() {
+                                                return !autoReorder[0];
+                                            }
+                                        });
+
+                                        helper.attachToRecyclerView(recycler);
+
+                                        saveButton.setOnClickListener(save -> {
+                                            if(autoReorder[0]) {
+                                                sortSleepTimerPresets(presets);
+                                            }
+
+                                            prefs.edit().putBoolean("custom_sleep_timers_auto_reorder", autoReorder[0]).apply();
+                                            saveSleepTimerPresets(prefs, presets);
+                                            XposedHelpers.callMethod(sheet, "dismiss");
+                                        });
+
+                                        cancelButton.setOnClickListener(cancel -> XposedHelpers.callMethod(sheet, "dismiss"));
+
+                                        timerViews.setOnClickListener(timer -> XposedHelpers.callMethod(sheet, "dismiss"));
+
+//                                        View sheet = timerViews.findViewById(modResources.getIdentifier("sleep_timer_presets_sheet", "id", "com.lenerd46.spotifyplus"));
+//                                        if(sheet != null) sheet.setOnClickListener(sheetThing -> { });
+
+                                        XposedHelpers.callMethod(sheet, "setContentView", timerViews);
+                                        XposedHelpers.callMethod(sheet, "show");
+
+                                        Window window = (Window) XposedHelpers.callMethod(sheet, "getWindow");
+                                        if (window != null) {
+                                            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                                        }
+
+                                        try {
+                                            View bottomSheet = (View) XposedHelpers.getObjectField(sheet, "i"); // p08.design_bottom_sheet
+                                            bottomSheet.setBackgroundColor(Color.TRANSPARENT);
+                                            bottomSheet.setBackground(null);
+                                        } catch (Throwable ignored) {
+                                        }
+
+                                        try {
+                                            View outer = (View) XposedHelpers.getObjectField(sheet, "g"); // p08 root container
+                                            outer.setBackgroundColor(Color.TRANSPARENT);
+                                        } catch (Throwable ignored) {
+                                        }
+                                    } catch (Throwable t) {
+                                        XposedBridge.log(t);
+                                    }
+                                });
+
+>>>>>>> Stashed changes
                                 MaterialRadioButton home = view.findViewById(R.id.rb_home);
                                 MaterialRadioButton search = view.findViewById(R.id.rb_search);
                                 MaterialRadioButton explore = view.findViewById(R.id.rb_explore);
@@ -781,6 +955,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                 });
 
                                 String sliderValueThing = prefs.getString("line_spacing", "default");
+<<<<<<< Updated upstream
                                 switch(sliderValueThing) {
                                     case "compact": slider.setValue(0);
                                     case "default": slider.setValue(1);
@@ -788,6 +963,21 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                     case "more": slider.setValue(3);
                                     case "max": slider.setValue(4);
                                     default: slider.setValue(1);
+=======
+                                switch (sliderValueThing) {
+                                    case "compact":
+                                        slider.setValue(0);
+                                    case "default":
+                                        slider.setValue(1);
+                                    case "spacious":
+                                        slider.setValue(2);
+                                    case "more":
+                                        slider.setValue(3);
+                                    case "max":
+                                        slider.setValue(4);
+                                    default:
+                                        slider.setValue(1);
+>>>>>>> Stashed changes
                                 }
 
                                 MaterialSwitch background = view.findViewById(R.id.switch_enable_background);
@@ -835,7 +1025,10 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                 });
 
                                 MaterialSwitch sendToken = view.findViewById(R.id.switch_send_token);
+<<<<<<< Updated upstream
                                 MaterialSwitch userLyrics = view.findViewById(R.id.switch_check_user_lyrics);
+=======
+>>>>>>> Stashed changes
 
                                 background.setOnCheckedChangeListener((button, value) -> {
                                     prefs.edit().putBoolean("lyric_enable_background", value).apply();
@@ -849,10 +1042,13 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                     prefs.edit().putBoolean("lyrics_send_token", value).apply();
                                 });
 
+<<<<<<< Updated upstream
                                 userLyrics.setOnCheckedChangeListener((button, value) -> {
                                     prefs.edit().putBoolean("lyrics_check_custom", value).apply();
                                 });
 
+=======
+>>>>>>> Stashed changes
                                 String style = prefs.getString("lyric_animation_style", "Beautiful Lyrics");
                                 visualBeautiful.setChecked(style.equals("Beautiful Lyrics"));
                                 visualApple.setChecked(style.equals("Apple Music"));
@@ -878,7 +1074,10 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                 superLow.setChecked(quality.equals("superLow"));
 
                                 sendToken.setChecked(prefs.getBoolean("lyrics_send_token", true));
+<<<<<<< Updated upstream
                                 userLyrics.setChecked(prefs.getBoolean("lyrics_check_custom", false));
+=======
+>>>>>>> Stashed changes
                             });
 
                             experimentalSettings.setOnClickListener(v -> {
@@ -1220,4 +1419,107 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                 context.getResources().getDisplayMetrics()
         );
     }
+<<<<<<< Updated upstream
+=======
+
+    private ArrayList<SleepTimerHook.SleepTimerInfo> loadSleepTimerPresets(SharedPreferences prefs) {
+        ArrayList<SleepTimerHook.SleepTimerInfo> presets = new ArrayList<>();
+
+        try {
+            JSONArray array = new JSONArray(prefs.getString("custom_sleep_timers", "[{\"value\":5,\"unit\":false},{\"value\":10,\"unit\":false},{\"value\":15,\"unit\":false},{\"value\":30,\"unit\":false},{\"value\":45,\"unit\":false},{\"value\":1,\"unit\":true}]"));
+
+            for(int i = 0; i < array.length(); i++) {
+                JSONObject object = array.getJSONObject(i);
+                presets.add(new SleepTimerHook.SleepTimerInfo(object.getInt("value"), object.getBoolean("unit")));
+            }
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+
+        return presets;
+    }
+
+    private void saveSleepTimerPresets(SharedPreferences prefs, ArrayList<SleepTimerHook.SleepTimerInfo> presets) {
+        try {
+            JSONArray array = new JSONArray();
+
+            for(SleepTimerHook.SleepTimerInfo preset : presets) {
+                JSONObject object = new JSONObject();
+                object.put("value", preset.value);
+                object.put("unit", preset.unit);
+                array.put(object);
+            }
+
+            prefs.edit().putString("custom_sleep_timers", array.toString()).apply();
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
+
+    private static class SleepTimerPresetAdapter extends RecyclerView.Adapter<SleepTimerPresetAdapter.Holder> {
+        private final Context context;
+        private final Resources modResources;
+        private final LayoutInflater inflater;
+        private final ArrayList<SleepTimerHook.SleepTimerInfo> presets;
+        private final Runnable onChanged;
+
+        SleepTimerPresetAdapter(Context context, Resources modResources, LayoutInflater inflater, ArrayList<SleepTimerHook.SleepTimerInfo> presets, Runnable onChanged) {
+            this.context = context;
+            this.modResources = modResources;
+            this.inflater = inflater;
+            this.presets = presets;
+            this.onChanged = onChanged;
+        }
+
+        @NonNull
+        @Override
+        public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = inflater.inflate(modResources.getIdentifier("item_custom_sleep_timer", "layout", "com.lenerd46.spotifyplus"), parent, false);
+            return new Holder(view, modResources);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull Holder holder, int position) {
+            SleepTimerHook.SleepTimerInfo preset = presets.get(position);
+
+            holder.title.setText(preset.getTitle());
+
+            holder.deleteButton.setOnClickListener(v -> {
+                int pos = holder.getBindingAdapterPosition();
+                if(pos == RecyclerView.NO_POSITION) return;
+
+                presets.remove(pos);
+                notifyItemRemoved(pos);
+                onChanged.run();
+            });
+        }
+
+        @Override
+        public int getItemCount() {
+            return presets.size();
+        }
+
+        static class Holder extends RecyclerView.ViewHolder {
+            TextView title;
+            TextView subtitle;
+            View deleteButton;
+
+            Holder(@NonNull View itemView, Resources modResources) {
+                super(itemView);
+
+                title = itemView.findViewById(modResources.getIdentifier("sleep_timer_preset_title", "id", "com.lenerd46.spotifyplus"));
+                subtitle = itemView.findViewById(modResources.getIdentifier("sleep_timer_preset_subtitle", "id", "com.lenerd46.spotifyplus"));
+                deleteButton = itemView.findViewById(modResources.getIdentifier("btn_delete_sleep_timer_preset", "id", "com.lenerd46.spotifyplus"));
+            }
+        }
+    }
+
+    private void sortSleepTimerPresets(ArrayList<SleepTimerHook.SleepTimerInfo> presets) {
+        presets.sort(Comparator.comparingLong(this::getSleepTimerDurationMillis));
+    }
+
+    private long getSleepTimerDurationMillis(SleepTimerHook.SleepTimerInfo preset) {
+        return preset.unit ? java.util.concurrent.TimeUnit.HOURS.toMillis(preset.value) : java.util.concurrent.TimeUnit.MINUTES.toMillis(preset.value);
+    }
+>>>>>>> Stashed changes
 }

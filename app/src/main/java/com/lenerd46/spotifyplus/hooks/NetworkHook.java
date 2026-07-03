@@ -5,6 +5,14 @@ import android.content.SharedPreferences;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
+<<<<<<< Updated upstream
+=======
+import org.luckypray.dexkit.query.FindMethod;
+import org.luckypray.dexkit.query.matchers.MethodMatcher;
+
+import java.lang.reflect.Method;
+import java.util.Collections;
+>>>>>>> Stashed changes
 
 public class NetworkHook extends SpotifyHook {
     private final Context context;
@@ -18,6 +26,7 @@ public class NetworkHook extends SpotifyHook {
         SharedPreferences prefs = context.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
 
         if (prefs.getBoolean("block_ads", false)) {
+<<<<<<< Updated upstream
             XposedBridge.hookAllConstructors(XposedHelpers.findClass("okhttp3.Request", lpparm.classLoader), new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -29,6 +38,27 @@ public class NetworkHook extends SpotifyHook {
                     }
                 }
             });
+=======
+            try {
+
+                Method httpBuildMethod = bridge.findMethod(FindMethod.create().searchInClass(Collections.singletonList(bridge.getClassData(XposedHelpers.findClass("okhttp3.Request$Builder", lpparm.classLoader)))).matcher(MethodMatcher.create().paramTypes(String.class).usingStrings("ws"))).get(0).getMethodInstance(lpparm.classLoader);
+
+                XposedBridge.hookMethod(httpBuildMethod, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        String url = param.args[0].toString();
+
+                        //  || url.contains("gabo-receiver-service") || url.contains("net-fortune") || url.contains("darwin-experiments") || url.contains("speechless-sharing") || url.contains("pendragon")
+                        if (url.contains("/ads") || url.contains("ad.") || url.contains("ad-logic") || url.contains("videoamp") || url.contains("aet") || url.contains("secure-gl")) {
+                            param.args[0] = "https://127.0.0.1:404/";
+//                            XposedBridge.log("[SpotifyPlus] " + url);
+                        } else {
+//                            XposedBridge.log("[SpotifyPlus] " + url);
+                        }
+                    }
+                });
+            } catch (NoSuchMethodException ignored) { }
+>>>>>>> Stashed changes
         }
     }
 }

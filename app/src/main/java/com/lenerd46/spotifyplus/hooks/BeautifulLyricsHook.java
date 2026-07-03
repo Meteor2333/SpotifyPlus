@@ -25,10 +25,14 @@ import com.google.android.flexbox.FlexDirection;
 import com.google.android.flexbox.FlexWrap;
 import com.google.android.flexbox.FlexboxLayout;
 import com.google.android.flexbox.JustifyContent;
+<<<<<<< Updated upstream
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+=======
+import com.google.gson.*;
+>>>>>>> Stashed changes
 import com.lenerd46.spotifyplus.R;
 import com.lenerd46.spotifyplus.References;
 import com.lenerd46.spotifyplus.SpotifyTrack;
@@ -135,6 +139,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                     lastTimestamp = 0;
                     targetScrollOffset = 0;
 
+<<<<<<< Updated upstream
                     new Thread(() -> {
                         try {
                             String lyrics = NeteaseApi.fetchLyric(2133503225L);
@@ -144,6 +149,17 @@ public class BeautifulLyricsHook extends SpotifyHook {
                             XposedBridge.log(e);
                         }
                     }).start();
+=======
+//                    new Thread(() -> {
+//                        try {
+//                            String lyrics = NeteaseApi.fetchLyric(2133503225L);
+//                            XposedBridge.log("[SpotifyPlus] " + lyrics);
+//                        } catch (Exception e) {
+//                            XposedBridge.log("[SpotifyPlus] " + e.getMessage());
+//                            XposedBridge.log(e);
+//                        }
+//                    }).start();
+>>>>>>> Stashed changes
 
                     activity.runOnUiThread(() -> {
                         try {
@@ -644,16 +660,61 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                 String token = References.accessToken;
                 OkHttpClient lyricsClient = new OkHttpClient();
+<<<<<<< Updated upstream
                 RequestBody body = RequestBody.create("{ \"queries\": [ { \"operation\": \"lyrics\", \"variables\": { \"id\": \"" + id + "\", \"auth\": \"SpicyLyrics-WebAuth\" } } ], \"client\": { \"version\": \"5.21.5\" } }", MediaType.parse("application/json; charset=utf-8"));
                 Request lyricsRequest = new Request.Builder().url("https://api.spicylyrics.org/query").post(body).header("Spicylyrics-Webauth", "Bearer " + (((token != null && !token.isEmpty())) ? token : "0")).header("Spicylyrics-Version", "5.21.5").header("Origin", "https://xpui.app.spotify.com").build();
+=======
+
+                RequestBody body = RequestBody.create("{\"queries\":[{\"operation\":\"lyrics\",\"variables\":{\"id\":\"" + id + "\",\"auth\":\"SpicyLyrics-WebAuth\"}}],\"client\":{\"version\":\"5.22.3\"}}", MediaType.parse("application/json; charset=utf-8"));
+                Request lyricsRequest = new Request.Builder().url("https://api.spicylyrics.org/query").post(body)
+                        .header("Spicylyrics-Webauth", "Bearer " + token)
+                        .header("Spicylyrics-Version", "5.22.3")
+                        .header("Origin", "https://xpui.app.spotify.com")
+                        .header("Referer", "https://xpui.app.spotify.com/")
+                        .header("Accept", "*/*")
+                        .header("Content-Type", "application/json")
+                        .header("Sec-Fetch-Mode", "cors")
+                        .header("Sec-Fetch-Site", "cross-site")
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.7680.179 Spotify/1.2.88.483 Safari/537.36")
+                        .header("Sec-Ch-Ua", "\"Not-A.Brand\";v=\"24\", \"Chromium\";v=\"146\"")
+                        .header("Sec-Fetch-Dest", "empty")
+                        .header("Priority", "u=1, i")
+                        .header("Accept-Language", "en-Latn-US,en-US;q=0.9,en-Latn;q=0.8,en;q=0.7")
+                        .header("Sec-Ch-Ua-Mobile", "?0")
+                        .header("Sec-Ca-Ua-Platform", "\"Windows\"")
+                        .build();
+>>>>>>> Stashed changes
 
                 lyricsClient.newCall(lyricsRequest).enqueue(new Callback() {
                     @Override
                     public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
                         assert response.body() != null;
                         String contentFull = response.body().string();
+<<<<<<< Updated upstream
 
                         JsonObject jsonObject = new JsonParser().parseString(contentFull).getAsJsonObject().get("queries").getAsJsonArray().get(1).getAsJsonObject().get("result").getAsJsonObject().get("data").getAsJsonObject();
+=======
+                        XposedBridge.log("[SpotifyPlus] " + contentFull);
+
+                        JsonArray array = new JsonParser().parseString(contentFull).getAsJsonObject().get("queries").getAsJsonArray();
+
+                        if (array == null || array.isEmpty()) {
+                            XposedBridge.log("Lyrics queries not found!");
+                            return;
+                        }
+
+                        var thing = array.asList().stream().filter(x -> {
+                            JsonObject obj = x.getAsJsonObject();
+                            return obj.get("operation") != null || obj.get("operationId") != null || obj.get("result") != null;
+                        }).collect(Collectors.toList());
+
+                        if (thing.isEmpty()) {
+                            XposedBridge.log("No lyrics result found!");
+                            return;
+                        }
+
+                        JsonObject jsonObject = thing.get(0).getAsJsonObject().get("result").getAsJsonObject().get("data").getAsJsonObject();
+>>>>>>> Stashed changes
                         String content = jsonObject.toString();
                         String type = jsonObject.get("Type").getAsString();
                         var writers = jsonObject.get("SongWriters");
@@ -683,6 +744,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                             }
 
                             if (type.equals("Syllable")) {
+<<<<<<< Updated upstream
                                 renderSyllableLyrics(activity, content, lyricsContainer, track, writtenBy);
                             } else if (type.equals("Line")) {
                                 SharedPreferences prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
@@ -735,6 +797,26 @@ public class BeautifulLyricsHook extends SpotifyHook {
                                         }
                                     });
                                 }
+=======
+                                Gson gson = new Gson();
+                                SyllableSyncedLyrics providerLyrics = gson.fromJson(content, SyllableSyncedLyrics.class);
+                                ProviderLyrics lyrics = new ProviderLyrics();
+                                lyrics.syllableLyrics = providerLyrics;
+                                XposedBridge.log("[SpotifyPlus] Line Count: " + lyrics.syllableLyrics.content.size());
+
+                                TransformedLyrics transformedLyrics = LyricUtilities.transformLyrics(lyrics, activity);
+
+                                renderSyllableLyrics(activity, transformedLyrics.lyrics, lyricsContainer, track, writtenBy);
+                            } else if (type.equals("Line")) {
+                                Gson gson = new Gson();
+                                LineSyncedLyrics providerLyrics = gson.fromJson(content, LineSyncedLyrics.class);
+                                ProviderLyrics lyrics = new ProviderLyrics();
+                                lyrics.lineLyrics = providerLyrics;
+
+                                TransformedLyrics transformedLyrics = LyricUtilities.transformLyrics(lyrics, activity);
+
+                                renderLineLyrics(activity, transformedLyrics.lyrics, lyricsContainer, track, writtenBy);
+>>>>>>> Stashed changes
                             } else if (type.equals("Static")) {
                                 Gson gson = new Gson();
                                 // This is pretty pointless
@@ -805,7 +887,11 @@ public class BeautifulLyricsHook extends SpotifyHook {
     }
 
     @SuppressLint("ClickableViewAccessibility")
+<<<<<<< Updated upstream
     private void renderSyllableLyrics(Activity activity, String content, LinearLayout lyricsContainer, SpotifyTrack track, String writtenBy) {
+=======
+    private void renderSyllableLyrics(Activity activity, ProviderLyrics providedLyrics, LinearLayout lyricsContainer, SpotifyTrack track, String writtenBy) {
+>>>>>>> Stashed changes
         List<View> lines = new ArrayList<>();
         vocalGroups = new HashMap<>();
         rightContainer.removeView(syncButton);
@@ -816,7 +902,11 @@ public class BeautifulLyricsHook extends SpotifyHook {
         int lineSpacing;
         int fontSize;
 
+<<<<<<< Updated upstream
         switch(currentLineSpacingMode) {
+=======
+        switch (currentLineSpacingMode) {
+>>>>>>> Stashed changes
             case "compact":
                 lineSpacing = 32;
                 fontSize = 28;
@@ -834,7 +924,11 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
             case "max":
                 lineSpacing = 46;
+<<<<<<< Updated upstream
                 fontSize= 38;
+=======
+                fontSize = 38;
+>>>>>>> Stashed changes
                 break;
 
             default:
@@ -844,11 +938,14 @@ public class BeautifulLyricsHook extends SpotifyHook {
         }
 
         Gson gson = new Gson();
+<<<<<<< Updated upstream
         SyllableSyncedLyrics providerLyrics = gson.fromJson(content, SyllableSyncedLyrics.class);
 
         ProviderLyrics providedLyrics = new ProviderLyrics();
         providedLyrics.syllableLyrics = providerLyrics;
 
+=======
+>>>>>>> Stashed changes
         TransformedLyrics transformedLyrics = LyricUtilities.transformLyrics(providedLyrics, activity);
         SyllableSyncedLyrics lyrics = transformedLyrics.lyrics.syllableLyrics;
 
@@ -1087,7 +1184,11 @@ public class BeautifulLyricsHook extends SpotifyHook {
     }
 
     @SuppressLint("ClickableViewAccessibility")
+<<<<<<< Updated upstream
     private void renderLineLyrics(Activity activity, String content, LinearLayout lyricsContainer, SpotifyTrack track, String writtenBy) {
+=======
+    private void renderLineLyrics(Activity activity, ProviderLyrics providerLyricsThing, LinearLayout lyricsContainer, SpotifyTrack track, String writtenBy) {
+>>>>>>> Stashed changes
         List<View> lines = new ArrayList<>();
         vocalGroups = new HashMap<>();
         Gson gson = new Gson();
@@ -1095,10 +1196,13 @@ public class BeautifulLyricsHook extends SpotifyHook {
         SharedPreferences prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
         boolean newScrollingSystem = prefs.getBoolean("experiment_scroll", false);
 
+<<<<<<< Updated upstream
         LineSyncedLyrics providerLyrics = gson.fromJson(content, LineSyncedLyrics.class);
 
         ProviderLyrics providerLyricsThing = new ProviderLyrics();
         providerLyricsThing.lineLyrics = providerLyrics;
+=======
+>>>>>>> Stashed changes
         TransformedLyrics transformedLyrics = LyricUtilities.transformLyrics(providerLyricsThing, activity);
 
         LineSyncedLyrics lyrics = transformedLyrics.lyrics.lineLyrics;
