@@ -2,5 +2,6 @@
 <lint>
     <issue id="ClickableViewAccessibility" severity="ignore" />
     <issue id="DiscouragedApi" severity="ignore" />
+    <issue id="NotifyDataSetChanged" severity="ignore" />
     <issue id="SetTextI18n" severity="ignore" />
 </lint>

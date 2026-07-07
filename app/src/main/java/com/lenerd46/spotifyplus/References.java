@@ -10,7 +10,6 @@ import android.util.Log;
 import android.util.Pair;
 
 import com.lenerd46.spotifyplus.beautifullyrics.entities.PlayerStateUpdatedListener;
-import com.lenerd46.spotifyplus.beautifullyrics.entities.TrackStateChangedListener;
 
 import org.luckypray.dexkit.DexKitBridge;
 import org.luckypray.dexkit.query.FindClass;
@@ -121,7 +120,6 @@ public class References {
         }
     }
 
-    private static long previousMs;
     public static long getCurrentPlaybackPosition(DexKitBridge bridge, XC_LoadPackage.LoadPackageParam lpparam) {
         Object wrapper = References.playerStateWrapper == null ? null : References.playerStateWrapper.get();
         if (wrapper == null) return -1;
@@ -157,17 +155,7 @@ public class References {
         return activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
     }
 
-    public static SharedPreferences getScriptPreferences(String name, Context activity) {
-        if(activity == null) {
-            XposedBridge.log("[SpotifyPlus] No activity found");
-            return null;
-        }
-
-        return activity.getSharedPreferences(name, Context.MODE_PRIVATE);
-    }
-
     private static final List<PlayerStateUpdatedListener> listeners = new ArrayList<>();
-    private static final List<TrackStateChangedListener> trackListeners = new ArrayList<>();
 
     public static void registerPlayerStateListener(PlayerStateUpdatedListener listener) {
         listeners.add(listener);
@@ -180,12 +168,6 @@ public class References {
     public static void notifyPlayerStateChanged(Object playerState) {
         for(PlayerStateUpdatedListener listener : listeners) {
             listener.onPlayerStateUpdated(playerState);
-        }
-    }
-
-    public static void notifyTrackStateChanged(Object track) {
-        for(TrackStateChangedListener listener : trackListeners) {
-            listener.onTrackStateChanged(track);
         }
     }
 }

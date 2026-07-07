@@ -113,13 +113,10 @@ public class NewContextMenuHook extends SpotifyHook {
 
             final Class<?> c8f = c8fClasses.get(0).getInstance(lpparm.classLoader);
 
-            org.luckypray.dexkit.result.ClassDataList finalC8fClasses = c8fClasses;
             XposedBridge.log("[SpotifyPlus] c8f: " + c8f.getName());
             XposedBridge.hookAllMethods(c8f, "invoke", new XC_MethodHook() {
                         @Override
-                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                            int branch = bridge.findField(FindField.create().searchInClass(finalC8fClasses).matcher(FieldMatcher.create().type(int.class))).get(0).getFieldInstance(lpparm.classLoader).getInt(param.thisObject);
-
+                        protected void beforeHookedMethod(MethodHookParam param) {
                             // These variable names are the class names in version 9.1.24.1739
                             Object jff = param.args[0];
                             if (jff == null || jff.getClass() != jffClass) return;
@@ -256,7 +253,7 @@ public class NewContextMenuHook extends SpotifyHook {
                     String marker = XposedHelpers.getObjectField(param.thisObject, "c").toString();
                     if (!marker.equals("spotifyplus_open_last_fm")) return;
 
-                    Object viewModel = null;
+                    Object viewModel;
 
                     if (cachedViewModel != null) {
                         viewModel = cachedViewModel;

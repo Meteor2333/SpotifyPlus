@@ -62,7 +62,6 @@ import com.lenerd46.spotifyplus.beautifullyrics.entities.LyricUtilities;
 import com.lenerd46.spotifyplus.beautifullyrics.entities.Spring;
 import com.lenerd46.spotifyplus.beautifullyrics.entities.SyllableVocals;
 import com.lenerd46.spotifyplus.beautifullyrics.entities.SyncableVocals;
-import com.lenerd46.spotifyplus.beautifullyrics.entities.TrackAnalysis;
 import com.lenerd46.spotifyplus.beautifullyrics.entities.interludes.InterludeVisual;
 import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.Interlude;
 import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.LineSyncedLyrics;
@@ -661,11 +660,8 @@ public class BeautifulLyricsHook extends SpotifyHook {
         vocalGroups = new HashMap<>();
 
         ExecutorService executorService = Executors.newSingleThreadExecutor();
-        Handler handler = new Handler(Looper.getMainLooper());
 
         executorService.execute(() -> {
-            String finalContent = "";
-
             try {
                 SharedPreferences prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
 
@@ -723,7 +719,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                         String contentFull = response.body().string();
                         XposedBridge.log("[SpotifyPlus] " + contentFull);
 
-                        JsonArray array = new JsonParser().parseString(contentFull).getAsJsonObject().get("queries")
+                        JsonArray array = JsonParser.parseString(contentFull).getAsJsonObject().get("queries")
                                 .getAsJsonArray();
 
                         if (array == null || array.isEmpty()) {
@@ -913,7 +909,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 break;
         }
 
-        Gson gson = new Gson();
         TransformedLyrics transformedLyrics = LyricUtilities.transformLyrics(providedLyrics, activity);
         SyllableSyncedLyrics lyrics = transformedLyrics.lyrics.syllableLyrics;
 
@@ -1164,7 +1159,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
             SpotifyTrack track, String writtenBy) {
         List<View> lines = new ArrayList<>();
         vocalGroups = new HashMap<>();
-        Gson gson = new Gson();
 
         SharedPreferences prefs = activity.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
         boolean newScrollingSystem = prefs.getBoolean("experiment_scroll", false);
@@ -1437,6 +1431,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                     lastUpdatedAt = updatedAt;
 
                     try {
+                        //noinspection BusyWait
                         Thread.sleep(16);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
@@ -1474,7 +1469,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
         Integer idx = lineIndex.get(root);
         if (idx == null)
             idx = lineRoots.indexOf(root);
-        if (idx == null || idx < 0)
+        if (idx < 0)
             return;
 
         activeLineIndex = idx;
@@ -1657,8 +1652,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
                     var splitAfter = content.split("\\)");
 
                     if (split.length == 2) {
-                        String lineBefore = split[1];
-
                         String outputBefore = split[0].trim();
                         String outputAfter = "";
 
@@ -1987,7 +1980,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 FlexboxLayout container = (FlexboxLayout) view;
 
                 TextView textView = (TextView) container.getChildAt(wordIndex.get());
-                LineVocal line = lines.get(lineIndex.get());
 
                 double seconds = (System.currentTimeMillis() - startedAt.get()) / 1000.0;
 
@@ -2130,8 +2122,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                 int screenTargetY = (int) (viewportHeight * SCROLL_POSITION_RATIO) - (activeLineHeight / 2);
 
-                double newGlobalOffset = screenTargetY - activeLineTop;
-                targetScrollOffset = newGlobalOffset;
+                targetScrollOffset = screenTargetY - activeLineTop;
 
                 limitScrollBounds(lyricsContainer);
 
@@ -2437,14 +2428,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
         }
     }
 
-    private void clearHeaderFade() {
-        for (View line : lineRoots) {
-            if (line != null) {
-                line.setAlpha(1f);
-            }
-        }
-    }
-
     private ValueAnimator lyricsScrollAnimator = new ValueAnimator();
 
     private void scrollToNewLine(View activeLine, ScrollView scrollView, boolean immediate) {
@@ -2512,36 +2495,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
         }
     }
 
-    private TrackAnalysis getTrackAnalysis(String id) {
-        OkHttpClient client = new OkHttpClient();
-        Gson gson = new Gson();
-
-        Request request = new Request.Builder().url("https://api.reccobeats.com/v1/audio-features?ids=" + id).get()
-                .build();
-
-        try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                Handler mainHandler = new Handler(Looper.getMainLooper());
-                mainHandler.post(() -> {
-                    Toast.makeText(References.currentActivity, "Failed to get track analysis", Toast.LENGTH_LONG)
-                            .show();
-                });
-
-                return TrackAnalysis.defaultTrack;
-            }
-
-            String body = response.body().string();
-            return gson.fromJson(body, TrackAnalysis.class);
-        } catch (IOException e) {
-            Handler mainHandler = new Handler(Looper.getMainLooper());
-            mainHandler.post(() -> {
-                Toast.makeText(References.currentActivity, "Failed to get track analysis", Toast.LENGTH_LONG).show();
-            });
-
-            return TrackAnalysis.defaultTrack;
-        }
-    }
-
     private Drawable createChevronDownIcon(Activity context) {
         int size = dpToPx(24, context);
         Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
@@ -2579,7 +2532,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
         private final Paint solidPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         private LinearGradient fadeShader;
-        private int fadeHeightPx;
+        private final int fadeHeightPx;
 
         public TopFadeLayout(Context context, int fadeHeightPx) {
             super(context);
@@ -2590,12 +2543,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
             solidPaint.setColor(0xFFFFFFFF);
             solidPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_IN));
-        }
-
-        public void setFadeHeightPx(int fadeHeightPx) {
-            this.fadeHeightPx = fadeHeightPx;
-            rebuildShader();
-            invalidate();
         }
 
         private void rebuildShader() {

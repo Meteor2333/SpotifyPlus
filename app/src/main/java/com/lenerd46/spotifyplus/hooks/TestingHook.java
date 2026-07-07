@@ -89,38 +89,6 @@ public class TestingHook extends SpotifyHook {
         }
     }
 
-    private String idName(View v) {
-        int id = v.getId();
-        if (id == View.NO_ID) return "no-id";
-        try {
-            return v.getContext().getResources().getResourceName(id);
-        } catch (Throwable t) {
-            return "0x" + Integer.toHexString(id);
-        }
-    }
-
-    private void dumpTree(View v, int depth) {
-        StringBuilder indent = new StringBuilder();
-        for (int i = 0; i < depth; i++) indent.append("  ");
-
-        int w = v.getWidth();
-        int h = v.getHeight();
-
-        XposedBridge.log("[SpotifyPlus][tree] " + indent
-                + v.getClass().getName()
-                + " id=" + idName(v)
-                + " wh=" + w + "x" + h
-                + " vis=" + v.getVisibility());
-
-        if (v instanceof ViewGroup) {
-            ViewGroup vg = (ViewGroup) v;
-
-            for (int i = 0; i < vg.getChildCount(); i++) {
-                dumpTree(vg.getChildAt(i), depth + 1);
-            }
-        }
-    }
-
     private View findByIdName(View root, String idName) {
         if (root == null) return null;
         int id = root.getId();
@@ -295,34 +263,4 @@ public class TestingHook extends SpotifyHook {
         }
         return new ViewGroup.LayoutParams(lp);
     }
-
-    private static void applyCenterCrop(TextureView tv, VideoSize vs) {
-        int viewW = tv.getWidth();
-        int viewH = tv.getHeight();
-        if (viewW <= 0 || viewH <= 0) return;
-
-        int videoW = vs.width;
-        int videoH = vs.height;
-        if (videoW <= 0 || videoH <= 0) return;
-
-        float par = (vs.pixelWidthHeightRatio <= 0f) ? 1f : vs.pixelWidthHeightRatio;
-        float contentW = videoW * par;
-        float contentH = videoH;
-
-        // Center-crop scale (like ImageView CENTER_CROP)
-        float scale = Math.max(viewW / contentW, viewH / contentH);
-        float scaledW = contentW * scale;
-        float scaledH = contentH * scale;
-
-        float dx = (viewW - scaledW) / 2f;
-        float dy = (viewH - scaledH) / 2f;
-
-        android.graphics.Matrix m = new android.graphics.Matrix();
-        m.setScale(scale, scale);
-        m.postTranslate(dx, dy);
-
-        tv.setTransform(m);
-        tv.invalidate();
-    }
-
 }

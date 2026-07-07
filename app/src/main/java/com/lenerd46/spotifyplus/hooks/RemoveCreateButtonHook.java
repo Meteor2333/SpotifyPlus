@@ -23,7 +23,6 @@ import android.widget.TextView;
 import android.window.OnBackInvokedDispatcher;
 
 import androidx.annotation.NonNull;
-import androidx.documentfile.provider.DocumentFile;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -37,7 +36,6 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.lenerd46.spotifyplus.ModuleContextWrapper;
 import com.lenerd46.spotifyplus.R;
 import com.lenerd46.spotifyplus.References;
-import com.lenerd46.spotifyplus.SettingItem;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -53,10 +51,6 @@ import org.luckypray.dexkit.query.matchers.MethodsMatcher;
 import org.luckypray.dexkit.query.matchers.ParametersMatcher;
 import org.luckypray.dexkit.result.ClassDataList;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -68,7 +62,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -81,7 +74,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
     private static final int SETTINGS_OVERLAY_ID = 0x53504c53;
 
     private static final int DETAILED_SETTINGS_OVERLAY_ID = 0x53504c54;
-    private static final int MARKETPLACE_OVERLAY_ID = 0x53504c55;
     private int idToUse = 8001;
     private int resourceIdToUse = 2131957895;
     private SharedPreferences prefs;
@@ -95,7 +87,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
     private Class<?> whateverThisInterfaceDoes;
     private Class<?> iconInterface;
     private Class<?> wwk;
-    private final static ConcurrentHashMap<Pair<Integer, String>, List<SettingItem.SettingSection>> scriptSettings = new ConcurrentHashMap<>();
     private final static ConcurrentHashMap<Pair<Integer, String>, Runnable> scriptSideButtons = new ConcurrentHashMap<>();
     private static final java.util.concurrent.atomic.AtomicBoolean overlayShown = new java.util.concurrent.atomic.AtomicBoolean(
             false);
@@ -699,7 +690,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                                                 : "Hold and drag a preset to reorder it.");
 
                                                         SleepTimerPresetAdapter adapter = new SleepTimerPresetAdapter(
-                                                                themedCtxLast, modResources, inflaterLast, presets,
+                                                                modResources, inflaterLast, presets,
                                                                 () -> {
                                                                     boolean empty = presets.isEmpty();
                                                                     recycler.setVisibility(
@@ -1002,8 +993,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 
                                                 Slider slider = view.findViewById(R.id.line_spacing_slider);
                                                 TextView valueLabel = view.findViewById(R.id.line_spacing_value_label);
-                                                FrameLayout sliderContainer = view
-                                                        .findViewById(R.id.line_spacing_slider_container);
 
                                                 slider.setThumbRadius(dpToPx(8));
                                                 slider.setHaloRadius(0);
@@ -1328,12 +1317,10 @@ public class RemoveCreateButtonHook extends SpotifyHook {
             Object originalDwd0 = dwd0List.get(0).getFieldInstance(lpparm.classLoader).get(template); // p.dwd0
             Field field = fieldList.get(0).getFieldInstance(lpparm.classLoader);
             Object originalProps = field.get(originalDwd0); // p.cwd0
-            String propName = bridge.findField(FindField.create().searchInClass(propertiesClasses)
-                    .matcher(FieldMatcher.create().type(String.class))).get(0).getName();
             Object originalBwd0 = bwd0List.get(0).getFieldInstance(lpparm.classLoader).get(originalProps); // p.bwd0;
             Object originalNode = nodeList.get(0).getFieldInstance(lpparm.classLoader).get(originalBwd0);
             Object originalImpression = impressionList.get(0).getFieldInstance(lpparm.classLoader).get(originalBwd0);
-            Object originalIcon = null;
+            Object originalIcon;
             try {
                 originalIcon = iconList.get(0).getFieldInstance(lpparm.classLoader).get(originalDwd0);
             } catch (Exception e) {
@@ -1387,6 +1374,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                 });
             }
 
+            //noinspection SuspiciousInvocationHandlerImplementation
             Object newOnClick = Proxy.newProxyInstance(lpparm.classLoader, new Class[] { qbp },
                     (proxy, method, args) -> {
                         try {
@@ -1415,7 +1403,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                 XposedBridge.log(e);
                 XposedBridge.log("[SpotifyPlus] Could not instantiate instrumentation: " + e.getMessage());
             }
-            Object newProps = null;
+            Object newProps;
 
             SpotifyTitleOverride.overrideSpotifyStringById(resId, title);
 
@@ -1428,7 +1416,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                         originalProps.getClass().getFields()[5].get(originalProps));
             }
 
-            Object newDwd0 = null;
+            Object newDwd0;
 
             if (!isNewSideDrawer) {
                 newDwd0 = XposedHelpers.newInstance(dwd0, originalIcon, newProps);
@@ -1460,53 +1448,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                 .setInterpolator(new android.view.animation.AccelerateInterpolator())
                 .withEndAction(onComplete)
                 .start();
-    }
-
-    public static void registerSettingSection(String title, int id, SettingItem.SettingSection section) {
-        var key = scriptSettings.keySet().stream().filter(entry -> entry.first.equals(id)).findFirst().orElse(null);
-
-        if (key == null) {
-            scriptSettings.put(Pair.create(id, title), new ArrayList<>(Arrays.asList(section)));
-        } else {
-            var sections = scriptSettings.get(key);
-            sections.add(section);
-            scriptSettings.put(key, sections);
-        }
-    }
-
-    public static void registerSideButton(String title, int id, Runnable onClick) {
-        try {
-            var key = scriptSideButtons.keySet().stream().filter(entry -> entry.first.equals(id)).findFirst()
-                    .orElse(null);
-
-            if (key == null) {
-                scriptSideButtons.put(Pair.create(id, title), onClick);
-            }
-        } catch (Exception e) {
-            XposedBridge.log(e);
-        }
-    }
-
-    private String getAboslutePath(DocumentFile file) {
-        Uri uri = file.getUri();
-
-        try (InputStream in = context.getContentResolver().openInputStream(uri)) {
-            File tempFile = new File(context.getCacheDir(), "test.apk");
-
-            try (OutputStream out = new FileOutputStream(tempFile)) {
-                byte[] buffer = new byte[4096];
-                int len;
-
-                while ((len = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, len);
-                }
-            }
-
-            return tempFile.getAbsolutePath();
-        } catch (Exception e) {
-            XposedBridge.log(e);
-            return null;
-        }
     }
 
     private int dpToPx(int dp) {
@@ -1552,15 +1493,13 @@ public class RemoveCreateButtonHook extends SpotifyHook {
     }
 
     private static class SleepTimerPresetAdapter extends RecyclerView.Adapter<SleepTimerPresetAdapter.Holder> {
-        private final Context context;
         private final Resources modResources;
         private final LayoutInflater inflater;
         private final ArrayList<SleepTimerHook.SleepTimerInfo> presets;
         private final Runnable onChanged;
 
-        SleepTimerPresetAdapter(Context context, Resources modResources, LayoutInflater inflater,
+        SleepTimerPresetAdapter(Resources modResources, LayoutInflater inflater,
                 ArrayList<SleepTimerHook.SleepTimerInfo> presets, Runnable onChanged) {
-            this.context = context;
             this.modResources = modResources;
             this.inflater = inflater;
             this.presets = presets;
@@ -1599,9 +1538,9 @@ public class RemoveCreateButtonHook extends SpotifyHook {
         }
 
         static class Holder extends RecyclerView.ViewHolder {
-            TextView title;
-            TextView subtitle;
-            View deleteButton;
+            final TextView title;
+            final TextView subtitle;
+            final View deleteButton;
 
             Holder(@NonNull View itemView, Resources modResources) {
                 super(itemView);

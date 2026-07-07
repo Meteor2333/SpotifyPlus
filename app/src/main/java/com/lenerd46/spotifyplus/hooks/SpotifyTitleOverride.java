@@ -5,8 +5,6 @@ import android.content.res.Resources;
 
 import com.lenerd46.spotifyplus.References;
 
-import java.util.concurrent.Callable;
-
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 
@@ -83,28 +81,6 @@ public class SpotifyTitleOverride {
                 }
             }
         });
-    }
-
-    public static <T> T withTitleOverride(String targetPkg, int resId, String title, Callable<T> action) {
-        tl.set(new Override(targetPkg, resId, title));
-
-        try {
-            return action.call();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            tl.remove();
-        }
-    }
-
-    public static void withTitleOverrideVoid(String targetPkg, int resId, String title, Runnable action) {
-        tl.set(new Override(targetPkg, resId, title));
-
-        try {
-            action.run();
-        } finally {
-            tl.remove();
-        }
     }
 
     private static boolean idMatchesPackage(XC_MethodHook.MethodHookParam param, int id, String targetPkg) {

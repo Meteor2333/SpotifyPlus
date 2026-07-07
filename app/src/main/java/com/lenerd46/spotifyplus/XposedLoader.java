@@ -25,7 +25,6 @@ import com.google.gson.JsonParser;
 import com.lenerd46.spotifyplus.hooks.AnimatedAlbumArtwork;
 import com.lenerd46.spotifyplus.hooks.BeautifulLyricsHook;
 import com.lenerd46.spotifyplus.hooks.ContextMenu_AddButton;
-import com.lenerd46.spotifyplus.hooks.HomePageHook;
 import com.lenerd46.spotifyplus.hooks.LastFmHook;
 import com.lenerd46.spotifyplus.hooks.NetworkHook;
 import com.lenerd46.spotifyplus.hooks.NewContextMenuHook;
@@ -146,7 +145,6 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                 new NetworkHook(context).init(lpparam, bridge);
                 new LastFmHook().init(lpparam, bridge);
                 new ContextMenu_AddButton().init(lpparam, bridge);
-                new HomePageHook().init(lpparam, bridge);
                 new AnimatedAlbumArtwork().init(lpparam, bridge);
                 new TestingHook().init(lpparam, bridge);
                 new NewContextMenuHook().init(lpparam, bridge);
@@ -226,7 +224,7 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                     if (content.isEmpty())
                         return;
 
-                    JsonObject json = new JsonParser().parseString(content).getAsJsonObject();
+                    JsonObject json = JsonParser.parseString(content).getAsJsonObject();
                     String latest = json.get("tag_name").getAsString().replace("v", "");
 
                     if (isVersionGreater(latest, BuildConfig.VERSION_NAME)) {
@@ -367,15 +365,5 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
         References.modResources = XModuleResources.createInstance(modulePath, resparam.res);
         References.xresources = resparam.res;
-    }
-
-    private void replaceColor(XC_InitPackageResources.InitPackageResourcesParam resparam, String name, int color) {
-        try {
-            resparam.res.setReplacement("com.spotify.music", "color", name, color);
-            XposedBridge.log("[SpotifyPlus] Replaced color resource: " + name);
-        } catch (Throwable t) {
-            XposedBridge.log("[SpotifyPlus] Failed to replace color resource: " + name);
-            XposedBridge.log(t);
-        }
     }
 }

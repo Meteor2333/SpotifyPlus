@@ -112,7 +112,6 @@ public class LastFmHook extends SpotifyHook {
                         } else title = probablyTitle;
 
                         if (title == null || title.isEmpty() || artist == null || artist.isEmpty()) return;
-                        final String key = title + "|" + artist;
 
                         if (subtitle.contains("scrobbles")) return;
                         References.contextMenuTrack = new WeakReference<>(Pair.create(artist, title));
