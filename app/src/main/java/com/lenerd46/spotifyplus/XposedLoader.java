@@ -115,8 +115,6 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
                 try {
                     Resources resources = XModuleResources.createInstance(modulePath, null);
-                    // beautifulFont = Typeface.createFromAsset(resources.getAssets(),
-                    // "fonts/lyrics_medium.ttf");
                     beautifulFont = Typeface.createFromAsset(resources.getAssets(), "fonts/sf-pro-display-bold.ttf");
 
                     XposedBridge.log("[SpotifyPlus] Successfully loaded font!");
@@ -128,8 +126,6 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                 if (beautifulFont != null) {
                     References.beautifulFont = new WeakReference<>(beautifulFont);
                 }
-
-                // MlKit.initialize(activity);
 
                 navigateToStartupPage(activity);
 
@@ -155,11 +151,6 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                 new TestingHook().init(lpparam, bridge);
                 new NewContextMenuHook().init(lpparam, bridge);
                 new SleepTimerHook(context).init(lpparam, bridge);
-                // new PrivateSessionHook().init(lpparam, bridge);
-                // new ThemeHook().init(lpparam, bridge);
-                // new ThemeTest().init(lpparam, bridge);
-                // new LikedSongHook().init(lpparam, bridge);
-                // new KaraokeHook().init(lpparam, bridge);
             }
         });
     }
@@ -280,38 +271,6 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
                         dismissButton.setOnClickListener(v -> root.removeView(updateWindow));
 
-                        // LayoutInflater inflater = LayoutInflater.from(activity);
-                        // View dialogueView =
-                        // inflater.inflate(modResources.getLayout(R.layout.dialogue_update),
-                        // (ViewGroup) activity.getWindow().getDecorView(), false);
-                        //
-                        // Button download =
-                        // dialogueView.findViewById(modResources.getIdentifier("download_button", "id",
-                        // "com.lenerd46.spotifyplus"));
-                        // Button later =
-                        // dialogueView.findViewById(modResources.getIdentifier("later_button", "id",
-                        // "com.lenerd46.spotifyplus"));
-                        //
-                        // AlertDialog dialogue = new
-                        // AlertDialog.Builder(activity).setView(dialogueView).create();
-                        //
-                        // later.setOnClickListener(v -> dialogue.dismiss());
-                        //
-                        // download.setOnClickListener(v -> {
-                        // Intent intent = new Intent(Intent.ACTION_VIEW,
-                        // Uri.parse("https://github.com/LeNerd46/SpotifyPlus/releases"));
-                        // intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        // activity.startActivity(intent);
-                        // dialogue.dismiss();
-                        // });
-                        //
-                        // dialogue.show();
-                        //
-                        // Window dialogueWindow = dialogue.getWindow();
-                        // if (dialogueWindow != null) {
-                        // int width = activity.getResources().getDisplayMetrics().widthPixels;
-                        // dialogueWindow.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
-                        // }
                     }
                 });
             });
@@ -408,52 +367,6 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
         References.modResources = XModuleResources.createInstance(modulePath, resparam.res);
         References.xresources = resparam.res;
-
-        // final int primaryBackground = 0xFF000000; // AMOLED black
-        // final int secondaryBackground = 0xFF121212; // elevated cards / surfaces
-        // final int accentColor = 0xFF1ED760; // Spotify green
-        // final int accentPressed = 0xFF1ABC54; // darker pressed green
-        //
-        // final boolean overridePlayerGradientColor = true;
-        //
-        // // Main background color
-        // replaceColor(resparam, "gray_7", primaryBackground);
-        // replaceColor(resparam, "gray_10", primaryBackground);
-        // replaceColor(resparam, "dark_base_background_base", primaryBackground);
-        // replaceColor(resparam, "dark_base_background_elevated_base",
-        // primaryBackground);
-        // replaceColor(resparam, "sthlm_blk", primaryBackground);
-        // replaceColor(resparam, "sthlm_blk_grad_start", primaryBackground);
-        // replaceColor(resparam, "image_placeholder_color", primaryBackground);
-        //
-        // // Player gradient:
-        // // ReVanced skips bg_gradient_start_color unless overridePlayerGradientColor
-        // is enabled,
-        // // but always themes the end color.
-        // if (overridePlayerGradientColor) {
-        // replaceColor(resparam, "bg_gradient_start_color", primaryBackground);
-        // }
-        // replaceColor(resparam, "bg_gradient_end_color", primaryBackground);
-        //
-        // // Secondary background color
-        // replaceColor(resparam, "gray_15", secondaryBackground);
-        // replaceColor(resparam, "track_credits_card_bg", secondaryBackground);
-        // replaceColor(resparam, "benefit_list_default_color", secondaryBackground);
-        // replaceColor(resparam, "merch_card_background", secondaryBackground);
-        // replaceColor(resparam, "opacity_white_10", secondaryBackground);
-        // replaceColor(resparam, "dark_base_background_tinted_highlight",
-        // secondaryBackground);
-        //
-        // // Accent color
-        // replaceColor(resparam, "dark_brightaccent_background_base", accentColor);
-        // replaceColor(resparam, "dark_base_text_brightaccent", accentColor);
-        // replaceColor(resparam, "green_light", accentColor);
-        // replaceColor(resparam, "spotify_green_157", accentColor);
-        //
-        // // Pressed accent color
-        // replaceColor(resparam, "dark_brightaccent_background_press", accentPressed);
-        //
-        // XposedBridge.log("[SpotifyPlus] Custom theme resources applied");
     }
 
     private void replaceColor(XC_InitPackageResources.InitPackageResourcesParam resparam, String name, int color) {

@@ -106,8 +106,6 @@ public class References {
                         saved = Boolean.parseBoolean(savedValue);
                     }
 
-//                    long duration = (Long) XposedHelpers.callMethod(state, "duration");
-
                     return new SpotifyTrack(title, artist, album, uri, position, color, timestamp, imageId, 0, saved);
                 } else {
                     XposedBridge.log("[SpotifyPlus] ContextTrack not found!");

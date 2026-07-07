@@ -79,13 +79,6 @@ public class SleepTimerHook extends SpotifyHook {
                     addTimer(list, preset.value, preset.unit ? hours : minutes);
                 }
 
-//                addTimer(list, 5, minutes);
-//                addTimer(list, 10, minutes);
-//                addTimer(list, 15, minutes);
-//                addTimer(list, 30, minutes);
-//                addTimer(list, 45, minutes);
-//                addTimer(list, 1, hours);
-
                 Object addCustomTime = XposedHelpers.newInstance(XposedHelpers.findClass("p.n8p0", lpparm.classLoader), customDuration);
                 XposedHelpers.callMethod(list, "add", addCustomTime);
 

@@ -116,13 +116,9 @@ public class LineVocals implements SyncableVocals {
         } else if (state == LyricState.SUNG) {
             lyricText.setTextColor(Color.argb(100, 255, 255, 255));
             lyricText.updateShadow(0f, 0f);
-
-//            updateLiveTextVisuals(0, 1.0 / 60);
         } else {
             lyricText.setTextColor(Color.argb(255, 255, 255, 255));
             lyricText.setGradientColors(new int[]{0xFFFFFFFF, 0x3CFFFFFF});
-
-//            updateLiveTextVisuals(0, 1.0 / 60);
         }
     }
 

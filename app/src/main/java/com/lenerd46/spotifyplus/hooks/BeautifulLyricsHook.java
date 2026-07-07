@@ -192,16 +192,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
                             lastTimestamp = 0;
                             targetScrollOffset = 0;
 
-                            // new Thread(() -> {
-                            // try {
-                            // String lyrics = NeteaseApi.fetchLyric(2133503225L);
-                            // XposedBridge.log("[SpotifyPlus] " + lyrics);
-                            // } catch (Exception e) {
-                            // XposedBridge.log("[SpotifyPlus] " + e.getMessage());
-                            // XposedBridge.log(e);
-                            // }
-                            // }).start();
-
                             activity.runOnUiThread(() -> {
                                 try {
                                     activity.getWindow().setStatusBarColor(Color.TRANSPARENT);
@@ -406,7 +396,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
                                             LayoutInflater inflater = LayoutInflater.from(activity);
                                             View newView = inflater.inflate(res.getLayout(R.layout.editor_layout),
                                                     (ViewGroup) activity.getWindow().getDecorView(), false);
-                                            // grid.removeView(scrollView);
                                             grid.removeView(fadeWrapper);
                                             grid.addView(newView);
 
@@ -424,7 +413,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
                                         }
 
                                         grid.addView(headerContainer);
-                                        // grid.addView(scrollView);
                                         grid.addView(fadeWrapper);
                                         root.addView(grid, -2);
                                         XposedBridge.log("[SpotifyPlus] Loaded Beautiful Lyrics UI");
@@ -481,20 +469,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
         }
 
         try {
-
-            // Class<?> playerStateChangedClass =
-            // bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("PlayerStateChanged(trackUri="))).get(0).getInstance(lpparm.classLoader);
-            // XposedHelpers.findAndHookConstructor("p.xb90", lpparm.classLoader,
-            // String.class, boolean.class, boolean.class, boolean.class, boolean.class,
-            // boolean.class, boolean.class, XposedHelpers.findClass("p.gqf",
-            // lpparm.classLoader), new XC_MethodHook() {
-            // protected void afterHookedMethod(MethodHookParam p) {
-            //// XposedBridge.log("[SpotifyPlus] Object: " + p.thisObject.toString());
-            // References.notifyTrackStateChanged(p.thisObject);
-            // isPlaying = !XposedHelpers.getBooleanField(p.thisObject, "c");
-            // }
-            // });
-
             XposedHelpers.findAndHookMethod("android.media.session.MediaSession", lpparm.classLoader,
                     "setPlaybackState",
                     XposedHelpers.findClass("android.media.session.PlaybackState", lpparm.classLoader),
@@ -710,16 +684,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                         activity.runOnUiThread(() -> root.addView(background));
 
-                        // if (prefs.getBoolean("old_background", false)) {
-                        // OldAnimatedBackgroundView background = new
-                        // OldAnimatedBackgroundView(activity, albumArt, root);
-                        // background.setLayoutParams(new
-                        // FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
-                        // FrameLayout.LayoutParams.MATCH_PARENT));
-                        //
-                        // activity.runOnUiThread(() -> root.addView(background));
-                        // } else {
-                        // }
                     }
                 } else {
                     FrameLayout background = new FrameLayout(activity);
@@ -727,39 +691,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                     activity.runOnUiThread(() -> root.addView(background));
                 }
-
-                // URL url = new URL("https://beautiful-lyrics.socalifornian.live/lyrics/" +
-                // id);
-                // HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                // connection.setRequestMethod("GET");
-                //
-                // String token = References.accessToken.get();
-                // connection.setRequestProperty("Authorization", "Bearer " + (((token != null
-                // && !token.isEmpty()) && sendAccessToken) ? token : "0"));
-
-                // int responseCode = connection.getResponseCode();
-                // if (responseCode == HttpURLConnection.HTTP_OK) {
-                // BufferedReader in = new BufferedReader(new
-                // InputStreamReader(connection.getInputStream()));
-                //
-                // String inputLine;
-                // StringBuilder response = new StringBuilder();
-                // while ((inputLine = in.readLine()) != null) {
-                // response.append(inputLine);
-                // }
-                // in.close();
-                // finalContent = response.toString();
-                // }
-                // } catch (Exception e) {
-                // XposedBridge.log(e);
-                // Handler mainHandler = new Handler(Looper.getMainLooper());
-                // Runnable runnable = () -> {
-                // Toast.makeText(activity, "Failed to get lyrics", Toast.LENGTH_LONG).show();
-                // };
-                //
-                // mainHandler.post(runnable);
-                // return;
-                // }
 
                 String token = References.accessToken;
                 OkHttpClient lyricsClient = new OkHttpClient();
@@ -946,21 +877,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
             } catch (Exception ex) {
 
             }
-            // String content = finalContent;
-            // if (content.isBlank()) {
-            // Handler mainHandler = new Handler(Looper.getMainLooper());
-            // Runnable runnable = () -> {
-            // Toast.makeText(activity, "No lyrics found for this song",
-            // Toast.LENGTH_LONG).show();
-            // };
-            //
-            // mainHandler.post(runnable);
-            // return;
-            // }
-            //
-            // handler.post(() -> {
-            //
-            // });
         });
     }
 
@@ -1641,12 +1557,10 @@ public class BeautifulLyricsHook extends SpotifyHook {
         if (radiusPx <= 0.01f) {
             RenderEffectCompat.clear(line);
             // optional: drop hardware layer if you want
-            // line.setLayerType(View.LAYER_TYPE_NONE, null);
             return;
         }
 
         // optional: force hardware layer for performance stability
-        // line.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
         RenderEffectCompat.blur(line, radiusPx);
     }
@@ -1748,7 +1662,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
                     if (split.length == 2) {
                         String lineBefore = split[1];
-                        // backgroundVocals = lineBefore.split("\\)")[0];
 
                         String outputBefore = split[0].trim();
                         String outputAfter = "";
@@ -1765,8 +1678,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
                         String second = first.split("\\)")[0]; // Hey!
                         String third = split[2];
                         String fourth = third.split("\\)")[0]; // I don't know about you
-
-                        // backgroundVocals = second + " " + fourth; // Hey! I don't know about you
 
                         String leadFirst = split[0].trim(); // ""
                         String leadSecond = splitAfter[1]; // I don't know about you (I don't know about you
@@ -2102,14 +2013,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
                     wordIndex.set(0);
                     lineIndex.getAndIncrement();
 
-                    // SyllableVocalSet newSet = new SyllableVocalSet();
-                    // newSet.type = "Vocal";
-                    // newSet.oppositeAligned = line.oppositeAligned;
-                    // newSet.lead = currentLine[0];
-                    //
-                    // vocals.add(newSet);
-
-                    // currentLine[0] = null;
                     scrollToNewLine(lyricsContainer.getChildAt(lineIndex.get()), scroller, false);
                 }
 

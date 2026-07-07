@@ -39,15 +39,9 @@ public class NetworkHook extends SpotifyHook {
                     protected void beforeHookedMethod(MethodHookParam param) {
                         String url = param.args[0].toString();
 
-                        // || url.contains("gabo-receiver-service") || url.contains("net-fortune") ||
-                        // url.contains("darwin-experiments") || url.contains("speechless-sharing") ||
-                        // url.contains("pendragon")
                         if (url.contains("/ads") || url.contains("ad.") || url.contains("ad-logic")
                                 || url.contains("videoamp") || url.contains("aet") || url.contains("secure-gl")) {
                             param.args[0] = "https://127.0.0.1:404/";
-                            // XposedBridge.log("[SpotifyPlus] " + url);
-                        } else {
-                            // XposedBridge.log("[SpotifyPlus] " + url);
                         }
                     }
                 });

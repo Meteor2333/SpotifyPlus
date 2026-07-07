@@ -43,9 +43,6 @@ public class HomePageHook extends SpotifyHook {
             if (!"com.spotify.music:id/evo_swipe_refresh_layout".equals(parentName)) return;
             if (!"com.spotify.music:id/recycler_view".equals(rvName)) return;
 
-            // Attach our listener ONCE
-//            attachSectionHider(rv);
-
         } catch (Throwable ignored) {
             // resource lookup can fail, just ignore
         }

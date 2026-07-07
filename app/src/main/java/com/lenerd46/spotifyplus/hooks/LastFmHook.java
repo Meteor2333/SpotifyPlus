@@ -63,11 +63,6 @@ public class LastFmHook extends SpotifyHook {
             final var artworkClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("androidx.credentials.TYPE_GET_PUBLIC_KEY_CREDENTIAL_DOM_EXCEPTION/androidx.credentials.TYPE_NO_MODIFICATION_ALLOWED_ERROR")));
 
             if (v6eClasses.isEmpty() || h2eClasses.isEmpty() || c3eClasses.isEmpty() || artworkClasses.isEmpty()) {
-//                XposedBridge.log("[SpotifyPlus] v6e: " + (v6eClasses.isEmpty() ? "0" : v6eClasses.stream().map(ClassData::getName).collect(Collectors.joining(" | "))));
-//                XposedBridge.log("[SpotifyPlus] h2e: " + (h2eClasses.isEmpty() ? "0" : h2eClasses.stream().map(ClassData::getName).collect(Collectors.joining(" | "))));
-//                XposedBridge.log("[SpotifyPlus] c3e: " + (c3eClasses.isEmpty() ? "0" : c3eClasses.stream().map(ClassData::getName).collect(Collectors.joining(" | "))));
-//                XposedBridge.log("[SpotifyPlus] artwork: " + (artworkClasses.isEmpty() ? "0" : artworkClasses.stream().map(ClassData::getName).collect(Collectors.joining(" | "))));
-
                 // They probably didn't find the class because they changed how it works kind of. So use the new patch instead
                 return;
             }

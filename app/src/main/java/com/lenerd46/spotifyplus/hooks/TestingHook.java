@@ -73,29 +73,12 @@ public class TestingHook extends SpotifyHook {
 
                         root.post(() -> {
                             TextView title = (TextView) findByIdName(root, "com.spotify.music:id/cwp_header_title");
-//                        XposedBridge.log("[SpotifyPlus] " + title.getText().toString());
 
                             View artwork = findByIdName(root, "com.spotify.music:id/cwp_header_artwork");
-//                        artwork.setVisibility(View.INVISIBLE);
-
-//                        View background = findByIdName(root, "com.spotify.music:id/cwp_header_artwork_background");
-//
-//                        if (!(background instanceof View)) {
-//                            XposedBridge.log("[SpotifyPlus] cover background not found");
-//                            return;
-//                        }
-//
-//                        if (!(background.getParent() instanceof ViewGroup)) {
-//                            XposedBridge.log("[SpotifyPlus] cover parent not ViewGroup");
-//                            return;
-//                        }
 
                             if (artwork != null) {
                                 attachOverlay((ViewGroup) artwork.getParent(), artwork, title.getText().toString());
                             }
-
-//                        View overlay = (View) background.getTag(TAG_OVERLAY);
-//                        overlay.setBackgroundColor(0x55FF0000); // translucent red
 
                         });
                     }
@@ -225,7 +208,6 @@ public class TestingHook extends SpotifyHook {
         dim.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
 
         dim.setBackgroundColor(0x22000000);
-//        overlay.addView(dim, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         overlay.setTag(TAG_ARF, arf);
         overlay.setTag(TAG_TEXTURE, textureView);

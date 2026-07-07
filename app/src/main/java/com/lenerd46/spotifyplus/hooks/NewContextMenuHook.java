@@ -78,14 +78,6 @@ public class NewContextMenuHook extends SpotifyHook {
 
             Class<?> kyx0 = classesThing.get(0).getInstance(lpparm.classLoader).getInterfaces()[0];
 
-//            Class<?> gff = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().methods(MethodsMatcher.create().count(4)
-//                    .add(MethodMatcher.create().returnType(boolean.class).name("equals").paramCount(1))
-//                    .add(MethodMatcher.create().returnType(int.class).name("hashCode").paramCount(0).usingNumbers(31, 0))
-//            ).fields(FieldsMatcher.create().count(3)
-//                    .add(FieldMatcher.create().type(String.class))
-//                    .add(FieldMatcher.create().type(String.class))
-//                    .add(FieldMatcher.create().type(kyx0))
-//            ))).get(0).getInstance(lpparm.classLoader);
             boolean newContextMenu;
 
             var jffClasses = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().methods(MethodsMatcher.create().count(3)
@@ -121,16 +113,12 @@ public class NewContextMenuHook extends SpotifyHook {
 
             final Class<?> c8f = c8fClasses.get(0).getInstance(lpparm.classLoader);
 
-//            XposedBridge.log("[SpotifyPlus] Found " + jffClasses.size() + " classes");
-//            jffClasses.forEach(x -> XposedBridge.log("[SpotifyPlus] " + x.getName()));
-
             org.luckypray.dexkit.result.ClassDataList finalC8fClasses = c8fClasses;
             XposedBridge.log("[SpotifyPlus] c8f: " + c8f.getName());
             XposedBridge.hookAllMethods(c8f, "invoke", new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                             int branch = bridge.findField(FindField.create().searchInClass(finalC8fClasses).matcher(FieldMatcher.create().type(int.class))).get(0).getFieldInstance(lpparm.classLoader).getInt(param.thisObject);
-//                            if (branch != 19) return;
 
                             // These variable names are the class names in version 9.1.24.1739
                             Object jff = param.args[0];
@@ -239,13 +227,6 @@ public class NewContextMenuHook extends SpotifyHook {
 
                             interfaceClass = Arrays.stream(cachedOriginalViewModel.getClass().getDeclaredFields()).filter(x -> x.getName().equals("d")).collect(Collectors.toList()).get(0).get(cachedOriginalViewModel).getClass().getInterfaces()[0];
 
-//                            Object trfObject = XposedHelpers.getObjectField(list.get(1).getClass().getMethod("getViewModel").invoke(list.get(1)), "d");
-//                            trfClass = trfObject.getClass();
-//                            rsfClass = XposedHelpers.getObjectField(trfObject, "a").getClass();
-//
-//                            for(int i = 0; i < list.size() - 1; i++) {
-//                                XposedBridge.log("[SpotifyPlus] Thing " + i + ": " + XposedHelpers.getObjectField(list.get(i).getClass().getMethod("getViewModel").invoke(list.get(i)), "d").getClass().getName());
-//                            }
                         }
 
                         if (list.stream().anyMatch(item -> {
@@ -282,17 +263,6 @@ public class NewContextMenuHook extends SpotifyHook {
                     } else {
                         if (cachedOriginalViewModel == null) return;
                         Class<?> pgf = cachedOriginalViewModel.getClass();
-
-//                        Class<?> pgf = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().fields(FieldsMatcher.create().count(11)
-//                                .add(FieldMatcher.create().type(String.class))
-//                                .add(FieldMatcher.create().type(boolean.class))
-//                                .add(FieldMatcher.create().type(boolean.class))
-//                                .add(FieldMatcher.create().type(boolean.class))
-//                                .add(FieldMatcher.create().type(boolean.class))
-//                                .add(FieldMatcher.create().type(boolean.class))
-//                        ).methods(MethodsMatcher.create().countMin(4)
-//                                .add(MethodMatcher.create().name("hashCode").returnType(int.class).usingNumbers(31, 0, 1237))
-//                        ))).get(0).getInstance(lpparm.classLoader);
 
                         SpotifyTitleOverride.install();
                         SpotifyTitleOverride.overrideSpotifyStringById(0x7f131428, "Open in Last.fm");

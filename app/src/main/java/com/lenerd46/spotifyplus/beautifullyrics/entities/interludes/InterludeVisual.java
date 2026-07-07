@@ -213,9 +213,7 @@ public class InterludeVisual implements SyncableVocals {
                 dot.setShadowGravity(CircleView.ShadowGravity.CENTER);
 
                 int sizeInPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 28, activity.getResources().getDisplayMetrics());
-//                int marginPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1, activity.getResources().getDisplayMetrics());
                 LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(sizeInPx, sizeInPx);
-//                dotParams.setMargins(0, 0, marginPx, 0);
                 dotParams.width = sizeInPx;
                 dotParams.height = sizeInPx;
                 dot.setLayoutParams(dotParams);

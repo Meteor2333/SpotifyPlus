@@ -96,9 +96,6 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
                         return;
 
                     attachOverlay((ViewGroup) image.getParent(), image);
-
-                    // View overlay = (View) image.getTag(TAG_OVERLAY);
-                    // overlay.setBackgroundColor(0x55FF0000); // translucent red
                 });
 
             }

@@ -111,29 +111,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                 prefs = context.getSharedPreferences("SpotifyPlus", Context.MODE_PRIVATE);
             }
 
-            // var clazz =
-            // bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("tracks_section",
-            // "footer_section",
-            // "location").fieldCount(3).methodCount(2))).get(0).getInstance(lpparm.classLoader).getInterfaces()[0];
-            //
-            // var testThing =
-            // bridge.findClass(FindClass.create().matcher(ClassMatcher.create().interfaceCount(0).modifiers(Modifier.PUBLIC
-            // |
-            // Modifier.FINAL).superClass(ClassMatcher.create()).methods(MethodsMatcher.create().count(3)
-            // .add(MethodMatcher.create().modifiers(Modifier.PUBLIC |
-            // Modifier.FINAL).returnType(boolean.class).params(ParametersMatcher.create().add(Object.class)).name("equals"))
-            // .add(MethodMatcher.create().name("hashCode").returnType(int.class).paramCount(0).usingNumbers(31,
-            // 0))
-            // .add(MethodMatcher.create().name("<init>").paramCount(3))
-            // ).fields(FieldsMatcher.create().count(3)
-            // .add(FieldMatcher.create().type(Object.class))
-            // .add(FieldMatcher.create().type(clazz))
-            // )));
-            //
-            // XposedBridge.log("[SpotifyPlus] Test Thing Count: " +
-            // testThing.toArray().length);
-            // testThing.forEach(x -> XposedBridge.log("[SpotifyPlus] " + x.getName()));
-
             var constructorClassList = bridge.findClass(
                     FindClass.create().matcher(ClassMatcher.create().usingStrings("NavigationBarItemSet(item1=")));
             var parameterClassList = bridge.findClass(FindClass.create().matcher(
@@ -169,12 +146,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
             }
 
             SpotifyTitleOverride.install();
-
-            // var list =
-            // bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("spotify:artist:",
-            // "Failed requirement.", "spotify:concept:", "spotify:list:",
-            // "podcast-chapters", "spotify:show:")));
-            // Class<?> clazz = list.get(0).getInstance(lpparm.classLoader);
 
             Class<?> id30 = XposedHelpers.findClass("p.id30", lpparm.classLoader);
             XposedBridge.hookAllMethods(id30, "a", new XC_MethodHook() {
@@ -265,25 +236,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                             .add(FieldMatcher.create().modifiers(Modifier.PUBLIC | Modifier.FINAL).type(int.class))
                             .add(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(int.class))
                             .add(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(Object[].class)))));
-
-            // var things =
-            // bridge.findClass(FindClass.create().matcher(ClassMatcher.create().modifiers(Modifier.PUBLIC
-            // |
-            // Modifier.FINAL).interfaceCount(1).methodCount(3).fields(FieldsMatcher.create()
-            // .count(4)
-            // .add(FieldMatcher.create().modifiers(Modifier.PUBLIC |
-            // Modifier.FINAL).type(int.class))
-            // .add(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(int.class))
-            // .add(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(Object[].class))
-            // )));
-
-            // var things =
-            // bridge.findMethod(FindMethod.create().searchInClass(modifyDataListClass).matcher(MethodMatcher.create().returnType(Object.class).modifiers(Modifier.PUBLIC
-            // | Modifier.FINAL).paramCount(1).paramTypes(Object.class)));
-            // XposedBridge.log("[SpotifyPlus] Test Thing Count: " +
-            // things.toArray().length);
-            // things.forEach(x -> XposedBridge.log("[SpotifyPlus] " +
-            // x.getDeclaredClassName()));
 
             var methodsThing = bridge.findMethod(FindMethod.create().searchInClass(modifyDataListClass)
                     .matcher(MethodMatcher.create().returnType(Object.class).modifiers(Modifier.PUBLIC | Modifier.FINAL)
@@ -445,28 +397,14 @@ public class RemoveCreateButtonHook extends SpotifyHook {
             Class<?> cbpInterface = cbpInterfaceList.get(0).getInstance(lpparm.classLoader).getMethod("getOnScrubEnd")
                     .getReturnType();
 
-            // Class<?> cbpInterface =
-            // .get(0).getInstance(lpparm.classLoader).getInterfaces()[0];
-
-            // for(var interlace : modifyDataListClass) {
-            // XposedBridge.log("[SpotifyPlus] Found Class: " + interlace);
-            // }
-
             XposedBridge.hookMethod(invokeSuspend, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    // Field a =
-                    // bridge.findField(FindField.create().searchInClass(modifyDataListClass).matcher(FieldMatcher.create().modifiers(Modifier.PUBLIC
-                    // |
-                    // Modifier.FINAL).type(int.class))).get(0).getFieldInstance(lpparm.classLoader);
                     Field d = bridge
                             .findField(FindField.create()
                                     .searchInClass(Collections.singletonList(bridge.getClassData(correctClass)))
                                     .matcher(FieldMatcher.create().modifiers(Modifier.PUBLIC).type(Object[].class)))
                             .get(0).getFieldInstance(lpparm.classLoader);
-
-                    // int number = a.getInt(param.thisObject);
-                    // if(number != 20) return;
 
                     Object[] originalItemsWithNull = (Object[]) d.get(param.thisObject);
                     if (originalItemsWithNull == null)
@@ -530,11 +468,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                                             }
                                                             overlayShown.set(false);
 
-                                                            // try {
-                                                            // activity.getWindow().getDecorView().post(() -> {
-                                                            // dispatcher.registerOnBackInvokedCallback(1000001, this);
-                                                            // });
-                                                            // } catch(Throwable t) { }
                                                         } else {
                                                             if (lastfmPopup.get() != null) {
                                                                 root.removeView(lastfmPopup.get());
@@ -576,8 +509,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                             View lyricsSettings = settingsPage.findViewById(R.id.settings_lyrics);
                                             View experimentalSettings = settingsPage
                                                     .findViewById(R.id.settings_experimental);
-                                            // View scriptingSettings =
-                                            // settingsPage.findViewById(R.id.settings_scripting);
                                             View aboutSettings = settingsPage.findViewById(R.id.settings_about);
 
                                             generalSettings.setOnClickListener(v -> {
@@ -731,7 +662,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                                                 modResources.getIdentifier("manage_sleep_timers_view",
                                                                         "layout", "com.lenerd46.spotifyplus"),
                                                                 null, false);
-                                                        // root.addView(timerViews);
 
                                                         MaterialSwitch autoReorderSwitch = timerViews
                                                                 .findViewById(modResources.getIdentifier(
@@ -853,12 +783,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 
                                                         timerViews.setOnClickListener(
                                                                 timer -> XposedHelpers.callMethod(sheet, "dismiss"));
-
-                                                        // View sheet =
-                                                        // timerViews.findViewById(modResources.getIdentifier("sleep_timer_presets_sheet",
-                                                        // "id", "com.lenerd46.spotifyplus"));
-                                                        // if(sheet != null) sheet.setOnClickListener(sheetThing -> {
-                                                        // });
 
                                                         XposedHelpers.callMethod(sheet, "setContentView", timerViews);
                                                         XposedHelpers.callMethod(sheet, "show");
@@ -1296,39 +1220,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                                         .setChecked(prefs.getBoolean("experiment_animated_art", true));
                                             });
 
-                                            // scriptingSettings.setOnClickListener(v -> {
-                                            // View view = inflater.inflate(R.layout.scripting_settings_page, root,
-                                            // false);
-                                            // root.addView(view);
-                                            // animatePageIn(view);
-                                            // currentDetailedSettingsPage.set(view);
-                                            //
-                                            // MaterialToolbar detailedToolbar =
-                                            // view.findViewById(R.id.scripting_toolbar);
-                                            // detailedToolbar.setNavigationOnClickListener(w -> {
-                                            // ViewParent parent = settingsPage.getParent();
-                                            // if (parent instanceof ViewGroup) {
-                                            // animatePageOut((ViewGroup) parent, () -> {
-                                            // ((ViewGroup) parent).removeView(view);
-                                            // });
-                                            // }
-                                            // });
-                                            //
-                                            // MaterialButton selectDirectory =
-                                            // view.findViewById(R.id.btn_select_directory);
-                                            //
-                                            // selectDirectory.setOnClickListener(button -> {
-                                            // if (activity != null && !activity.isFinishing()) {
-                                            // Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-                                            // intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
-                                            // Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
-                                            // Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
-                                            // Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
-                                            // activity.startActivityForResult(intent, 9072022);
-                                            // }
-                                            // });
-                                            // });
-
                                             aboutSettings.setOnClickListener(v -> {
                                                 View view = inflater.inflate(R.layout.about_settings_page, root, false);
                                                 root.addView(view);
@@ -1361,19 +1252,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                                     activity.startActivity(browserIntent);
                                                 });
 
-                                                // TextView text = view.findViewById(R.id.translate_text);
-                                                // MaterialButton button = view.findViewById(R.id.translate_button);
-                                                //
-                                                // button.setOnClickListener(button1 -> {
-                                                // try {
-                                                // final String originalText = text.getText().toString();
-                                                // text.setText("Translating...");
-                                                //
-                                                //
-                                                // } catch (Exception e) {
-                                                // XposedBridge.log("[SpotifyPlus] " + e);
-                                                // }
-                                                // });
                                             });
                                         } catch (Exception e) {
                                             XposedBridge
@@ -1381,11 +1259,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                                             XposedBridge.log(e);
                                         }
                                     }));
-
-                    // Array.set(newArray, originalItems.length + 1,
-                    // createSideDrawerButton("Marketplace", tempalteLightning, buttonClass,
-                    // sideDrawerItem, propertiesClass, onClickClass, qbpInterface, zpj0Interface,
-                    // cbpInterface, 2131957896, () -> XposedBridge.log("[SpotifyPlus] Hello!")));
 
                     int index = originalItems.length + 2;
 
@@ -1555,7 +1428,6 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                         originalProps.getClass().getFields()[5].get(originalProps));
             }
 
-            // XposedHelpers.setObjectField(newProps, propName, title);
             Object newDwd0 = null;
 
             if (!isNewSideDrawer) {
