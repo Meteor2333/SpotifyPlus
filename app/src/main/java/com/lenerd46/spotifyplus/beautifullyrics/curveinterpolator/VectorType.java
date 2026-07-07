@@ -8,13 +8,13 @@ package com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator;
  */
 
 public interface VectorType {
-    public double zero = 0;
-    public double one = 0;
-    public double two = -1;
-    public double three = -1;
-    public double x = -1;
-    public double y = -1;
-    public double z = -1;
-    public double w = -1;
-    public double length = 0;
+    double zero = 0;
+    double one = 0;
+    double two = -1;
+    double three = -1;
+    double x = -1;
+    double y = -1;
+    double z = -1;
+    double w = -1;
+    double length = 0;
 }

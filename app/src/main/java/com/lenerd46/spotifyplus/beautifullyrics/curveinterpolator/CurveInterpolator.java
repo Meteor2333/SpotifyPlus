@@ -20,9 +20,9 @@ import java.util.stream.Collectors;
  */
 
 public class CurveInterpolator {
-    private double lMargin;
-    private CurveMapper curveMapper;
-    private Map<String, Object> cache = new HashMap<String, Object>();
+    private final double lMargin;
+    private final CurveMapper curveMapper;
+    private Map<String, Object> cache = new HashMap<>();
 
     public CurveInterpolator(Vector[] points) {
         double tension = 0.5d;

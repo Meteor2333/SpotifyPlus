@@ -64,7 +64,7 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
     private String modulePath = null;
 
     @Override
-    public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
+    public void handleLoadPackage(LoadPackageParam lpparam) {
         if (!lpparam.packageName.equals("com.spotify.music"))
             return;
         XposedBridge.log("[SpotifyPlus] Loading SpotifyPlus v" + BuildConfig.VERSION_NAME);
@@ -79,16 +79,15 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
         XposedHelpers.findAndHookMethod(Activity.class, "onResume", new XC_MethodHook() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                Activity activity = (Activity) param.thisObject;
-                References.currentActivity = activity;
+            protected void afterHookedMethod(MethodHookParam param) {
+                References.currentActivity = (Activity) param.thisObject;
             }
         });
 
         XposedHelpers.findAndHookMethod(Activity.class, "onActivityResult", int.class, int.class, Intent.class,
                 new XC_MethodHook() {
                     @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void afterHookedMethod(MethodHookParam param) {
                         int requestCode = (int) param.args[0];
                         Intent data = (Intent) param.args[2];
 
@@ -107,7 +106,7 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
         XposedHelpers.findAndHookMethod(Activity.class, "onCreate", Bundle.class, new XC_MethodHook() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            protected void afterHookedMethod(MethodHookParam param) {
                 Activity activity = (Activity) param.thisObject;
                 Typeface beautifulFont = References.beautifulFont.get();
 
@@ -142,7 +141,7 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
         XposedHelpers.findAndHookMethod(Application.class, "attach", Context.class, new XC_MethodHook() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            protected void afterHookedMethod(MethodHookParam param) {
                 Context context = (Context) param.args[0];
                 cleanUpCache(context);
 
@@ -166,7 +165,7 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
     }
 
     @Override
-    public void initZygote(StartupParam startupParam) throws Throwable {
+    public void initZygote(StartupParam startupParam) {
         modulePath = startupParam.modulePath;
     }
 
@@ -243,8 +242,6 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                         // New update available!
 
                         ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
-                        if (root == null)
-                            return;
 
                         XModuleResources modResources = References.modResources;
                         int themeOverlayLast = R.style.Theme_SpotifyPlus;
@@ -376,24 +373,16 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
             if (cm == null)
                 return false;
 
-            if (android.os.Build.VERSION.SDK_INT >= 23) {
-                android.net.Network nw = cm.getActiveNetwork();
-                if (nw == null)
-                    return false;
-                android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(nw);
-                if (caps == null)
-                    return false;
-                // INTERNET = can reach the internet, VALIDATED = actually has connectivity (not
-                // just a Wi‑Fi w/o backhaul)
-                return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                        && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED);
-            } else {
-                @SuppressWarnings("deprecation")
-                android.net.NetworkInfo ni = cm.getActiveNetworkInfo();
-                @SuppressWarnings("deprecation")
-                boolean connected = (ni != null && ni.isConnected());
-                return connected;
-            }
+            android.net.Network nw = cm.getActiveNetwork();
+            if (nw == null)
+                return false;
+            android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(nw);
+            if (caps == null)
+                return false;
+            // INTERNET = can reach the internet, VALIDATED = actually has connectivity (not
+            // just a Wi‑Fi w/o backhaul)
+            return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED);
         } catch (Throwable t) {
             // Never crash due to OEM weirdness
             de.robv.android.xposed.XposedBridge.log("[SpotifyPlus] hasInternet() failed: " + t);
@@ -411,14 +400,8 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
         }
     }
 
-    private static final int COLOR_BACKGROUND_PRIMARY = 0xFF000000;
-    private static final int COLOR_BACKGROUND_SECONDARY = 0xFF121212;
-    private static final int COLOR_ACCENT = 0xFF1ED760;
-    private static final int COLOR_ACCENT_PRESSED = 0xFF1ABC54;
-
     @Override
-    public void handleInitPackageResources(XC_InitPackageResources.InitPackageResourcesParam resparam)
-            throws Throwable {
+    public void handleInitPackageResources(XC_InitPackageResources.InitPackageResourcesParam resparam) {
         if (!"com.spotify.music".equals(resparam.packageName)) {
             return;
         }

@@ -30,7 +30,7 @@ public class LikedSongHook extends SpotifyHook {
     protected void hook() {
         XposedBridge.hookAllMethods(LayoutInflater.class, "inflate", new XC_MethodHook() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            protected void afterHookedMethod(MethodHookParam param) {
                 // inflate(...) has multiple overloads; sometimes arg0 isn't an int.
                 if (!(param.args[0] instanceof Integer)) return;
 
@@ -62,7 +62,7 @@ public class LikedSongHook extends SpotifyHook {
 
         XposedHelpers.findAndHookMethod("com.spotify.player.model.AutoValue_ContextTrack$Builder", lpparm.classLoader, "build", new XC_MethodHook() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            protected void afterHookedMethod(MethodHookParam param) {
                 Object result = param.getResult();
                 SpotifyTrack track = References.getTrackTitle(lpparm, bridge);
 
@@ -74,7 +74,7 @@ public class LikedSongHook extends SpotifyHook {
 
         XposedBridge.hookAllConstructors(XposedHelpers.findClass("okhttp3.Request", lpparm.classLoader), new XC_MethodHook() {
             @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            protected void beforeHookedMethod(MethodHookParam param) {
                 String url = param.args[0].toString();
 
                 if(url.toLowerCase().contains("events")) {

@@ -44,7 +44,7 @@ public class SpotifyTitleOverride {
 
         XposedBridge.hookAllMethods(Resources.class, "getString", new XC_MethodHook() {
             @java.lang.Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            protected void beforeHookedMethod(MethodHookParam param) {
 
                 if (param.args.length < 1 || !(param.args[0] instanceof Integer))
                     return;
@@ -66,7 +66,7 @@ public class SpotifyTitleOverride {
 
         XposedBridge.hookAllMethods(Resources.class, "getText", new XC_MethodHook() {
             @java.lang.Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            protected void beforeHookedMethod(MethodHookParam param) {
                 if (param.args.length < 1 || !(param.args[0] instanceof Integer))
                     return;
 

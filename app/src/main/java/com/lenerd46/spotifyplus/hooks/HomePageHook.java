@@ -13,7 +13,7 @@ public class HomePageHook extends SpotifyHook {
     protected void hook() {
         XposedBridge.hookAllMethods(ViewGroup.class, "addView", new XC_MethodHook() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            protected void afterHookedMethod(MethodHookParam param) {
                 if (!(param.thisObject instanceof ViewGroup)) return;
                 if (param.args.length == 0 || !(param.args[0] instanceof View)) return;
 

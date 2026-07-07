@@ -37,7 +37,7 @@ public class SegmentedCurveMapper extends AbstractCurveMapper {
     }
 
     public List<Double> computeArcLengths() {
-        List<Double> lengths = new ArrayList<Double>();
+        List<Double> lengths = new ArrayList<>();
         Vector current;
         Vector last = this.evaluateForT(SplineSegment::valueAtT, 0, null);
         double sum = 0;

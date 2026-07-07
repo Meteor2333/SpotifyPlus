@@ -36,7 +36,7 @@ public class NetworkHook extends SpotifyHook {
 
                 XposedBridge.hookMethod(httpBuildMethod, new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void beforeHookedMethod(MethodHookParam param) {
                         String url = param.args[0].toString();
 
                         // || url.contains("gabo-receiver-service") || url.contains("net-fortune") ||

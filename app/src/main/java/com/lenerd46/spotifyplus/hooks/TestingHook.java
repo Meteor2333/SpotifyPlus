@@ -53,7 +53,7 @@ public class TestingHook extends SpotifyHook {
 
             XposedBridge.hookAllMethods(LayoutInflater.class, "inflate", new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(MethodHookParam param) {
                     if (!(param.args[0] instanceof Integer)) return;
 
                     LayoutInflater inflater = (LayoutInflater) param.thisObject;

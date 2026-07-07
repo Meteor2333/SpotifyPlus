@@ -42,7 +42,7 @@ public class OldAnimatedBackgroundView extends View {
     private int paletteMode = PALETTE_COLORFUL;
 
     private final HandlerThread renderThread;
-    private Handler renderHandler;
+    private final Handler renderHandler;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean isRendering = new AtomicBoolean(false);
     private final Object lock = new Object();
@@ -380,7 +380,7 @@ public class OldAnimatedBackgroundView extends View {
             return fallback;
         }
 
-        Collections.sort(list, (o1, o2) -> Float.compare(o2.score, o1.score));
+        list.sort((o1, o2) -> Float.compare(o2.score, o1.score));
 
         final float MIN_MAIN_HUE_DIST = 22f;
         List<HueBucket> mainBuckets = new ArrayList<>();
@@ -789,7 +789,7 @@ public class OldAnimatedBackgroundView extends View {
         return v;
     }
 
-    private boolean debugOverlayEnabled = true;
+    private final boolean debugOverlayEnabled = true;
 
     private float uiFps = 0f;
     private float renderFps = 0f;

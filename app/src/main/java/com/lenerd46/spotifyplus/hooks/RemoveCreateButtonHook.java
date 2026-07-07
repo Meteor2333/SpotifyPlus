@@ -147,7 +147,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                 XposedHelpers.findAndHookConstructor(constructorClass, parameterClass, parameterClass, parameterClass,
                         parameterClass, parameterClass, new XC_MethodHook() {
                             @Override
-                            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            protected void beforeHookedMethod(MethodHookParam param) {
                                 if (prefs.getBoolean("remove_create", false)) {
                                     for (int i = 0; i < 5; i++) {
                                         var item = param.args[i];
@@ -179,7 +179,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
             Class<?> id30 = XposedHelpers.findClass("p.id30", lpparm.classLoader);
             XposedBridge.hookAllMethods(id30, "a", new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(MethodHookParam param) {
                     Object nav = param.args[0]; // hd30
                     String raw = (String) XposedHelpers.getObjectField(nav, "a");
                     if (raw != null && raw.startsWith("spotifyplus:")) {
@@ -209,7 +209,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
 
             XposedBridge.hookAllMethods(ysi0, "g", new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                protected void beforeHookedMethod(MethodHookParam param) {
                     String s = (String) param.args[0];
                     if (s != null && s.startsWith("spotifyplus:")) {
                         XposedBridge.log("[SpotifyPlus] " + s);
@@ -226,7 +226,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
             Class<?> main = XposedHelpers.findClass("com.spotify.music.SpotifyMainActivity", lpparm.classLoader);
             XposedBridge.hookAllMethods(main, "onNewIntent", new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(MethodHookParam param) {
                     android.app.Activity act = (android.app.Activity) param.thisObject;
                     Intent it = (Intent) param.args[0];
                     if (it != null && it.getStringExtra("spx") != null
@@ -1493,7 +1493,7 @@ public class RemoveCreateButtonHook extends SpotifyHook {
                     private long lastTs = 0;
 
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void beforeHookedMethod(MethodHookParam param) {
                         if (param.thisObject != targetOnClick)
                             return;
 

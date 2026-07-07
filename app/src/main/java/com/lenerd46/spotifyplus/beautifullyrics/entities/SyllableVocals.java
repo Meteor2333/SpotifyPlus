@@ -201,13 +201,13 @@ public class SyllableVocals implements SyncableVocals {
 
                 LiveText liveText = new LiveText(isEmphasized ? emphasisGroup : textView, createSprings());
 
+                AnimatedSyllable animatedSyllable;
                 if(isEmphasized) {
-                    AnimatedSyllable animatedSyllable = new AnimatedSyllable(relativeStart, duration, relativeStartScale, durationScale, liveText, "Letters", letters);
-                    this.syllables.add(animatedSyllable);
+                    animatedSyllable = new AnimatedSyllable(relativeStart, duration, relativeStartScale, durationScale, liveText, "Letters", letters);
                 } else {
-                    AnimatedSyllable animatedSyllable = new AnimatedSyllable(relativeStart, duration, relativeStartScale, durationScale, liveText, "Syllable", null);
-                    this.syllables.add(animatedSyllable);
+                    animatedSyllable = new AnimatedSyllable(relativeStart, duration, relativeStartScale, durationScale, liveText, "Syllable", null);
                 }
+                this.syllables.add(animatedSyllable);
 
                 index++;
             }
@@ -334,18 +334,16 @@ public class SyllableVocals implements SyncableVocals {
                     textView.setScaleY((float)scale);
 
                     textView.setTranslationY((float)yOffset * (isEmphasized ? 2f : 1f));
-                    textView.setProgress(gradientProgress);
 
-                    textView.updateShadow(shadowOpacity, shadowRadius);
                 } else {
                     textView.setScaleX((float)scale);
                     textView.setScaleY((float)scale);
 
                     textView.setTranslationY((float)yOffset);
-                    textView.setProgress(gradientProgress);
 
-                    textView.updateShadow(shadowOpacity, shadowRadius);
                 }
+                textView.setProgress(gradientProgress);
+                textView.updateShadow(shadowOpacity, shadowRadius);
             });
         }
 
@@ -385,14 +383,14 @@ public class SyllableVocals implements SyncableVocals {
         }
 
         boolean isSleeping1 = !shouldUpdateVisualState;
-        boolean isMoving = isSleeping1 == false;
+        boolean isMoving = !isSleeping1;
 
         if(shouldUpdateVisualState || isMoving) {
-            double timeScale = Math.max(0, Math.min((double)relativeTime / (double)this.duration, 1));
+            double timeScale = Math.max(0, Math.min(relativeTime / this.duration, 1));
             boolean isSleeping = true;
 
             for(var syllable : this.syllables) {
-                double syllableTimeScale = Math.max(0, Math.min((double)(timeScale - syllable.startScale) / (double)syllable.durationScale, 1));
+                double syllableTimeScale = Math.max(0, Math.min((timeScale - syllable.startScale) / syllable.durationScale, 1));
 
                 if(syllable.type.equals("Letters")) {
                     double timeAlpha = Math.sin(syllableTimeScale * (Math.PI / 2));

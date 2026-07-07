@@ -181,7 +181,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
         XposedHelpers.findAndHookMethod("com.spotify.lyrics.fullscreenview.page.LyricsFullscreenPageActivity",
                 lpparm.classLoader, "onCreate", Bundle.class, new XC_MethodHook() {
                     @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void afterHookedMethod(MethodHookParam param) {
                         try {
                             XposedBridge.log("[SpotifyPlus] Loading Beautiful Lyrics ✨");
 
@@ -444,7 +444,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
         XposedHelpers.findAndHookMethod("com.spotify.lyrics.fullscreenview.page.LyricsFullscreenPageActivity",
                 lpparm.classLoader, "finish", new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void beforeHookedMethod(MethodHookParam param) {
                         stop = true;
                         lineSprings.clear();
                         lineAnimationStartTimes.clear();
@@ -472,7 +472,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                     .get(0).getMethodInstance(lpparm.classLoader);
             XposedBridge.hookMethod(getStateMethod, new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(MethodHookParam param) {
                     References.playerStateWrapper = new WeakReference<>(param.thisObject);
                 }
             });
@@ -500,7 +500,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                     XposedHelpers.findClass("android.media.session.PlaybackState", lpparm.classLoader),
                     new XC_MethodHook() {
                         @Override
-                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        protected void afterHookedMethod(MethodHookParam param) {
                             PlaybackState playbackState = (PlaybackState) param.args[0];
                             if (playbackState == null)
                                 return;
@@ -515,7 +515,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
         XposedHelpers.findAndHookMethod("com.spotify.player.model.AutoValue_PlayerState$Builder", lpparm.classLoader,
                 "build", new XC_MethodHook() {
                     @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void afterHookedMethod(MethodHookParam param) {
                         Object state = param.getResult();
                         References.playerState = new WeakReference<>(state);
                         References.notifyPlayerStateChanged(state);
@@ -540,7 +540,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
             XposedBridge.hookAllConstructors(seek, new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(MethodHookParam param) {
                     seekInstance = param.thisObject;
                 }
             });
@@ -560,7 +560,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
 
             XposedBridge.hookMethod(request, new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                protected void beforeHookedMethod(MethodHookParam param) {
                     String headerName = (String) param.args[0];
                     String headerValue = (String) param.args[1];
 
@@ -860,67 +860,74 @@ public class BeautifulLyricsHook extends SpotifyHook {
                                 return;
                             }
 
-                            if (type.equals("Syllable")) {
-                                Gson gson = new Gson();
-                                SyllableSyncedLyrics providerLyrics = gson.fromJson(content,
-                                        SyllableSyncedLyrics.class);
-                                ProviderLyrics lyrics = new ProviderLyrics();
-                                lyrics.syllableLyrics = providerLyrics;
-                                XposedBridge.log("[SpotifyPlus] Line Count: " + lyrics.syllableLyrics.content.size());
+                            switch (type) {
+                                case "Syllable": {
+                                    Gson gson = new Gson();
+                                    SyllableSyncedLyrics providerLyrics = gson.fromJson(content,
+                                            SyllableSyncedLyrics.class);
+                                    ProviderLyrics lyrics = new ProviderLyrics();
+                                    lyrics.syllableLyrics = providerLyrics;
+                                    XposedBridge.log("[SpotifyPlus] Line Count: " + lyrics.syllableLyrics.content.size());
 
-                                TransformedLyrics transformedLyrics = LyricUtilities.transformLyrics(lyrics, activity);
+                                    TransformedLyrics transformedLyrics = LyricUtilities.transformLyrics(lyrics, activity);
 
-                                renderSyllableLyrics(activity, transformedLyrics.lyrics, lyricsContainer, track,
-                                        writtenBy);
-                            } else if (type.equals("Line")) {
-                                Gson gson = new Gson();
-                                LineSyncedLyrics providerLyrics = gson.fromJson(content, LineSyncedLyrics.class);
-                                ProviderLyrics lyrics = new ProviderLyrics();
-                                lyrics.lineLyrics = providerLyrics;
+                                    renderSyllableLyrics(activity, transformedLyrics.lyrics, lyricsContainer, track,
+                                            writtenBy);
+                                    break;
+                                }
+                                case "Line": {
+                                    Gson gson = new Gson();
+                                    LineSyncedLyrics providerLyrics = gson.fromJson(content, LineSyncedLyrics.class);
+                                    ProviderLyrics lyrics = new ProviderLyrics();
+                                    lyrics.lineLyrics = providerLyrics;
 
-                                TransformedLyrics transformedLyrics = LyricUtilities.transformLyrics(lyrics, activity);
+                                    TransformedLyrics transformedLyrics = LyricUtilities.transformLyrics(lyrics, activity);
 
-                                renderLineLyrics(activity, transformedLyrics.lyrics, lyricsContainer, track, writtenBy);
-                            } else if (type.equals("Static")) {
-                                Gson gson = new Gson();
-                                // This is pretty pointless
-                                // If Spotify doesn't have lyrics, you can't open this page
-                                // And it's very likely that if a song has static lyrics, Spotify won't have the
-                                // lryics
-                                // I redact my statement, there have been a few times that I've seen static
-                                // lyrics
-                                // And hey, guess what? It actually works!
-                                // I wrote this code and never cared enough to go find a song to test it on
+                                    renderLineLyrics(activity, transformedLyrics.lyrics, lyricsContainer, track, writtenBy);
+                                    break;
+                                }
+                                case "Static": {
+                                    Gson gson = new Gson();
+                                    // This is pretty pointless
+                                    // If Spotify doesn't have lyrics, you can't open this page
+                                    // And it's very likely that if a song has static lyrics, Spotify won't have the
+                                    // lryics
+                                    // I redact my statement, there have been a few times that I've seen static
+                                    // lyrics
+                                    // And hey, guess what? It actually works!
+                                    // I wrote this code and never cared enough to go find a song to test it on
 
-                                StaticSyncedLyrics providerLyrics = gson.fromJson(content, StaticSyncedLyrics.class);
+                                    StaticSyncedLyrics providerLyrics = gson.fromJson(content, StaticSyncedLyrics.class);
 
-                                ProviderLyrics providerLyricsThing = new ProviderLyrics();
-                                providerLyricsThing.staticLyrics = providerLyrics;
+                                    ProviderLyrics providerLyricsThing = new ProviderLyrics();
+                                    providerLyricsThing.staticLyrics = providerLyrics;
 
-                                TransformedLyrics transformedLyrics = LyricUtilities
-                                        .transformLyrics(providerLyricsThing, activity);
-                                StaticSyncedLyrics lyrics = transformedLyrics.lyrics.staticLyrics;
+                                    TransformedLyrics transformedLyrics = LyricUtilities
+                                            .transformLyrics(providerLyricsThing, activity);
+                                    StaticSyncedLyrics lyrics = transformedLyrics.lyrics.staticLyrics;
 
-                                for (var line : lyrics.lines) {
-                                    FlexboxLayout layout = new FlexboxLayout(activity.getApplicationContext());
-                                    layout.setFlexWrap(FlexWrap.WRAP);
+                                    for (var line : lyrics.lines) {
+                                        FlexboxLayout layout = new FlexboxLayout(activity.getApplicationContext());
+                                        layout.setFlexWrap(FlexWrap.WRAP);
 
-                                    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                                            RelativeLayout.LayoutParams.MATCH_PARENT,
-                                            RelativeLayout.LayoutParams.WRAP_CONTENT);
-                                    params.setMargins(dpToPx(15, activity), dpToPx(20, activity), dpToPx(15, activity),
-                                            0);
-                                    layout.setLayoutParams(params);
+                                        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                                                RelativeLayout.LayoutParams.MATCH_PARENT,
+                                                RelativeLayout.LayoutParams.WRAP_CONTENT);
+                                        params.setMargins(dpToPx(15, activity), dpToPx(20, activity), dpToPx(15, activity),
+                                                0);
+                                        layout.setLayoutParams(params);
 
-                                    TextView text = new TextView(activity);
-                                    text.setText(line.text);
+                                        TextView text = new TextView(activity);
+                                        text.setText(line.text);
 
-                                    text.setTextColor(Color.WHITE);
-                                    text.setTextSize(26f);
-                                    text.setTypeface(References.beautifulFont.get());
+                                        text.setTextColor(Color.WHITE);
+                                        text.setTextSize(26f);
+                                        text.setTypeface(References.beautifulFont.get());
 
-                                    layout.addView(text);
-                                    lyricsContainer.addView(layout);
+                                        layout.addView(text);
+                                        lyricsContainer.addView(layout);
+                                    }
+                                    break;
                                 }
                             }
                         });
@@ -982,10 +989,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
                 break;
 
             case "more":
-                lineSpacing = 46;
-                fontSize = 38;
-                break;
-
             case "max":
                 lineSpacing = 46;
                 fontSize = 38;
@@ -2130,7 +2133,7 @@ public class BeautifulLyricsHook extends SpotifyHook {
                             .post(body).build();
                     client.newCall(request).enqueue(new Callback() {
                         @Override
-                        public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
+                        public void onResponse(@NotNull Call call, @NotNull Response response) {
                             if (response.isSuccessful()) {
                                 Handler mainHandler = new Handler(Looper.getMainLooper());
                                 mainHandler.post(() -> {
@@ -2403,7 +2406,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
             case "spacious":
                 return 42;
             case "more":
-                return 46;
             case "max":
                 return 46;
             default:

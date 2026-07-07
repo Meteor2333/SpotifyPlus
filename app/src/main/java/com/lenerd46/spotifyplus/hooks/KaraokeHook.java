@@ -18,7 +18,7 @@ public class KaraokeHook extends SpotifyHook {
     protected void hook() {
         XposedHelpers.findAndHookMethod("p.nu2", lpparm.classLoader, "create", XposedHelpers.findClass("p.axb0", lpparm.classLoader), new XC_MethodHook() {
             @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            protected void beforeHookedMethod(MethodHookParam param) {
                 int a = XposedHelpers.getIntField(param.thisObject, "a");
 
                 if (a == 3) {
@@ -89,7 +89,7 @@ public class KaraokeHook extends SpotifyHook {
 
         XposedHelpers.findAndHookMethod("p.xyh", lpparm.classLoader, "apply", Object.class, new XC_MethodHook() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            protected void afterHookedMethod(MethodHookParam param) {
                 int a = XposedHelpers.getIntField(param.thisObject, "a");
 
                 if(a == 22) {

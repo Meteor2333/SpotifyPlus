@@ -228,7 +228,7 @@ public class NewContextMenuHook extends SpotifyHook {
             Class<?> radioButtonClass = bridge.findClass(FindClass.create().matcher(ClassMatcher.create().usingStrings("audiobook_supplementary_content"))).get(0).getInstance(lpparm.classLoader);
             XposedBridge.hookAllConstructors(headerObject, new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                protected void beforeHookedMethod(MethodHookParam param) {
                     try {
                         List<?> list = (List<?>) param.args[1];
                         if (list == null) return;
@@ -326,7 +326,7 @@ public class NewContextMenuHook extends SpotifyHook {
             // Click Handler
             XposedHelpers.findAndHookMethod(ContextWrapper.class, "startService", Intent.class, new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                protected void beforeHookedMethod(MethodHookParam param) {
                     try {
                         Intent intent = (Intent) param.args[0];
 
@@ -356,7 +356,7 @@ public class NewContextMenuHook extends SpotifyHook {
 
             XposedBridge.hookMethod(method, new XC_MethodHook() {
                         @Override
-                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        protected void beforeHookedMethod(MethodHookParam param) {
                             if (!isRenderingSpotifyPlusRow()) return;
 
                             try {
@@ -376,7 +376,7 @@ public class NewContextMenuHook extends SpotifyHook {
 
             XposedBridge.hookAllMethods(uweClass, "invoke", new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                protected void beforeHookedMethod(MethodHookParam param) {
                     try {
                         int branch = bridge.findField(FindField.create().searchInClass(uweClasses).matcher(FieldMatcher.create().type(int.class))).get(0).getFieldInstance(lpparm.classLoader).getInt(param.thisObject);
                         if (branch != 10) return;
@@ -393,7 +393,7 @@ public class NewContextMenuHook extends SpotifyHook {
                 }
 
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(MethodHookParam param) {
                     try {
                         if (Boolean.TRUE.equals(param.getObjectExtra("spotifyplus_row_render"))) {
                             popSpotifyPlusRender();

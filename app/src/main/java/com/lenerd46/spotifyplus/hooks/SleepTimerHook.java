@@ -51,7 +51,7 @@ public class SleepTimerHook extends SpotifyHook {
 
         XposedHelpers.findAndHookMethod("p.w7p0", lpparm.classLoader, "a", XposedHelpers.findClass("p.w7p0", lpparm.classLoader), XposedHelpers.findClass("p.u7p0", lpparm.classLoader), new XC_MethodReplacement() {
             @Override
-            protected Object replaceHookedMethod(MethodHookParam methodHookParam) throws Throwable {
+            protected Object replaceHookedMethod(MethodHookParam methodHookParam) {
                 Object w7p0 = methodHookParam.args[0];
                 Object u7p0 = methodHookParam.args[1];
 
@@ -108,7 +108,7 @@ public class SleepTimerHook extends SpotifyHook {
 
         XposedHelpers.findAndHookMethod("p.ndj0", lpparm.classLoader, "invoke", Object.class, Object.class, Object.class, new XC_MethodHook() {
             @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            protected void beforeHookedMethod(MethodHookParam param) {
                 if (XposedHelpers.getIntField(param.thisObject, "a") != 24) return;
 
                 Object l7p0 = XposedHelpers.getObjectField(param.thisObject, "c");
@@ -125,7 +125,7 @@ public class SleepTimerHook extends SpotifyHook {
 
         XposedHelpers.findAndHookMethod("p.dea0", lpparm.classLoader, "invokeSuspend", Object.class, new XC_MethodHook() {
             @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            protected void beforeHookedMethod(MethodHookParam param) {
                 if (XposedHelpers.getIntField(param.thisObject, "a") != 13) return;
 
                 Object k7p0 = XposedHelpers.getObjectField(param.thisObject, "b");
@@ -257,7 +257,7 @@ public class SleepTimerHook extends SpotifyHook {
                     XposedHelpers.findClass("p.emp0", cl),
                     null,
                     "",
-                    Integer.valueOf(messageId),
+                    messageId,
                     null,
                     null,
                     null,

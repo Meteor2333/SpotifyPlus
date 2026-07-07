@@ -59,7 +59,7 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
     protected void hook() {
         XposedBridge.hookAllMethods(LayoutInflater.class, "inflate", new XC_MethodHook() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            protected void afterHookedMethod(MethodHookParam param) {
                 if (!(param.args[0] instanceof Integer))
                     return;
 
@@ -77,31 +77,29 @@ public class AnimatedAlbumArtwork extends SpotifyHook {
                 if (!layoutName.endsWith("layout/square_cover_art_content"))
                     return;
 
-                if (layoutName.endsWith("layout/square_cover_art_content")) {
-                    View root = (View) param.getResult();
+                View root = (View) param.getResult();
 
-                    root.post(() -> {
-                        View image = findByIdName(root, "com.spotify.music:id/image");
-                        if (!(image instanceof View)) {
-                            XposedBridge.log("[SpotifyPlus] cover image not found");
-                            return;
-                        }
+                root.post(() -> {
+                    View image = findByIdName(root, "com.spotify.music:id/image");
+                    if (!(image instanceof View)) {
+                        XposedBridge.log("[SpotifyPlus] cover image not found");
+                        return;
+                    }
 
-                        if (!(image.getParent() instanceof ViewGroup)) {
-                            XposedBridge.log("[SpotifyPlus] cover parent not ViewGroup");
-                            return;
-                        }
+                    if (!(image.getParent() instanceof ViewGroup)) {
+                        XposedBridge.log("[SpotifyPlus] cover parent not ViewGroup");
+                        return;
+                    }
 
-                        SharedPreferences prefs = References.getPreferences();
-                        if (!prefs.getBoolean("experiment_animated_art", true))
-                            return;
+                    SharedPreferences prefs = References.getPreferences();
+                    if (!prefs.getBoolean("experiment_animated_art", true))
+                        return;
 
-                        attachOverlay((ViewGroup) image.getParent(), image);
+                    attachOverlay((ViewGroup) image.getParent(), image);
 
-                        // View overlay = (View) image.getTag(TAG_OVERLAY);
-                        // overlay.setBackgroundColor(0x55FF0000); // translucent red
-                    });
-                }
+                    // View overlay = (View) image.getTag(TAG_OVERLAY);
+                    // overlay.setBackgroundColor(0x55FF0000); // translucent red
+                });
 
             }
         });

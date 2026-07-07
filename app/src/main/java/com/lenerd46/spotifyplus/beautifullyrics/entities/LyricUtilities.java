@@ -68,7 +68,7 @@ public class LyricUtilities {
 
         XposedBridge.log(lyrics.lyrics.toString());
 
-        List<TimeMetadata> vocalTimes = new ArrayList<TimeMetadata>();
+        List<TimeMetadata> vocalTimes = new ArrayList<>();
 
         if (lyrics.lyrics.staticLyrics instanceof StaticSyncedLyrics) {
             String textToProcess = lyrics.lyrics.staticLyrics.lines.stream().map(x -> x.text).collect(Collectors.joining("\n"));
@@ -156,14 +156,14 @@ public class LyricUtilities {
 
                 if (vocalSet != null) {
                     try {
-                        String text = vocalSet.lead.syllables.get(0).text;
+                        StringBuilder text = new StringBuilder(vocalSet.lead.syllables.get(0).text);
 
                         for (int i = 1; i < vocalSet.lead.syllables.size(); i++) {
                             var syllable = vocalSet.lead.syllables.get(i);
-                            text += (syllable.isPartOfWord ? "" : " ") + syllable.text;
+                            text.append(syllable.isPartOfWord ? "" : " ").append(syllable.text);
                         }
 
-                        lines.add(text);
+                        lines.add(text.toString());
                         vocalLines.add(vocalSet);
 
                         double startTime = vocalSet.lead.startTime;

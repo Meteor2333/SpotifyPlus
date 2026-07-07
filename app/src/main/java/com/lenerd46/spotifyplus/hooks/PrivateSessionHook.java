@@ -47,7 +47,7 @@ public class PrivateSessionHook extends SpotifyHook {
 
             XposedBridge.hookAllConstructors(XposedHelpers.findClass("p.n4l0", lpparm.classLoader), new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(MethodHookParam param) {
                     settingsRepository = param.thisObject;
                     handler.postDelayed(refreshPrivateSession, 1000L);
                 }
@@ -55,7 +55,7 @@ public class PrivateSessionHook extends SpotifyHook {
 
             XposedHelpers.findAndHookMethod(XposedHelpers.findClass("p.n4l0", lpparm.classLoader), "c", XposedHelpers.findClass("p.j4l0", lpparm.classLoader), Object.class, new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                protected void beforeHookedMethod(MethodHookParam param) {
                     if (param.args.length < 2) return;
                     if (param.args[0] != privateSessionKey) return;
 
@@ -68,7 +68,7 @@ public class PrivateSessionHook extends SpotifyHook {
                 }
 
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(MethodHookParam param) {
                     if (param.args.length < 2) return;
                     if (!param.args[0].equals(privateSessionKey)) return;
                     if (!param.args[1].equals(Boolean.TRUE)) ;
@@ -83,7 +83,7 @@ public class PrivateSessionHook extends SpotifyHook {
 
             XposedHelpers.findAndHookMethod("com.spotify.settings.esperanto.proto.SettingsOuterClass$SettingsState", lpparm.classLoader, "K", new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(MethodHookParam param) {
                     if (param.getResult().equals(Boolean.FALSE)) {
                         handler.postDelayed(refreshPrivateSession, 750L);
                     }
@@ -94,7 +94,7 @@ public class PrivateSessionHook extends SpotifyHook {
 
             XposedHelpers.findAndHookMethod("p.s7n0", lpparm.classLoader, "onIncognitoModeDisabledByTimer", new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(MethodHookParam param) {
                     handler.postDelayed(refreshPrivateSession, 250L);
                 }
             });

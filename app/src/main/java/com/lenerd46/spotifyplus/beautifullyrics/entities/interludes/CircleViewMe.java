@@ -8,7 +8,7 @@ import android.util.AttributeSet;
 import android.view.View;
 
 public class CircleViewMe extends View {
-    private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     public CircleViewMe(Context context) {
         super(context);
@@ -35,6 +35,6 @@ public class CircleViewMe extends View {
         float width = canvas.getWidth();
         float height = canvas.getHeight();
         float radius = Math.min(getWidth(), getHeight()) / 2f;
-        canvas.drawCircle((float) width / 2f, (float) height / 2f, radius, paint);
+        canvas.drawCircle(width / 2f, height / 2f, radius, paint);
     }
 }

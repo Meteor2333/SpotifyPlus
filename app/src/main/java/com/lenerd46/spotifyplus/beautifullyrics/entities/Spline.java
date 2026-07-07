@@ -19,7 +19,7 @@ public class Spline {
         this.xs = xs;
         this.ys = ys;
 
-        List<Double> list = new ArrayList<Double>();
+        List<Double> list = new ArrayList<>();
 
         for(int i = 0; i < xs.size(); i++) {
             list.add(0d);
@@ -56,7 +56,7 @@ public class Spline {
         int mid = 0;
 
         while(low < high) {
-            mid = (int)Math.floor((double)((low + high) / 2));
+            mid = (int)Math.floor((low + high) / 2);
 
             if(xs.get(mid) < target && mid != low) {
                 low = mid;
@@ -104,23 +104,21 @@ public class Spline {
                 }
             }
 
-            if(a.get(iMax).get(k) == 0) {
-                k++;
-            } else {
+            if (a.get(iMax).get(k) != 0) {
                 swapRows(a, h, iMax);
 
-                for(int i = h + 1; i < m; i++) {
+                for (int i = h + 1; i < m; i++) {
                     double f = a.get(i).get(k) / a.get(h).get(k);
                     a.get(i).set(k, 0d);
 
-                    for(int j = k + 1; j <= m; j++) {
+                    for (int j = k + 1; j <= m; j++) {
                         a.get(i).set(j, a.get(i).get(j) - a.get(h).get(j) * f);
                     }
                 }
 
                 h++;
-                k++;
             }
+            k++;
         }
 
         for(int i = m - 1; i >= 0; i--) {

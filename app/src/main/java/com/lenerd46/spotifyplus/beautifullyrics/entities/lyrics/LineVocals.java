@@ -32,7 +32,7 @@ public class LineVocals implements SyncableVocals {
     private LyricState state;
     private boolean isSleeping = true;
 
-    private Spline glowSpline;
+    private final Spline glowSpline;
     private final Spring glowSpring;
     private final SharedPreferences prefs;
     private final boolean lineGradient;
@@ -129,7 +129,7 @@ public class LineVocals implements SyncableVocals {
     @Override
     public void animate(double songTimestamp, double deltaTime, boolean isImmediate) {
         double relativeTime = songTimestamp - this.startTime;
-        double timeScale = Math.max(0, Math.min((double) relativeTime / (double) this.duration, 1.0));
+        double timeScale = Math.max(0, Math.min(relativeTime / this.duration, 1.0));
 
         boolean pastStart = relativeTime >= 0;
         boolean beforeEnd = relativeTime <= this.duration;

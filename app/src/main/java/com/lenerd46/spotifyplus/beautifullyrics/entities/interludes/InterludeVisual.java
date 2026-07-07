@@ -327,7 +327,7 @@ public class InterludeVisual implements SyncableVocals {
     @Override
     public void animate(double songTimestamp, double deltaTime, boolean isImmediate) {
         double relativeTime = songTimestamp - this.startTime;
-        double timeScale = Math.max(0, Math.min((double)relativeTime / (double)this.duration, 1));
+        double timeScale = Math.max(0, Math.min(relativeTime / this.duration, 1));
 
         boolean pastStart = relativeTime >= 0;
         boolean beforeEnd = relativeTime <= this.duration;
@@ -362,7 +362,7 @@ public class InterludeVisual implements SyncableVocals {
             boolean isSleeping = true;
 
             for(var dot : dots) {
-                double dotTimeScale = Math.max(0, Math.min((double)(timeScale - dot.start) / (double)dot.duration, 1));
+                double dotTimeScale = Math.max(0, Math.min((timeScale - dot.start) / dot.duration, 1));
 
                 if(shouldUpdateVisualState) {
                     updateLiveDotState(dot.liveText, dotTimeScale, dotTimeScale, isImmediate);
