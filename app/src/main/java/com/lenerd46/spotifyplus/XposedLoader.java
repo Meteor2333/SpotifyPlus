@@ -43,13 +43,12 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
 
     private DexKitBridge bridge;
     private String modulePath = null;
-    private static final String MODULE_VERSION = "0.6.7";
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
         if (!lpparam.packageName.equals("com.spotify.music"))
             return;
-        XposedBridge.log("[SpotifyPlus] Loading SpotifyPlus v" + MODULE_VERSION);
+        XposedBridge.log("[SpotifyPlus] Loading SpotifyPlus v" + BuildConfig.VERSION_NAME);
 
         if (bridge == null) {
             try {
@@ -223,7 +222,7 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                     JsonObject json = new JsonParser().parseString(content).getAsJsonObject();
                     String latest = json.get("tag_name").getAsString().replace("v", "");
 
-                    if (isVersionGreater(latest, MODULE_VERSION)) {
+                    if (isVersionGreater(latest, BuildConfig.VERSION_NAME)) {
                         // New update available!
 
                         ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
@@ -250,7 +249,7 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                         MaterialButton dismissButton = updateWindow.findViewById(
                                 modResources.getIdentifier("btn_dismiss_update", "id", "com.lenerd46.spotifyplus"));
 
-                        versionText.setText("Current: v" + MODULE_VERSION + "  •  Latest: v" + latest);
+                        versionText.setText("Current: v" + BuildConfig.VERSION_NAME + "  •  Latest: v" + latest);
 
                         background.setOnClickListener(layout -> {
                             root.removeView(updateWindow);
