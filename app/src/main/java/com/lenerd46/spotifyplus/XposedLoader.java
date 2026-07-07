@@ -30,7 +30,6 @@ import com.lenerd46.spotifyplus.hooks.LastFmHook;
 import com.lenerd46.spotifyplus.hooks.NetworkHook;
 import com.lenerd46.spotifyplus.hooks.NewContextMenuHook;
 import com.lenerd46.spotifyplus.hooks.RemoveCreateButtonHook;
-import com.lenerd46.spotifyplus.hooks.ScriptManager;
 import com.lenerd46.spotifyplus.hooks.SleepTimerHook;
 import com.lenerd46.spotifyplus.hooks.TestingHook;
 
@@ -147,8 +146,6 @@ public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteIn
                 Context context = (Context) param.args[0];
                 cleanUpCache(context);
 
-                // new ScriptManager().init(context, lpparam.classLoader);
-                ScriptManager.getInstance().init(context, lpparam.classLoader);
                 new BeautifulLyricsHook().init(lpparam, bridge);
                 new RemoveCreateButtonHook(context).init(lpparam, bridge);
                 new NetworkHook(context).init(lpparam, bridge);
