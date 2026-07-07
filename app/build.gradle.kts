@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.lenerd46.spotifyplus"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 37
         versionCode = 13
         versionName = "0.6.7"
