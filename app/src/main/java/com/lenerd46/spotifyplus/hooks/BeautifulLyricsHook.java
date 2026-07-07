@@ -2,7 +2,6 @@ package com.lenerd46.spotifyplus.hooks;
 
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -554,7 +553,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
         }
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     private void setupGestureDetector(Context context, View touchSurface, LinearLayout contentContainer) {
         gestureDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
             @Override
@@ -880,7 +878,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
         });
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     private void renderSyllableLyrics(Activity activity, ProviderLyrics providedLyrics, LinearLayout lyricsContainer,
             SpotifyTrack track, String writtenBy) {
         List<View> lines = new ArrayList<>();
@@ -1163,7 +1160,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
         });
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     private void renderLineLyrics(Activity activity, ProviderLyrics providerLyricsThing, LinearLayout lyricsContainer,
             SpotifyTrack track, String writtenBy) {
         List<View> lines = new ArrayList<>();
@@ -1868,7 +1864,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
     private final List<Integer> splits = new ArrayList<>();
     private String currentWordText = "";
 
-    @SuppressLint("ClickableViewAccessibility")
     private void renderSyncLyrics(Activity activity, LinearLayout lyricsContainer, ScrollView scroller, String id) {
         AtomicInteger index = new AtomicInteger();
         AtomicInteger wordIndex = new AtomicInteger();
@@ -2207,7 +2202,6 @@ public class BeautifulLyricsHook extends SpotifyHook {
         });
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     private boolean handleTouchSurfaceEvent(View touchSurface, LinearLayout contentContainer, MotionEvent event) {
         closeButtonHandler.removeCallbacksAndMessages(closeButtonRunnable);
         rightContainer.animate().alpha(0.8f).setDuration(200).withEndAction(() -> {
