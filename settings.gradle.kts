@@ -21,6 +21,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Spotify Plus"
+rootProject.name = "SpotifyPlus"
 include(":app")
  
