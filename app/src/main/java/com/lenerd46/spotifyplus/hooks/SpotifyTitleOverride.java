@@ -1,14 +1,14 @@
 package com.lenerd46.spotifyplus.hooks;
 
 import android.app.AndroidAppHelper;
-import android.content.Context;
 import android.content.res.Resources;
-import android.content.res.XResources;
+
 import com.lenerd46.spotifyplus.References;
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
 
 import java.util.concurrent.Callable;
+
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
 
 public class SpotifyTitleOverride {
     private static final ThreadLocal<Override> tl = new ThreadLocal<>();

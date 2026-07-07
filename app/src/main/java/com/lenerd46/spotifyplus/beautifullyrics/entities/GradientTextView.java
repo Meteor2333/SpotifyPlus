@@ -2,11 +2,13 @@ package com.lenerd46.spotifyplus.beautifullyrics.entities;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.graphics.*;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.LinearGradient;
+import android.graphics.Paint;
+import android.graphics.Shader;
 import android.util.AttributeSet;
 import android.widget.TextView;
-import androidx.appcompat.widget.AppCompatTextView;
-import de.robv.android.xposed.XposedBridge;
 
 @SuppressLint("AppCompatCustomView")
 public class GradientTextView extends TextView {

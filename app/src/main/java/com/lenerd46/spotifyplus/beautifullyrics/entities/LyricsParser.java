@@ -1,20 +1,28 @@
 package com.lenerd46.spotifyplus.beautifullyrics.entities;
 
 import android.util.Log;
-import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.*;
-import de.robv.android.xposed.XposedBridge;
+
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.ProviderLyrics;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.SyllableMetadata;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.SyllableSyncedLyrics;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.SyllableVocal;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.SyllableVocalSet;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import de.robv.android.xposed.XposedBridge;
 
 public class LyricsParser {
     public ProviderLyrics parseLyrics(String xml) {

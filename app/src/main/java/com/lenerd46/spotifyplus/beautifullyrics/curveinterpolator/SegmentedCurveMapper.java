@@ -1,10 +1,10 @@
 package com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import static com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator.CurvyMath.distance;
 import static com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator.Utils.binarySearch;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /*
  *

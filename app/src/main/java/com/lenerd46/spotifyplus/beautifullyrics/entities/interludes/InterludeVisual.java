@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.TypedValue;
 import android.widget.LinearLayout;
+
 import com.google.android.flexbox.FlexboxLayout;
 import com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator.CurveInterpolator;
 import com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator.Vector;
@@ -15,13 +16,14 @@ import com.lenerd46.spotifyplus.beautifullyrics.entities.Spring;
 import com.lenerd46.spotifyplus.beautifullyrics.entities.SyncableVocals;
 import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.Interlude;
 import com.mikhaellopez.circleview.CircleView;
-import de.robv.android.xposed.XposedBridge;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import de.robv.android.xposed.XposedBridge;
 
 public class InterludeVisual implements SyncableVocals {
     private final LinearLayout container;

@@ -2,15 +2,14 @@ package com.lenerd46.spotifyplus;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.os.Build;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.recyclerview.widget.RecyclerView;
-import de.robv.android.xposed.XposedBridge;
 
 import java.util.Locale;
+
+import de.robv.android.xposed.XposedBridge;
 
 public final class ViewTreeDumper {
     private static final String TAG = "SpotifyPlusDumper";

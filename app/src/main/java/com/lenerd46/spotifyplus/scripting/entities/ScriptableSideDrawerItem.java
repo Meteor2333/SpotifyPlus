@@ -1,7 +1,7 @@
 package com.lenerd46.spotifyplus.scripting.entities;
 
 import com.lenerd46.spotifyplus.hooks.RemoveCreateButtonHook;
-import de.robv.android.xposed.XposedBridge;
+
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.ScriptableObject;
@@ -9,6 +9,8 @@ import org.mozilla.javascript.annotations.JSConstructor;
 import org.mozilla.javascript.annotations.JSFunction;
 import org.mozilla.javascript.annotations.JSGetter;
 import org.mozilla.javascript.annotations.JSSetter;
+
+import de.robv.android.xposed.XposedBridge;
 
 public class ScriptableSideDrawerItem extends ScriptableObject {
 

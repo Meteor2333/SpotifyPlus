@@ -3,11 +3,14 @@ package com.lenerd46.spotifyplus.scripting;
 import android.app.Activity;
 import android.util.Log;
 import android.widget.Toast;
+
 import com.lenerd46.spotifyplus.References;
-import de.robv.android.xposed.XposedBridge;
+
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+
+import de.robv.android.xposed.XposedBridge;
 
 public class Debug implements SpotifyPlusApi {
     String scriptName = "null";

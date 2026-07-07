@@ -5,10 +5,16 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.util.Pair;
+
 import com.google.android.flexbox.FlexboxLayout;
 import com.lenerd46.spotifyplus.References;
-import com.lenerd46.spotifyplus.beautifullyrics.entities.*;
-import de.robv.android.xposed.XposedBridge;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.ActivityChangedSource;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.GradientTextView;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.LyricState;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.ScrollInformation;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.Spline;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.Spring;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.SyncableVocals;
 
 import java.util.List;
 import java.util.stream.Collectors;

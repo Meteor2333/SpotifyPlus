@@ -1,14 +1,14 @@
 package com.lenerd46.spotifyplus.netease;
 
-import de.robv.android.xposed.XposedBridge;
-
-import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+
+import de.robv.android.xposed.XposedBridge;
 
 public class NeteaseEncryption {
     private static final String API_KEY = "e82ckenh8dichen8";

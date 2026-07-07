@@ -3,9 +3,10 @@ package com.lenerd46.spotifyplus.hooks;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+
 import com.lenerd46.spotifyplus.References;
+
 import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 

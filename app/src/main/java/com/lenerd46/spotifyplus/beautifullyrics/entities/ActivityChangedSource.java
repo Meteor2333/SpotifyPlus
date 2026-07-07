@@ -1,7 +1,5 @@
 package com.lenerd46.spotifyplus.beautifullyrics.entities;
 
-import android.view.View;
-
 import java.util.ArrayList;
 import java.util.List;
 

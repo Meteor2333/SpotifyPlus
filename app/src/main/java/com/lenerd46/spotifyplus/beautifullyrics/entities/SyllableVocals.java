@@ -5,21 +5,21 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.Drawable;
 import android.util.TypedValue;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.OvershootInterpolator;
 import android.widget.LinearLayout;
+
 import com.google.android.flexbox.FlexboxLayout;
 import com.lenerd46.spotifyplus.References;
 import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.SyllableMetadata;
-import de.robv.android.xposed.XposedBridge;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import de.robv.android.xposed.XposedBridge;
 
 public class SyllableVocals implements SyncableVocals {
     public final FlexboxLayout container;

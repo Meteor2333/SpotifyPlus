@@ -3,17 +3,27 @@ package com.lenerd46.spotifyplus.beautifullyrics.entities;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
+
 import com.github.pemistahl.lingua.api.Language;
 import com.github.pemistahl.lingua.api.LanguageDetector;
 import com.github.pemistahl.lingua.api.LanguageDetectorBuilder;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
-import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.*;
-import de.robv.android.xposed.XposedBridge;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.Interlude;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.LineSyncedLyrics;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.LineVocal;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.ProviderLyrics;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.StaticSyncedLyrics;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.SyllableSyncedLyrics;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.SyllableVocalSet;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.TimeMetadata;
+import com.lenerd46.spotifyplus.beautifullyrics.entities.lyrics.TransformedLyrics;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import de.robv.android.xposed.XposedBridge;
 
 public class LyricUtilities {
     private static final String[] rightToLeftLanguages = {

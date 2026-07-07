@@ -1,13 +1,15 @@
 package com.lenerd46.spotifyplus.scripting;
 
 import com.lenerd46.spotifyplus.hooks.ScriptManager;
-import de.robv.android.xposed.XposedBridge;
+
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.Scriptable;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+
+import de.robv.android.xposed.XposedBridge;
 
 public class EventManager {
     private static EventManager instance = null;

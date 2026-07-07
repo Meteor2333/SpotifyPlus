@@ -1,17 +1,17 @@
 package com.lenerd46.spotifyplus.scripting;
 
-import android.app.Activity;
-import com.google.gson.Gson;
-import com.lenerd46.spotifyplus.References;
-import de.robv.android.xposed.XposedBridge;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 
-import java.io.*;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+
+import de.robv.android.xposed.XposedBridge;
 
 public class StorageApi implements SpotifyPlusApi {
     private File storageDir;

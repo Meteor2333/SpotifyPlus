@@ -2,19 +2,18 @@ package com.lenerd46.spotifyplus.scripting.entities;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.ContextWrapper;
 import android.content.SharedPreferences;
-import android.content.res.Resources;
 import android.content.res.XModuleResources;
 import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.ImageView;
+
 import androidx.documentfile.provider.DocumentFile;
+
 import com.lenerd46.spotifyplus.References;
-import de.robv.android.xposed.XposedBridge;
+
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.annotations.JSConstructor;
@@ -24,6 +23,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+
+import de.robv.android.xposed.XposedBridge;
 
 public class ScriptableScriptUI extends ScriptableObject {
     private XModuleResources res;

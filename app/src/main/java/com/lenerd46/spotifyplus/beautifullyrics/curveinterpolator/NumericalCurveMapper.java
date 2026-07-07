@@ -1,11 +1,11 @@
 package com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator;
 
+import static com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator.CurvyMath.magnitude;
+import static com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator.Utils.getGaussianQuadraturePointsAndWeights;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-
-import static com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator.CurvyMath.magnitude;
-import static com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator.Utils.getGaussianQuadraturePointsAndWeights;
 
 /*
  *

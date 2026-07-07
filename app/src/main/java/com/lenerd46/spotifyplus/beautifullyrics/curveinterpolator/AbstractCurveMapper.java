@@ -1,8 +1,10 @@
 package com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator;
 
-import java.util.*;
-
 import static com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator.SplineCurve.getControlPoints;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /*
  *

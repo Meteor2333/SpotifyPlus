@@ -14,14 +14,19 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+
 import com.lenerd46.spotifyplus.R;
 import com.lenerd46.spotifyplus.References;
+
+import java.net.URLEncoder;
+import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
-
-import java.net.URLEncoder;
-import java.util.*;
 
 public class ContextMenu_AddButton extends SpotifyHook {
 

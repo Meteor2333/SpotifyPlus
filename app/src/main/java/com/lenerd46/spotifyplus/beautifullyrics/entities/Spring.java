@@ -1,7 +1,5 @@
 package com.lenerd46.spotifyplus.beautifullyrics.entities;
 
-import de.robv.android.xposed.XposedBridge;
-
 public class Spring {
     public double velocity;
     public double dampingRatio;

@@ -6,33 +6,38 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
-import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewParent;
-import android.widget.TextView;
 import android.widget.Toast;
-import androidx.media3.exoplayer.scheduler.Scheduler;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.lenerd46.spotifyplus.References;
-import de.robv.android.xposed.*;
 
-import java.io.IOException;
-import java.lang.ref.WeakReference;
-import java.lang.reflect.*;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import okhttp3.*;
 import org.jetbrains.annotations.NotNull;
 import org.luckypray.dexkit.query.FindClass;
 import org.luckypray.dexkit.query.FindField;
 import org.luckypray.dexkit.query.matchers.ClassMatcher;
 import org.luckypray.dexkit.query.matchers.FieldMatcher;
 import org.luckypray.dexkit.query.matchers.FieldsMatcher;
-import org.luckypray.dexkit.result.ClassData;
+
+import java.io.IOException;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Field;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.WeakHashMap;
+
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 // Spotify changed their context menu to use jetpack compose in newer versions
 // This hook only works on older versions where it still uses a recycle view

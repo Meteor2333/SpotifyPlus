@@ -6,14 +6,12 @@ import android.content.SharedPreferences;
 import android.content.res.XModuleResources;
 import android.content.res.XResources;
 import android.graphics.Typeface;
-import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
+
 import com.lenerd46.spotifyplus.beautifullyrics.entities.PlayerStateUpdatedListener;
 import com.lenerd46.spotifyplus.beautifullyrics.entities.TrackStateChangedListener;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
-import de.robv.android.xposed.callbacks.XC_LoadPackage;
+
 import org.luckypray.dexkit.DexKitBridge;
 import org.luckypray.dexkit.query.FindClass;
 import org.luckypray.dexkit.query.FindField;
@@ -21,7 +19,6 @@ import org.luckypray.dexkit.query.FindMethod;
 import org.luckypray.dexkit.query.matchers.ClassMatcher;
 import org.luckypray.dexkit.query.matchers.FieldMatcher;
 import org.luckypray.dexkit.query.matchers.MethodMatcher;
-import org.luckypray.dexkit.result.ClassDataList;
 
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
@@ -32,6 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class References {
     public static Activity currentActivity = null;

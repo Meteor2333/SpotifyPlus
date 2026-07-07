@@ -3,19 +3,41 @@ package com.lenerd46.spotifyplus.hooks;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
+
 import androidx.documentfile.provider.DocumentFile;
+
+import com.faendir.rhino_android.RhinoAndroidHelper;
 import com.google.gson.Gson;
 import com.lenerd46.spotifyplus.References;
-import com.lenerd46.spotifyplus.scripting.*;
-import com.lenerd46.spotifyplus.scripting.entities.*;
+import com.lenerd46.spotifyplus.scripting.Debug;
 import com.lenerd46.spotifyplus.scripting.EventManager;
-import de.robv.android.xposed.XposedBridge;
-import com.faendir.rhino_android.RhinoAndroidHelper;
+import com.lenerd46.spotifyplus.scripting.PreferencesApi;
+import com.lenerd46.spotifyplus.scripting.ScriptMetadata;
+import com.lenerd46.spotifyplus.scripting.SpotifyPlayer;
+import com.lenerd46.spotifyplus.scripting.SpotifyPlusApi;
+import com.lenerd46.spotifyplus.scripting.StorageApi;
+import com.lenerd46.spotifyplus.scripting.UIManager;
+import com.lenerd46.spotifyplus.scripting.entities.ScriptableContextMenuItem;
+import com.lenerd46.spotifyplus.scripting.entities.ScriptableScriptUI;
+import com.lenerd46.spotifyplus.scripting.entities.ScriptableSettingItem;
+import com.lenerd46.spotifyplus.scripting.entities.ScriptableSettingSection;
+import com.lenerd46.spotifyplus.scripting.entities.ScriptableSideDrawerItem;
+import com.lenerd46.spotifyplus.scripting.entities.ScriptableSpotifyTrack;
+
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 
-import java.io.*;
-import java.util.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import de.robv.android.xposed.XposedBridge;
 
 public class ScriptManager extends SpotifyHook {
     public static ScriptManager instance = null;

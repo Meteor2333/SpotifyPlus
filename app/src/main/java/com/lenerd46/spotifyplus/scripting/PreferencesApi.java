@@ -1,7 +1,7 @@
 package com.lenerd46.spotifyplus.scripting;
 
 import android.content.SharedPreferences;
-import com.lenerd46.spotifyplus.References;
+
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;

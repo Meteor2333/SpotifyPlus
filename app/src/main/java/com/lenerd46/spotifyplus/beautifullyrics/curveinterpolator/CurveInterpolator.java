@@ -1,9 +1,16 @@
 package com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
 import static com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator.Utils.copyValues;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /*
  *

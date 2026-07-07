@@ -1,13 +1,14 @@
 package com.lenerd46.spotifyplus.hooks;
 
 import android.util.Log;
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
 
 public class KaraokeHook extends SpotifyHook {
     private static final Set<String> HOOKED_ONNEXT = Collections.synchronizedSet(new HashSet<>());

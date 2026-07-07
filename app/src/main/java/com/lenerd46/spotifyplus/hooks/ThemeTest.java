@@ -1,7 +1,6 @@
 package com.lenerd46.spotifyplus.hooks;
 
 import java.lang.reflect.Method;
-import java.util.Arrays;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;

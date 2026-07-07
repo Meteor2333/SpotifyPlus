@@ -1,7 +1,5 @@
 package com.lenerd46.spotifyplus.beautifullyrics.curveinterpolator;
 
-import androidx.annotation.Nullable;
-
 /*
  *
  * Java implementation of curve-interpolator by kjerandp

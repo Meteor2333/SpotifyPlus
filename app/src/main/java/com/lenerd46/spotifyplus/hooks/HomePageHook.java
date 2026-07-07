@@ -1,18 +1,12 @@
 package com.lenerd46.spotifyplus.hooks;
 
-import android.app.Activity;
-import android.app.Application;
-import android.content.Context;
-import android.content.res.Resources;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
-import android.widget.TextView;
+
 import androidx.recyclerview.widget.RecyclerView;
-import com.lenerd46.spotifyplus.References;
+
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 
 public class HomePageHook extends SpotifyHook {
     @Override

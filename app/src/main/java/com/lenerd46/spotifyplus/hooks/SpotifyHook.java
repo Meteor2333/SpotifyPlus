@@ -1,7 +1,8 @@
 package com.lenerd46.spotifyplus.hooks;
 
-import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import org.luckypray.dexkit.DexKitBridge;
+
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public abstract class SpotifyHook {
     protected XC_LoadPackage.LoadPackageParam lpparm;

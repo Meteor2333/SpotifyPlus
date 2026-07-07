@@ -1,9 +1,9 @@
 package com.lenerd46.spotifyplus.scripting.entities;
 
 import android.content.SharedPreferences;
-import com.lenerd46.spotifyplus.References;
+
 import com.lenerd46.spotifyplus.SettingItem;
-import de.robv.android.xposed.XposedBridge;
+
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.Scriptable;
@@ -14,7 +14,8 @@ import org.mozilla.javascript.annotations.JSGetter;
 import org.mozilla.javascript.annotations.JSSetter;
 
 import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicReference;
+
+import de.robv.android.xposed.XposedBridge;
 
 public class ScriptableSettingItem extends ScriptableObject {
     private SettingItem settingItem;

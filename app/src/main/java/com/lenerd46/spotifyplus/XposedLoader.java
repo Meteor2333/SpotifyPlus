@@ -13,16 +13,27 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.*;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+
 import com.google.android.material.button.MaterialButton;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.lenerd46.spotifyplus.hooks.*;
-import de.robv.android.xposed.*;
-import de.robv.android.xposed.callbacks.XC_InitPackageResources;
-import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
+import com.lenerd46.spotifyplus.hooks.AnimatedAlbumArtwork;
+import com.lenerd46.spotifyplus.hooks.BeautifulLyricsHook;
+import com.lenerd46.spotifyplus.hooks.ContextMenu_AddButton;
+import com.lenerd46.spotifyplus.hooks.HomePageHook;
+import com.lenerd46.spotifyplus.hooks.LastFmHook;
+import com.lenerd46.spotifyplus.hooks.NetworkHook;
+import com.lenerd46.spotifyplus.hooks.NewContextMenuHook;
+import com.lenerd46.spotifyplus.hooks.RemoveCreateButtonHook;
+import com.lenerd46.spotifyplus.hooks.ScriptManager;
+import com.lenerd46.spotifyplus.hooks.SleepTimerHook;
+import com.lenerd46.spotifyplus.hooks.TestingHook;
+
 import org.luckypray.dexkit.DexKitBridge;
 
 import java.io.BufferedReader;
@@ -35,6 +46,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import de.robv.android.xposed.IXposedHookInitPackageResources;
+import de.robv.android.xposed.IXposedHookLoadPackage;
+import de.robv.android.xposed.IXposedHookZygoteInit;
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.callbacks.XC_InitPackageResources;
+import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 
 public class XposedLoader implements IXposedHookLoadPackage, IXposedHookZygoteInit, IXposedHookInitPackageResources {
     static {

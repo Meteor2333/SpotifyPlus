@@ -1,29 +1,20 @@
 package com.lenerd46.spotifyplus.hooks;
 
 import android.content.Context;
-import android.content.SharedPreferences;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
+
 import com.lenerd46.spotifyplus.References;
 import com.lenerd46.spotifyplus.SpotifyTrack;
-import com.lenerd46.spotifyplus.ViewTreeDumper;
+
+import java.util.Collections;
+import java.util.Set;
+import java.util.WeakHashMap;
+
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
-import org.luckypray.dexkit.query.FindClass;
-import org.luckypray.dexkit.query.FindMethod;
-import org.luckypray.dexkit.query.matchers.ClassMatcher;
-import org.luckypray.dexkit.query.matchers.MethodMatcher;
-
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
-import java.util.WeakHashMap;
 
 public class LikedSongHook extends SpotifyHook {
     private static final Set<Class<?>> hookedInvoke = Collections.newSetFromMap(new WeakHashMap<>());

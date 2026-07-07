@@ -2,14 +2,16 @@ package com.lenerd46.spotifyplus.hooks;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
+
 import org.luckypray.dexkit.query.FindMethod;
 import org.luckypray.dexkit.query.matchers.MethodMatcher;
 
 import java.lang.reflect.Method;
 import java.util.Collections;
+
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
 
 public class NetworkHook extends SpotifyHook {
     private final Context context;
