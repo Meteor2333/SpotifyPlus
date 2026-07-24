@@ -2,16 +2,17 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.xposedkit)
 }
 
 android {
-    namespace = "com.lenerd46.spotifyplus"
+    namespace = "cc.meteormc.spotifyplus"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.lenerd46.spotifyplus"
+        applicationId = "cc.meteormc.spotifyplus"
         minSdk = 26
         targetSdk = 37
         versionCode = 13
@@ -21,7 +22,7 @@ android {
     val keystoreProp = Properties()
     val keystorePropFile = rootProject.file("keystore.properties")
     if (keystorePropFile.exists()) {
-        keystoreProp.load(keystorePropFile.inputStream())
+        keystoreProp.load(keystorePropFile.bufferedReader())
     }
 
     signingConfigs {
@@ -49,6 +50,7 @@ android {
 
     buildFeatures {
         buildConfig = true
+        viewBinding = true
     }
 
     compileOptions {
@@ -57,22 +59,20 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        optIn.addAll(
+            "kotlin.ExperimentalStdlibApi",
+            "org.luckypray.dexkit.annotations.DexKitExperimentalApi"
+        )
+    }
+}
+
 dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.ui)
-    implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.material)
 
-    implementation(libs.circleview)
-    implementation(libs.flexbox)
-    implementation(libs.gson)
-    implementation(libs.jsoup)
-    implementation(libs.lingua)
-    implementation(libs.okhttp)
-    implementation(libs.rhino)
-
-    compileOnly(libs.xposed.api)
     implementation(libs.dexkit)
+    implementation(libs.gson)
 }
